@@ -36,7 +36,7 @@ export function PasteImport() {
     if (!rows.length) return;
     setImporting(true);
     try {
-      await addTransactionsBulk(
+      const { inserted, skipped } = await addTransactionsBulk(
         rows.map((r) => ({
           type: r.type!,
           amountSantim: r.amountSantim!,
@@ -47,7 +47,11 @@ export function PasteImport() {
           date: r.date ?? new Date().toISOString(),
         })),
       );
-      toast.success(`Imported ${rows.length} transaction${rows.length === 1 ? "" : "s"}`);
+      const msg =
+        skipped > 0
+          ? `Imported ${inserted}, skipped ${skipped} duplicate${skipped === 1 ? "" : "s"}`
+          : `Imported ${inserted} transaction${inserted === 1 ? "" : "s"}`;
+      toast.success(msg);
       setText("");
       setParsed([]);
       setSelected(new Set());
@@ -146,6 +150,12 @@ export function PasteImport() {
                     <span className="text-ink-soft">via {r.channel}</span>
                     {r.reference && (
                       <span className="text-ink-soft">#{r.reference}</span>
+                    )}
+                    {r.needsReview && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-airtime">
+                        <AlertTriangle className="h-3 w-3" />
+                        review
+                      </span>
                     )}
                   </div>
                 ) : (

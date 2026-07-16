@@ -55,7 +55,11 @@ function toCsv(txns: Transaction[]): string {
     "settled",
   ];
   const esc = (v: unknown) => {
-    const s = v === undefined || v === null ? "" : String(v);
+    let s = v === undefined || v === null ? "" : String(v);
+    // Guard against CSV formula injection when opened in Excel/Sheets:
+    // any cell starting with =, +, -, @, tab, or CR is prefixed with a
+    // single apostrophe so spreadsheet apps treat it as text.
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const rows = txns.map((t) =>
