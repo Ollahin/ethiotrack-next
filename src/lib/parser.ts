@@ -177,7 +177,9 @@ export function parseOne(raw: string): ParsedRow {
         party: partial.party,
         reference: refM?.[1],
         date: pickDate(),
-        note: line.length > 140 ? line.slice(0, 140) + "…" : line,
+        // Keep the full original message as the description — truncating it
+        // loses reference numbers, dates, and context we need 1 year later.
+        note: line,
         needsReview: partial.needsReview ?? false,
       };
     }

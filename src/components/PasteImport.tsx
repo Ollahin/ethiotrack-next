@@ -127,6 +127,7 @@ export function PasteImport() {
               )}
               <div className="flex-1 min-w-0">
                 {r.ok ? (
+                  <>
                   <div className="flex flex-wrap items-baseline gap-x-2">
                     <span
                       className={
@@ -158,6 +159,12 @@ export function PasteImport() {
                       </span>
                     )}
                   </div>
+                  {r.note && (
+                    <div className="text-[11px] text-ink-soft mt-1 whitespace-pre-wrap break-words">
+                      {r.note}
+                    </div>
+                  )}
+                  </>
                 ) : (
                   <div>
                     <div className="font-semibold text-money-out">
