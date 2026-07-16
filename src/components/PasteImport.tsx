@@ -36,7 +36,7 @@ export function PasteImport() {
     if (!rows.length) return;
     setImporting(true);
     try {
-      await addTransactionsBulk(
+      const { inserted, skipped } = await addTransactionsBulk(
         rows.map((r) => ({
           type: r.type!,
           amountSantim: r.amountSantim!,
@@ -47,7 +47,11 @@ export function PasteImport() {
           date: r.date ?? new Date().toISOString(),
         })),
       );
-      toast.success(`Imported ${rows.length} transaction${rows.length === 1 ? "" : "s"}`);
+      const msg =
+        skipped > 0
+          ? `Imported ${inserted}, skipped ${skipped} duplicate${skipped === 1 ? "" : "s"}`
+          : `Imported ${inserted} transaction${inserted === 1 ? "" : "s"}`;
+      toast.success(msg);
       setText("");
       setParsed([]);
       setSelected(new Set());
