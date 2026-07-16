@@ -9,10 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LeaksRouteImport } from './routes/leaks'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as IndexRouteImport } from './routes/index'
 
+const LeaksRoute = LeaksRouteImport.update({
+  id: '/leaks',
+  path: '/leaks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HistoryRoute = HistoryRouteImport.update({
   id: '/history',
   path: '/history',
@@ -33,34 +39,45 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/agents': typeof AgentsRoute
   '/history': typeof HistoryRoute
+  '/leaks': typeof LeaksRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/agents': typeof AgentsRoute
   '/history': typeof HistoryRoute
+  '/leaks': typeof LeaksRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/agents': typeof AgentsRoute
   '/history': typeof HistoryRoute
+  '/leaks': typeof LeaksRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/agents' | '/history'
+  fullPaths: '/' | '/agents' | '/history' | '/leaks'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/agents' | '/history'
-  id: '__root__' | '/' | '/agents' | '/history'
+  to: '/' | '/agents' | '/history' | '/leaks'
+  id: '__root__' | '/' | '/agents' | '/history' | '/leaks'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AgentsRoute: typeof AgentsRoute
   HistoryRoute: typeof HistoryRoute
+  LeaksRoute: typeof LeaksRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/leaks': {
+      id: '/leaks'
+      path: '/leaks'
+      fullPath: '/leaks'
+      preLoaderRoute: typeof LeaksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/history': {
       id: '/history'
       path: '/history'
@@ -89,6 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AgentsRoute: AgentsRoute,
   HistoryRoute: HistoryRoute,
+  LeaksRoute: LeaksRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
