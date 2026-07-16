@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LeaksRouteImport } from './routes/leaks'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as ExportRouteImport } from './routes/export'
 import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -22,6 +23,11 @@ const LeaksRoute = LeaksRouteImport.update({
 const HistoryRoute = HistoryRouteImport.update({
   id: '/history',
   path: '/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExportRoute = ExportRouteImport.update({
+  id: '/export',
+  path: '/export',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AgentsRoute = AgentsRouteImport.update({
@@ -38,12 +44,14 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/agents': typeof AgentsRoute
+  '/export': typeof ExportRoute
   '/history': typeof HistoryRoute
   '/leaks': typeof LeaksRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/agents': typeof AgentsRoute
+  '/export': typeof ExportRoute
   '/history': typeof HistoryRoute
   '/leaks': typeof LeaksRoute
 }
@@ -51,20 +59,22 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/agents': typeof AgentsRoute
+  '/export': typeof ExportRoute
   '/history': typeof HistoryRoute
   '/leaks': typeof LeaksRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/agents' | '/history' | '/leaks'
+  fullPaths: '/' | '/agents' | '/export' | '/history' | '/leaks'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/agents' | '/history' | '/leaks'
-  id: '__root__' | '/' | '/agents' | '/history' | '/leaks'
+  to: '/' | '/agents' | '/export' | '/history' | '/leaks'
+  id: '__root__' | '/' | '/agents' | '/export' | '/history' | '/leaks'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AgentsRoute: typeof AgentsRoute
+  ExportRoute: typeof ExportRoute
   HistoryRoute: typeof HistoryRoute
   LeaksRoute: typeof LeaksRoute
 }
@@ -83,6 +93,13 @@ declare module '@tanstack/react-router' {
       path: '/history'
       fullPath: '/history'
       preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/export': {
+      id: '/export'
+      path: '/export'
+      fullPath: '/export'
+      preLoaderRoute: typeof ExportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/agents': {
@@ -105,6 +122,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AgentsRoute: AgentsRoute,
+  ExportRoute: ExportRoute,
   HistoryRoute: HistoryRoute,
   LeaksRoute: LeaksRoute,
 }
