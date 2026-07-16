@@ -151,6 +151,12 @@ export function PasteImport() {
                     {r.reference && (
                       <span className="text-ink-soft">#{r.reference}</span>
                     )}
+                    {r.needsReview && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-airtime">
+                        <AlertTriangle className="h-3 w-3" />
+                        review
+                      </span>
+                    )}
                   </div>
                 ) : (
                   <div>
