@@ -158,6 +158,11 @@ function HistoryPage() {
                       </>
                     )}
                   </div>
+                  {t.note && (
+                    <div className="text-[11px] text-ink-soft mt-1 whitespace-pre-wrap break-words">
+                      {t.note}
+                    </div>
+                  )}
                 </div>
                 <Button
                   variant="ghost"
