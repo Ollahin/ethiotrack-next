@@ -118,17 +118,43 @@ const RULES: Array<{
       party: m[3].trim(),
     }),
   },
-  // Last-resort: an amount is present but we can't tell direction. Import as
-  // "out" but flag for review rather than silently guessing.
+  // Last-resort: an amount is present. Try hard to infer direction from
+  // keywords anywhere in the message before giving up. Only when nothing
+  // conclusive is found do we flag for review (no silent "out" default).
   {
     channel: "Other",
     test: /(?:ETB|Br\.?)\s*([\d,]+(?:\.\d+)?)/i,
-    parse: (m) => ({
-      type: "out",
-      amountSantim: toSantim(m[1]),
-      party: "Unknown",
-      needsReview: true,
-    }),
+    parse: (m, raw) => {
+      const t = raw.toLowerCase();
+      const inWords = /\b(received|credited|deposit(?:ed)?|refund(?:ed)?|incoming|transferred to your|added to your)\b/;
+      const outWords = /\b(paid|debited|withdrawn|withdrew|purchase(?:d)?|bought|sent|transfer(?:red)? to|payment to|charged|bill|utility|topped? up|recharge)\b/;
+      const airWords = /\b(airtime|top[- ]?up|recharge|data bundle|mobile package)\b/;
+      const creditWords = /\b(loan|borrow|owe|credit due|installment|repay(?:ment)?)\b/;
+      let type: TxnType | undefined;
+      let needsReview = false;
+      if (airWords.test(t)) type = "airtime";
+      else if (creditWords.test(t)) type = "credit";
+      else {
+        const hasIn = inWords.test(t);
+        const hasOut = outWords.test(t);
+        if (hasIn && !hasOut) type = "in";
+        else if (hasOut && !hasIn) type = "out";
+        else {
+          type = "out";
+          needsReview = true;
+        }
+      }
+      // Try to extract a party name from "to X" or "from X"
+      let party = "Unknown";
+      const partyM = raw.match(/\b(?:to|from)\s+([A-Za-z0-9.'-][A-Za-z0-9 .'-]{1,40}?)(?=\s+(?:on|Ref|Txn|TrxID|via)\b|[.,;\n]|$)/i);
+      if (partyM) party = partyM[1].trim();
+      return {
+        type,
+        amountSantim: toSantim(m[1]),
+        party,
+        needsReview,
+      };
+    },
   },
 ];
 
