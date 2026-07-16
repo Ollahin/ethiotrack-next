@@ -60,8 +60,9 @@ function getSnapshot() {
   return cache;
 }
 
+const EMPTY: Transaction[] = [];
 function getServerSnapshot(): Transaction[] {
-  return [];
+  return EMPTY;
 }
 
 export function useTransactions(): {
