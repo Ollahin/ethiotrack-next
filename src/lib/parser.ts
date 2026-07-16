@@ -11,6 +11,8 @@ export interface ParsedRow {
   date?: string;
   note?: string;
   reason?: string;
+  /** Parsed enough to import, but direction/party is a best-guess. */
+  needsReview?: boolean;
 }
 
 function toSantim(s: string): number {
@@ -106,11 +108,25 @@ const RULES: Array<{
   // Generic fallback — any "ETB N.NN to/from X"
   {
     channel: "Other",
-    test: /(?:ETB|Br\.?)\s*([\d,]+(?:\.\d+)?)\s*(?:to|from)\s+([A-Za-z0-9 .'-]+)/i,
-    parse: (m, raw) => ({
-      type: /from/i.test(raw) ? "in" : "out",
+    // Capture the preposition itself so direction comes from the SAME match,
+    // never from a second loose scan of the whole line.
+    test: /(?:ETB|Br\.?)\s*([\d,]+(?:\.\d+)?)\s*(to|from)\s+([A-Za-z0-9 .'-]+)/i,
+    parse: (m) => ({
+      type: m[2].toLowerCase() === "from" ? "in" : "out",
       amountSantim: toSantim(m[1]),
-      party: m[2].trim(),
+      party: m[3].trim(),
+    }),
+  },
+  // Last-resort: an amount is present but we can't tell direction. Import as
+  // "out" but flag for review rather than silently guessing.
+  {
+    channel: "Other",
+    test: /(?:ETB|Br\.?)\s*([\d,]+(?:\.\d+)?)/i,
+    parse: (m) => ({
+      type: "out",
+      amountSantim: toSantim(m[1]),
+      party: "Unknown",
+      needsReview: true,
     }),
   },
 ];
@@ -135,6 +151,7 @@ export function parseOne(raw: string): ParsedRow {
         reference: refM?.[1],
         date: pickDate(),
         note: line.length > 140 ? line.slice(0, 140) + "…" : line,
+        needsReview: partial.needsReview ?? false,
       };
     }
   }
