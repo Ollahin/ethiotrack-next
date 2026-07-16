@@ -104,19 +104,41 @@ export async function addTransaction(
 
 export async function addTransactionsBulk(
   inputs: Array<Omit<Transaction, "id" | "createdAt">>,
-): Promise<number> {
+): Promise<{ inserted: number; skipped: number }> {
   const db = await getDb();
+  // Dedupe against existing rows: same type + amount + party + channel
+  // within a 10-minute window is considered a duplicate. Runs inside the
+  // same transaction so two concurrent imports can't both slip through.
+  const existing = (await db.getAll(STORE_TXN)) as Transaction[];
+  const seenKeys = new Map<string, number[]>();
+  for (const t of existing) {
+    const k = `${t.type}|${t.amountSantim}|${t.party.toLowerCase()}|${t.channel}`;
+    seenKeys.set(k, [...(seenKeys.get(k) ?? []), new Date(t.date).getTime()]);
+  }
   const tx = db.transaction(STORE_TXN, "readwrite");
+  let inserted = 0;
+  let skipped = 0;
   for (const input of inputs) {
+    const key = `${input.type}|${input.amountSantim}|${input.party.toLowerCase()}|${input.channel}`;
+    const ts = new Date(input.date).getTime();
+    const near = (seenKeys.get(key) ?? []).some(
+      (prev) => Math.abs(prev - ts) <= 10 * 60_000,
+    );
+    if (near) {
+      skipped++;
+      continue;
+    }
     await tx.store.put({
       ...input,
       id: makeId(),
       createdAt: new Date().toISOString(),
     });
+    seenKeys.set(key, [...(seenKeys.get(key) ?? []), ts]);
+    inserted++;
   }
   await tx.done;
   await refresh();
-  return inputs.length;
+  return { inserted, skipped };
 }
 
 export async function updateTransaction(txn: Transaction): Promise<void> {
