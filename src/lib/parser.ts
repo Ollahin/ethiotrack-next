@@ -110,7 +110,8 @@ const RULES: Array<{
     channel: "Other",
     // Capture the preposition itself so direction comes from the SAME match,
     // never from a second loose scan of the whole line.
-    test: /(?:ETB|Br\.?)\s*([\d,]+(?:\.\d+)?)\s*(to|from)\s+([A-Za-z0-9 .'-]+)/i,
+    // Party stops before " on ", " Ref", punctuation, or end of line.
+    test: /(?:ETB|Br\.?)\s*([\d,]+(?:\.\d+)?)\s*(to|from)\s+([A-Za-z0-9.'-][A-Za-z0-9 .'-]*?)(?=\s+(?:on|Ref|Txn|TrxID)\b|[.,;\n]|$)/i,
     parse: (m) => ({
       type: m[2].toLowerCase() === "from" ? "in" : "out",
       amountSantim: toSantim(m[1]),
