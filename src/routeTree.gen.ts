@@ -14,6 +14,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ReconcileRouteImport } from './routes/reconcile'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as ExportsRouteImport } from './routes/exports'
 import { Route as DistributorsRouteImport } from './routes/distributors'
 import { Route as CloseRouteImport } from './routes/close'
 import { Route as CaptureRouteImport } from './routes/capture'
@@ -46,6 +47,11 @@ const ReconcileRoute = ReconcileRouteImport.update({
 const HistoryRoute = HistoryRouteImport.update({
   id: '/history',
   path: '/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExportsRoute = ExportsRouteImport.update({
+  id: '/exports',
+  path: '/exports',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DistributorsRoute = DistributorsRouteImport.update({
@@ -98,6 +104,7 @@ export interface FileRoutesByFullPath {
   '/capture': typeof CaptureRoute
   '/close': typeof CloseRoute
   '/distributors': typeof DistributorsRoute
+  '/exports': typeof ExportsRoute
   '/history': typeof HistoryRoute
   '/reconcile': typeof ReconcileRoute
   '/reports': typeof ReportsRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByTo {
   '/capture': typeof CaptureRoute
   '/close': typeof CloseRoute
   '/distributors': typeof DistributorsRoute
+  '/exports': typeof ExportsRoute
   '/history': typeof HistoryRoute
   '/reconcile': typeof ReconcileRoute
   '/reports': typeof ReportsRoute
@@ -129,6 +137,7 @@ export interface FileRoutesById {
   '/capture': typeof CaptureRoute
   '/close': typeof CloseRoute
   '/distributors': typeof DistributorsRoute
+  '/exports': typeof ExportsRoute
   '/history': typeof HistoryRoute
   '/reconcile': typeof ReconcileRoute
   '/reports': typeof ReportsRoute
@@ -146,6 +155,7 @@ export interface FileRouteTypes {
     | '/capture'
     | '/close'
     | '/distributors'
+    | '/exports'
     | '/history'
     | '/reconcile'
     | '/reports'
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/capture'
     | '/close'
     | '/distributors'
+    | '/exports'
     | '/history'
     | '/reconcile'
     | '/reports'
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
     | '/capture'
     | '/close'
     | '/distributors'
+    | '/exports'
     | '/history'
     | '/reconcile'
     | '/reports'
@@ -192,6 +204,7 @@ export interface RootRouteChildren {
   CaptureRoute: typeof CaptureRoute
   CloseRoute: typeof CloseRoute
   DistributorsRoute: typeof DistributorsRoute
+  ExportsRoute: typeof ExportsRoute
   HistoryRoute: typeof HistoryRoute
   ReconcileRoute: typeof ReconcileRoute
   ReportsRoute: typeof ReportsRoute
@@ -234,6 +247,13 @@ declare module '@tanstack/react-router' {
       path: '/history'
       fullPath: '/history'
       preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/exports': {
+      id: '/exports'
+      path: '/exports'
+      fullPath: '/exports'
+      preLoaderRoute: typeof ExportsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/distributors': {
@@ -304,6 +324,7 @@ const rootRouteChildren: RootRouteChildren = {
   CaptureRoute: CaptureRoute,
   CloseRoute: CloseRoute,
   DistributorsRoute: DistributorsRoute,
+  ExportsRoute: ExportsRoute,
   HistoryRoute: HistoryRoute,
   ReconcileRoute: ReconcileRoute,
   ReportsRoute: ReportsRoute,
