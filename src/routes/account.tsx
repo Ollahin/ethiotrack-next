@@ -56,8 +56,8 @@ function AccountPage() {
         )}
       </div>
 
-      <LicenseStatus />
       <LicenseExpiryBanner showAction={false} />
+      <LicenseStatus />
 
       <Card title="Your profile" desc="How the app addresses you and who owns this ledger.">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
