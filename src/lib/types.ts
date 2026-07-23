@@ -69,6 +69,11 @@ export interface PeriodOpening {
   weekEnd: string;   // YYYY-MM-DD (Sunday)
   cashOnHandSantim: number;
   bankBalances: Record<string, number>;
+  /** Per-distributor EVD airtime stock at week open. distributorId -> santim. */
+  evdStockByDistributor?: Record<string, number>;
+  /** Per-distributor Float airtime stock at week open. distributorId -> santim. */
+  floatStockByDistributor?: Record<string, number>;
+  /** Legacy aggregate totals — retained for backward compatibility. */
   evdStockSantim: number;
   floatStockSantim: number;
   openedAt: string;
