@@ -61,11 +61,11 @@ export async function enrollBiometric(label?: string): Promise<BiometricRecord> 
     publicKey: {
       rp: { name: rpName, id: rpId },
       user: {
-        id: userId,
+        id: userId as BufferSource,
         name: label ?? "ethiotrack-user",
         displayName: label ?? "EthioTrack user",
       },
-      challenge,
+      challenge: challenge as BufferSource,
       pubKeyCredParams: [
         { type: "public-key", alg: -7 },   // ES256
         { type: "public-key", alg: -257 }, // RS256
@@ -98,7 +98,7 @@ export async function assertBiometric(): Promise<boolean> {
   const challenge = crypto.getRandomValues(new Uint8Array(32));
   const assertion = await navigator.credentials.get({
     publicKey: {
-      challenge,
+      challenge: challenge as BufferSource,
       timeout: 60_000,
       rpId: window.location.hostname,
       userVerification: "required",
