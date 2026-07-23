@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { deleteTransaction, useTransactions } from "@/lib/db";
+import { deleteTransaction, useBanks, useDistributors, useTransactions } from "@/lib/db";
 import { formatDateTime, formatEtb } from "@/lib/format";
 import { CHANNELS, TYPE_LABEL, type TxnType } from "@/lib/types";
 import { Trash2 } from "lucide-react";
@@ -25,15 +25,21 @@ export const Route = createFileRoute("/history")({
 
 function HistoryPage() {
   const transactions = useTransactions();
+  const banks = useBanks();
+  const distributors = useDistributors();
   const [q, setQ] = useState("");
   const [type, setType] = useState<TxnType | "all">("all");
   const [channel, setChannel] = useState<string>("all");
+  const [bankId, setBankId] = useState<string>("all");
+  const [distributorId, setDistributorId] = useState<string>("all");
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return transactions.filter((t) => {
       if (type !== "all" && t.type !== type) return false;
       if (channel !== "all" && t.channel !== channel) return false;
+      if (bankId !== "all" && t.bankId !== bankId) return false;
+      if (distributorId !== "all" && t.distributorId !== distributorId) return false;
       if (needle) {
         const hay =
           `${t.partyName} ${t.reference ?? ""} ${t.note ?? ""}`.toLowerCase();
@@ -41,7 +47,7 @@ function HistoryPage() {
       }
       return true;
     });
-  }, [transactions, q, type, channel]);
+  }, [transactions, q, type, channel, bankId, distributorId]);
 
   const totals = useMemo(() => {
     let inSum = 0,
@@ -87,6 +93,30 @@ function HistoryPage() {
                 <SelectItem key={c} value={c}>
                   {c}
                 </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <Select value={bankId} onValueChange={setBankId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Bank / wallet" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All banks / wallets</SelectItem>
+              {banks.map((b) => (
+                <SelectItem key={b.id} value={b.id}>{b.name} · {b.channel}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={distributorId} onValueChange={setDistributorId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Distributor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All distributors</SelectItem>
+              {distributors.map((d) => (
+                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
