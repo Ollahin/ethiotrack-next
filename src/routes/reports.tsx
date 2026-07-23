@@ -28,6 +28,7 @@ function ReportsPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+  const [summaryRange, setSummaryRange] = useState<"week" | "month" | "active">("week");
 
   const weekStart = getWeekStart();
   const weekEnd = getWeekEnd(weekStart);
@@ -44,6 +45,52 @@ function ReportsPage() {
 
   const TELECOMS: Telecom[] = ["ethiotelecom", "safaricom"];
   const FORMS: AirtimeForm[] = ["evd", "float"];
+
+  const summary = useMemo(() => {
+    let from = 0;
+    let to = Date.now();
+    if (summaryRange === "week") {
+      from = new Date(weekStart).getTime();
+      to = new Date(weekEnd + "T23:59:59").getTime();
+    } else if (summaryRange === "month") {
+      const d = new Date();
+      from = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+      to = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59).getTime();
+    }
+    const scoped = txns.filter((t) => {
+      if (t.isPersonal) return false;
+      if (t.type !== "airtime_evd" && t.type !== "airtime_float") return false;
+      const ts = new Date(t.date).getTime();
+      return ts >= from && ts <= to;
+    });
+    const distMap = new Map(distributors.map((d) => [d.id, d]));
+    const byTelecom: Record<Telecom, number> = { ethiotelecom: 0, safaricom: 0 };
+    const byForm: Record<AirtimeForm, number> = { evd: 0, float: 0 };
+    const matrix: Record<`${Telecom}:${AirtimeForm}`, number> = {
+      "ethiotelecom:evd": 0, "ethiotelecom:float": 0,
+      "safaricom:evd": 0, "safaricom:float": 0,
+    };
+    let untagged = 0;
+    let count = 0;
+    let total = 0;
+    for (const t of scoped) {
+      count++;
+      total += t.amountSantim;
+      const form: AirtimeForm = t.type === "airtime_evd" ? "evd" : "float";
+      byForm[form] += t.amountSantim;
+      const d = t.distributorId ? distMap.get(t.distributorId) : undefined;
+      const telecoms = d?.telecoms;
+      if (!telecoms || !telecoms.length) { untagged += t.amountSantim; continue; }
+      const share = Math.floor(t.amountSantim / telecoms.length);
+      const remainder = t.amountSantim - share * telecoms.length;
+      telecoms.forEach((tel, i) => {
+        const portion = share + (i === 0 ? remainder : 0);
+        byTelecom[tel] += portion;
+        matrix[`${tel}:${form}` as `${Telecom}:${AirtimeForm}`] += portion;
+      });
+    }
+    return { byTelecom, byForm, matrix, untagged, count, total };
+  }, [txns, distributors, summaryRange, weekStart, weekEnd]);
 
   function downloadCurrentWeek() {
     const blob = generateRangeReport(agents, txns, new Date(weekStart), new Date(weekEnd + "T23:59:59"), "EthioTrack — Weekly Report");
