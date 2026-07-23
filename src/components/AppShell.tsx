@@ -50,12 +50,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row">
       {/* Desktop side rail */}
-      <aside className="hidden md:flex md:w-60 md:flex-col bg-ink text-white">
+      <aside className="hidden md:flex md:w-64 md:flex-col bg-ink text-foreground border-r border-border/60">
         <div className="px-5 pt-6 pb-4">
-          <div className="text-2xl font-extrabold tracking-tight">
+          <div className="text-2xl font-extrabold tracking-tight text-foreground">
             Ethio<span className="text-primary">Track</span>
           </div>
-          <div className="text-xs text-white/60 mt-1">{todayLabel()}</div>
+          <div className="text-xs text-muted-foreground mt-1">{todayLabel()}</div>
         </div>
         <nav className="flex-1 px-2 py-2 space-y-1 overflow-y-auto">
           {[...TABS, ...MORE_TABS].map((t) => {
@@ -66,10 +66,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={t.to}
                 to={t.to}
                 className={
-                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors " +
+                  "relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors " +
                   (active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-white/80 hover:bg-white/5")
+                    ? "bg-primary text-primary-foreground shadow-[var(--shadow-glow)]"
+                    : "text-muted-foreground hover:bg-card hover:text-foreground")
                 }
               >
                 <Icon className="h-4 w-4" />
@@ -80,11 +80,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
         <button
           onClick={() => { lock(); location.href = "/unlock"; }}
-          className="mx-3 mb-3 flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-white/70 hover:bg-white/5"
+          className="mx-3 mb-3 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-muted-foreground hover:bg-card hover:text-foreground"
         >
           <Lock className="h-3.5 w-3.5" /> Lock
         </button>
-        <div className="px-5 py-3 text-[11px] text-white/40 border-t border-white/10">
+        <div className="px-5 py-3 text-[11px] text-muted-foreground/70 border-t border-border/60">
           Local-only · data never leaves this device
         </div>
       </aside>
@@ -92,27 +92,33 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Main column */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
-        <header className="md:hidden bg-ink text-white px-4 pt-3 pb-3 flex items-center justify-between">
-          <div>
-            <div className="text-lg font-extrabold tracking-tight leading-none">
+        <header className="md:hidden px-4 pt-5 pb-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-primary/50 grid place-items-center text-primary-foreground font-bold text-sm">
+              ET
+            </div>
+            <div>
+              <div className="text-[11px] text-muted-foreground leading-tight">Welcome back,</div>
+              <div className="text-base font-semibold tracking-tight leading-tight text-foreground">
               Ethio<span className="text-primary">Track</span>
             </div>
-            <div className="text-[11px] text-white/60 mt-0.5">
-              {todayLabel()}
             </div>
           </div>
           <Link
             to="/settings"
-            className="inline-flex items-center gap-1 rounded-md bg-white/10 text-white px-3 py-1.5 text-xs font-semibold"
+            className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-card border border-border/60 text-foreground"
+            aria-label="Settings"
           >
-            <Cog className="h-3.5 w-3.5" /> Settings
+            <Cog className="h-4 w-4" />
           </Link>
         </header>
 
-        <main className="flex-1 pb-24 md:pb-8">{children}</main>
+        <main className="flex-1 pb-28 md:pb-8 fade-rise">{children}</main>
 
         {/* Mobile bottom tabs */}
-        <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-card border-t border-border grid grid-cols-5">
+        <nav
+          className="md:hidden fixed bottom-3 inset-x-3 z-30 rounded-2xl border border-border/60 bg-card/90 backdrop-blur-md shadow-[0_10px_30px_-15px_rgba(0,0,0,0.6)] grid grid-cols-5"
+        >
           {TABS.map((t) => {
             const active = pathname === t.to;
             const Icon = t.icon;
@@ -121,11 +127,18 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={t.to}
                 to={t.to}
                 className={
-                  "flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-semibold " +
-                  (active ? "text-primary" : "text-ink-soft")
+                  "flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-semibold transition-colors " +
+                  (active ? "text-primary" : "text-muted-foreground hover:text-foreground")
                 }
               >
-                <Icon className="h-4 w-4" />
+                <span
+                  className={
+                    "grid place-items-center h-8 w-8 rounded-full transition-colors " +
+                    (active ? "bg-primary/15 text-primary" : "text-muted-foreground")
+                  }
+                >
+                  <Icon className="h-4 w-4" />
+                </span>
                 {t.label}
               </Link>
             );
