@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { lock } from "@/lib/crypto";
-import { ensurePeriodOpeningsMigrated, useBanks, useDistributors } from "@/lib/db";
+import { ensurePeriodOpeningsMigrated, purgeExpiredRecords, useBanks, useDistributors } from "@/lib/db";
 import {
   Sheet,
   SheetContent,
@@ -65,6 +65,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       console.warn("period opening migration failed", err);
     });
   }, [banks.length, distributors.length]);
+  // Enforce 6-month retention: anything older than 180 days is purged.
+  useEffect(() => {
+    purgeExpiredRecords().catch((err) => {
+      console.warn("retention purge failed", err);
+    });
+  }, []);
   if (pathname === "/unlock") {
     return <div className="min-h-screen bg-background">{children}</div>;
   }
