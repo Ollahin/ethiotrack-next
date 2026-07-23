@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   getLicense,
+  getLockoutStatus,
   hasMasterPin,
   hasPin,
   isLicenseActive,
@@ -11,6 +12,8 @@ import {
   renewLicense,
   setPin,
   setupMasterPin,
+  subscribeLockout,
+  type LockoutStatus,
   verifyPin,
 } from "@/lib/crypto";
 import { KeyRound, Lock, ShieldCheck, Timer } from "lucide-react";
@@ -37,6 +40,22 @@ function UnlockPage() {
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  const [lockout, setLockout] = useState<LockoutStatus | null>(null);
+
+  const lockoutKind = mode === "unlock" ? "user" : (mode === "renew" ? "master" : null);
+
+  useEffect(() => {
+    if (!lockoutKind) { setLockout(null); return; }
+    let alive = true;
+    const refresh = async () => {
+      const s = await getLockoutStatus(lockoutKind);
+      if (alive) setLockout(s);
+    };
+    refresh();
+    const unsub = subscribeLockout(refresh);
+    const t = setInterval(refresh, 1000);
+    return () => { alive = false; unsub(); clearInterval(t); };
+  }, [lockoutKind]);
 
   async function resolveMode(): Promise<Mode> {
     const [master, user, licensed, lic] = await Promise.all([
@@ -72,11 +91,15 @@ function UnlockPage() {
         setPinInput(""); setConfirm("");
         setMode(await resolveMode());
       } else if (mode === "renew") {
-        const rec = await renewLicense(pin);
-        if (!rec) return toast.error("Incorrect master PIN");
-        toast.success("License renewed for 30 days");
-        setPinInput("");
-        setMode(await resolveMode());
+        try {
+          const rec = await renewLicense(pin);
+          if (!rec) return toast.error("Incorrect master PIN");
+          toast.success("License renewed for 30 days");
+          setPinInput("");
+          setMode(await resolveMode());
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Locked");
+        }
       } else if (mode === "setup-user") {
         if (pin.length < 4) return toast.error("PIN must be at least 4 characters");
         if (pin !== confirm) return toast.error("PINs don't match");
@@ -84,9 +107,13 @@ function UnlockPage() {
         toast.success("PIN set");
         nav({ to: "/" });
       } else {
-        const ok = await verifyPin(pin);
-        if (!ok) return toast.error("Incorrect PIN");
-        nav({ to: "/" });
+        try {
+          const ok = await verifyPin(pin);
+          if (!ok) return toast.error("Incorrect PIN");
+          nav({ to: "/" });
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Locked");
+        }
       }
     } finally { setBusy(false); }
   }
@@ -161,7 +188,21 @@ function UnlockPage() {
             className="bg-white/5 border-white/10 text-white text-center text-lg tracking-widest"
           />
         )}
-        <Button type="submit" disabled={busy} className="w-full">{copy.cta}</Button>
+        <Button type="submit" disabled={busy || !!lockout?.locked} className="w-full">
+          {lockout?.locked
+            ? `Locked · ${Math.ceil(lockout.msRemaining / 1000)}s`
+            : copy.cta}
+        </Button>
+        {lockout && !lockout.locked && lockout.failures > 0 && (
+          <p className="text-[11px] text-amber-300/80 text-center">
+            {lockout.attemptsLeft} attempt{lockout.attemptsLeft === 1 ? "" : "s"} left before temporary lockout.
+          </p>
+        )}
+        {lockout?.locked && (
+          <p className="text-[11px] text-red-300/80 text-center">
+            Too many wrong PINs. Try again in {Math.ceil(lockout.msRemaining / 1000)}s.
+          </p>
+        )}
         {copy.note && (
           <p className="text-[11px] text-white/50 text-center leading-relaxed">{copy.note}</p>
         )}
