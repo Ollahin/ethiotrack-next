@@ -175,11 +175,82 @@ export function db(): EthioTrackDB {
 export function useTransactions(): Transaction[] {
   return (
     useLiveQuery(async () => {
-      const all = await db().transactions.toArray();
+      const cutoff = activeCutoffISO();
+      const all = await db()
+        .transactions
+        .where("date")
+        .aboveOrEqual(cutoff)
+        .toArray();
       all.sort((a, b) => (a.date < b.date ? 1 : -1));
       return all;
     }, []) ?? []
   );
+}
+
+// -- retention: 3 months active, 3 more months archived ----------------------
+
+export const ACTIVE_WINDOW_DAYS = 90;
+export const RETENTION_WINDOW_DAYS = 180;
+
+function daysAgoISO(days: number): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - days);
+  return d.toISOString();
+}
+
+export function activeCutoffISO(): string {
+  return daysAgoISO(ACTIVE_WINDOW_DAYS);
+}
+
+export function retentionCutoffISO(): string {
+  return daysAgoISO(RETENTION_WINDOW_DAYS);
+}
+
+/** Transactions in the 3–6 month archive band, on demand. */
+export function useArchivedTransactions(): Transaction[] {
+  return (
+    useLiveQuery(async () => {
+      const active = activeCutoffISO();
+      const retention = retentionCutoffISO();
+      const rows = await db()
+        .transactions
+        .where("date")
+        .between(retention, active, true, false)
+        .toArray();
+      rows.sort((a, b) => (a.date < b.date ? 1 : -1));
+      return rows;
+    }, []) ?? []
+  );
+}
+
+export function useArchivedCount(): number {
+  return (
+    useLiveQuery(async () => {
+      const active = activeCutoffISO();
+      const retention = retentionCutoffISO();
+      return db()
+        .transactions
+        .where("date")
+        .between(retention, active, true, false)
+        .count();
+    }, []) ?? 0
+  );
+}
+
+/** Delete anything older than the 6-month retention window. */
+export async function purgeExpiredRecords(): Promise<{
+  transactions: number;
+  statementImports: number;
+}> {
+  const cutoff = retentionCutoffISO();
+  const d = db();
+  const txDeleted = await d.transactions.where("date").below(cutoff).delete();
+  const impDeleted = await d.statementImports
+    .where("importedAt")
+    .below(cutoff)
+    .delete();
+  return { transactions: txDeleted, statementImports: impDeleted };
 }
 
 export function useAgents(): Agent[] {
