@@ -5,7 +5,14 @@ import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { deleteTransaction, useBanks, useDistributors, useTransactions } from "@/lib/db";
+import {
+  deleteTransaction,
+  useArchivedCount,
+  useArchivedTransactions,
+  useBanks,
+  useDistributors,
+  useTransactions,
+} from "@/lib/db";
 import { formatDateTime, formatEtb } from "@/lib/format";
 import { CHANNELS, TYPE_LABEL, type TxnType } from "@/lib/types";
 import { Trash2 } from "lucide-react";
@@ -24,7 +31,14 @@ export const Route = createFileRoute("/history")({
 });
 
 function HistoryPage() {
-  const transactions = useTransactions();
+  const active = useTransactions();
+  const [showArchive, setShowArchive] = useState(false);
+  const archived = useArchivedTransactions();
+  const archivedCount = useArchivedCount();
+  const transactions = useMemo(
+    () => (showArchive ? [...active, ...archived] : active),
+    [active, archived, showArchive],
+  );
   const banks = useBanks();
   const distributors = useDistributors();
   const [q, setQ] = useState("");
@@ -131,6 +145,23 @@ function HistoryPage() {
           <span className="text-money-out font-semibold tabular-nums">
             − {formatEtb(totals.outSum)}
           </span>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-ink-soft">
+              Showing {showArchive ? "last 6 months" : "last 3 months"}
+              {archivedCount > 0 && (
+                <span className="ml-1 opacity-70">
+                  ({archivedCount} in archive)
+                </span>
+              )}
+            </span>
+            <Button
+              size="sm"
+              variant={showArchive ? "secondary" : "outline"}
+              onClick={() => setShowArchive((v) => !v)}
+            >
+              {showArchive ? "Hide archive" : "Load archive (3–6 mo)"}
+            </Button>
+          </div>
         </div>
       </div>
 
