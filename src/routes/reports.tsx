@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useAgents, useAllPeriodClosings, useTransactions, getWeekStart, getWeekEnd } from "@/lib/db";
+import { useAgents, useAllPeriodClosings, useDistributors, useTransactions, getWeekStart, getWeekEnd } from "@/lib/db";
 import { generateRangeReport, generateMonthlyReport } from "@/lib/report";
 import { formatEtb } from "@/lib/format";
 import { FileText, CalendarRange, Calendar } from "lucide-react";
+import { computeTelecomFlow, type BucketKey } from "@/lib/brain/telecomFlow";
+import { TELECOM_LABEL, AIRTIME_FORM_LABEL, type Telecom, type AirtimeForm } from "@/lib/types";
 
 export const Route = createFileRoute("/reports")({
   head: () => ({
@@ -21,6 +23,7 @@ export const Route = createFileRoute("/reports")({
 function ReportsPage() {
   const agents = useAgents();
   const txns = useTransactions();
+  const distributors = useDistributors();
   const closings = useAllPeriodClosings();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -28,6 +31,19 @@ function ReportsPage() {
 
   const weekStart = getWeekStart();
   const weekEnd = getWeekEnd(weekStart);
+
+  const flow = useMemo(() => {
+    const ws = new Date(weekStart).getTime();
+    const we = new Date(weekEnd + "T23:59:59").getTime();
+    const scoped = txns.filter((t) => {
+      const d = new Date(t.date).getTime();
+      return d >= ws && d <= we;
+    });
+    return computeTelecomFlow(scoped, distributors);
+  }, [txns, distributors, weekStart, weekEnd]);
+
+  const TELECOMS: Telecom[] = ["ethiotelecom", "safaricom"];
+  const FORMS: AirtimeForm[] = ["evd", "float"];
 
   function downloadCurrentWeek() {
     const blob = generateRangeReport(agents, txns, new Date(weekStart), new Date(weekEnd + "T23:59:59"), "EthioTrack — Weekly Report");
@@ -102,6 +118,51 @@ function ReportsPage() {
               </li>
             ))}
           </ul>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <div className="flex items-center gap-2 mb-1">
+          <CalendarRange className="h-5 w-5 text-primary" />
+          <div className="font-semibold">Airtime flow — this week</div>
+        </div>
+        <p className="text-xs text-ink-soft mb-3">
+          Purchases (money out to distributors) vs sales (airtime to agents), matched by distributor telecom and form tags.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-xs text-ink-soft">
+              <tr>
+                <th className="text-left py-1.5 pr-3">Bucket</th>
+                <th className="text-right py-1.5 pr-3">Bought</th>
+                <th className="text-right py-1.5 pr-3">Sold</th>
+                <th className="text-right py-1.5">Net</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {TELECOMS.flatMap((t) =>
+                FORMS.map((f) => {
+                  const b = flow.buckets[`${t}:${f}` as BucketKey];
+                  return (
+                    <tr key={`${t}:${f}`}>
+                      <td className="py-1.5 pr-3">{TELECOM_LABEL[t]} · {AIRTIME_FORM_LABEL[f]}</td>
+                      <td className="py-1.5 pr-3 text-right">{formatEtb(b.purchasedSantim)}</td>
+                      <td className="py-1.5 pr-3 text-right">{formatEtb(b.soldSantim)}</td>
+                      <td className={`py-1.5 text-right ${b.netSantim < 0 ? "text-money-out" : ""}`}>
+                        {formatEtb(b.netSantim)}
+                      </td>
+                    </tr>
+                  );
+                }),
+              )}
+            </tbody>
+          </table>
+        </div>
+        {(flow.unmatchedPurchases.length > 0 || flow.unmatchedSales.length > 0) && (
+          <div className="mt-3 text-xs text-ink-soft">
+            Untagged: {flow.unmatchedPurchases.length} purchase(s), {flow.unmatchedSales.length} sale(s).
+            Add telecom / form tags on Distributors to include them.
+          </div>
         )}
       </div>
     </div>
