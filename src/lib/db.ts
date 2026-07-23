@@ -6,6 +6,8 @@ import type {
   DailyClosing,
   DailyOpening,
   Distributor,
+  PeriodClosing,
+  PeriodOpening,
   StatementImport,
   Transaction,
 } from "./types";
@@ -19,6 +21,8 @@ class EthioTrackDB extends Dexie {
   banks!: Table<Bank, string>;
   dailyOpenings!: Table<DailyOpening, string>;
   dailyClosings!: Table<DailyClosing, string>;
+  periodOpenings!: Table<PeriodOpening, string>;
+  periodClosings!: Table<PeriodClosing, string>;
   transactions!: Table<Transaction, string>;
   statementImports!: Table<StatementImport, string>;
   meta!: Table<{ key: string; value: unknown }, string>;
@@ -31,6 +35,19 @@ class EthioTrackDB extends Dexie {
       banks: "id, name, channel",
       dailyOpenings: "id, date",
       dailyClosings: "id, date, openingId",
+      transactions:
+        "id, date, type, partyId, channel, isSettled, isPersonal, statementImportId",
+      statementImports: "id, distributorId, importedAt",
+      meta: "key",
+    });
+    this.version(2).stores({
+      agents: "id, name, phone",
+      distributors: "id, name",
+      banks: "id, name, channel",
+      dailyOpenings: "id, date",
+      dailyClosings: "id, date, openingId",
+      periodOpenings: "id, weekStart",
+      periodClosings: "id, weekStart, openingId",
       transactions:
         "id, date, type, partyId, channel, isSettled, isPersonal, statementImportId",
       statementImports: "id, distributorId, importedAt",
@@ -92,6 +109,74 @@ export function useDailyClosing(date: string): DailyClosing | undefined {
     () => db().dailyClosings.where("date").equals(date).first(),
     [date],
   );
+}
+
+// -- weekly periods ----------------------------------------------------------
+
+/** Monday of the given date's ISO week, as YYYY-MM-DD. */
+export function getWeekStart(d: Date | string = new Date()): string {
+  const dt = typeof d === "string" ? new Date(d + "T00:00:00") : new Date(d);
+  const day = dt.getDay(); // 0=Sun..6=Sat
+  const diff = (day + 6) % 7; // days since Monday
+  dt.setHours(0, 0, 0, 0);
+  dt.setDate(dt.getDate() - diff);
+  return dt.toISOString().slice(0, 10);
+}
+
+export function getWeekEnd(weekStart: string): string {
+  const d = new Date(weekStart + "T00:00:00");
+  d.setDate(d.getDate() + 6);
+  return d.toISOString().slice(0, 10);
+}
+
+export function usePeriodOpening(weekStart: string): PeriodOpening | undefined | null {
+  return useLiveQuery(async () => {
+    const rec = await db().periodOpenings.where("weekStart").equals(weekStart).first();
+    return rec ?? null;
+  }, [weekStart]);
+}
+
+export function usePeriodClosing(weekStart: string): PeriodClosing | undefined | null {
+  return useLiveQuery(async () => {
+    const rec = await db().periodClosings.where("weekStart").equals(weekStart).first();
+    return rec ?? null;
+  }, [weekStart]);
+}
+
+export function useAllPeriodClosings(): PeriodClosing[] {
+  return (
+    useLiveQuery(
+      () => db().periodClosings.orderBy("weekStart").reverse().toArray(),
+      [],
+    ) ?? []
+  );
+}
+
+export async function openPeriod(
+  input: Omit<PeriodOpening, "id" | "openedAt" | "weekEnd">,
+): Promise<PeriodOpening> {
+  const existing = await db().periodOpenings.where("weekStart").equals(input.weekStart).first();
+  const rec: PeriodOpening = {
+    ...input,
+    weekEnd: getWeekEnd(input.weekStart),
+    id: existing?.id ?? makeId(),
+    openedAt: existing?.openedAt ?? new Date().toISOString(),
+  };
+  await db().periodOpenings.put(rec);
+  return rec;
+}
+
+export async function closePeriod(
+  input: Omit<PeriodClosing, "id" | "closedAt" | "weekEnd">,
+): Promise<PeriodClosing> {
+  const rec: PeriodClosing = {
+    ...input,
+    weekEnd: getWeekEnd(input.weekStart),
+    id: makeId(),
+    closedAt: new Date().toISOString(),
+  };
+  await db().periodClosings.put(rec);
+  return rec;
 }
 
 // -- transactions ------------------------------------------------------------
