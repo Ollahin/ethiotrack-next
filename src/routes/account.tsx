@@ -164,6 +164,50 @@ function AccountPage() {
       </Card>
 
       <Card title="Change master PIN" desc="Owner-only. Requires the current master PIN.">
+        <></>
+      </Card>
+
+      <Card title="Biometric unlock" desc="Use Face ID, Touch ID, or fingerprint instead of typing your daily PIN. PIN still works as fallback.">
+        {!bioSupported ? (
+          <p className="text-xs text-ink-soft">This device or browser doesn't support biometric unlock.</p>
+        ) : bioEnabled ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600">Enabled</span>
+            <Button
+              variant="outline"
+              disabled={bioBusy}
+              onClick={async () => {
+                setBioBusy(true);
+                try {
+                  await disableBiometric();
+                  setBioEnabled(false);
+                  toast.success("Biometric unlock disabled");
+                } finally { setBioBusy(false); }
+              }}
+            >
+              Disable biometrics
+            </Button>
+          </div>
+        ) : (
+          <Button
+            disabled={bioBusy}
+            onClick={async () => {
+              setBioBusy(true);
+              try {
+                await enrollBiometric(profile.name || currentName || "EthioTrack");
+                setBioEnabled(true);
+                toast.success("Biometric unlock enabled");
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Enrollment failed");
+              } finally { setBioBusy(false); }
+            }}
+          >
+            {bioBusy ? "Waiting for biometrics…" : "Enable biometric unlock"}
+          </Button>
+        )}
+      </Card>
+
+      <Card title="Change master PIN (owner)" desc="Owner-only. Requires the current master PIN.">
         <div className="grid grid-cols-2 gap-3">
           <div><Label>Current master PIN</Label><Input type="password" value={oldMaster} onChange={(e) => setOldMaster(e.target.value)} /></div>
           <div><Label>New master PIN</Label><Input type="password" value={newMaster} onChange={(e) => setNewMaster(e.target.value)} /></div>
