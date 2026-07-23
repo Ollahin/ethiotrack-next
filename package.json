@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:visual": "python tests/visual/responsive.py"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
