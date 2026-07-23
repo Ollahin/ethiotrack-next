@@ -5,6 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { deleteDistributor, upsertDistributor, useDistributors } from "@/lib/db";
 import { Trash2, Plus } from "lucide-react";
+import {
+  AIRTIME_FORM_LABEL,
+  TELECOM_LABEL,
+  type AirtimeForm,
+  type Telecom,
+} from "@/lib/types";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/distributors")({
@@ -23,6 +29,13 @@ function DistPage() {
   const list = useDistributors();
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
+  const [telecoms, setTelecoms] = useState<Telecom[]>(["ethiotelecom"]);
+  const [forms, setForms] = useState<AirtimeForm[]>(["evd"]);
+
+  function toggle<T>(arr: T[], v: T): T[] {
+    return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
+  }
+
   return (
     <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-4">
       <div>
@@ -34,10 +47,37 @@ function DistPage() {
           <div><Label>Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ethio Telecom EVD" /></div>
           <div><Label>Contact</Label><Input value={contact} onChange={(e) => setContact(e.target.value)} placeholder="Phone / email" /></div>
         </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>Telecom(s) supplied</Label>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {(Object.keys(TELECOM_LABEL) as Telecom[]).map((t) => (
+                <label key={t} className={`px-3 py-1.5 rounded-md border text-xs cursor-pointer ${telecoms.includes(t) ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}>
+                  <input type="checkbox" className="sr-only" checked={telecoms.includes(t)} onChange={() => setTelecoms((s) => toggle(s, t))} />
+                  {TELECOM_LABEL[t]}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <Label>Airtime form(s)</Label>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {(Object.keys(AIRTIME_FORM_LABEL) as AirtimeForm[]).map((f) => (
+                <label key={f} className={`px-3 py-1.5 rounded-md border text-xs cursor-pointer ${forms.includes(f) ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}>
+                  <input type="checkbox" className="sr-only" checked={forms.includes(f)} onChange={() => setForms((s) => toggle(s, f))} />
+                  {AIRTIME_FORM_LABEL[f]}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
         <Button onClick={async () => {
           if (!name.trim()) return toast.error("Name required");
-          await upsertDistributor({ name, contact });
+          if (!telecoms.length) return toast.error("Pick at least one telecom");
+          if (!forms.length) return toast.error("Pick at least one airtime form");
+          await upsertDistributor({ name, contact, telecoms, forms });
           setName(""); setContact("");
+          setTelecoms(["ethiotelecom"]); setForms(["evd"]);
           toast.success("Added");
         }}><Plus className="h-4 w-4 mr-1" /> Add distributor</Button>
       </div>
@@ -46,6 +86,14 @@ function DistPage() {
           <li key={d.id} className="p-3 flex items-center justify-between">
             <div>
               <div className="font-semibold">{d.name}</div>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {(d.telecoms ?? []).map((t) => (
+                  <span key={t} className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/10 text-primary">{TELECOM_LABEL[t]}</span>
+                ))}
+                {(d.forms ?? []).map((f) => (
+                  <span key={f} className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-ink-soft">{AIRTIME_FORM_LABEL[f]}</span>
+                ))}
+              </div>
               {d.contact && <div className="text-xs text-ink-soft">{d.contact}</div>}
             </div>
             <Button variant="ghost" size="icon" onClick={async () => { await deleteDistributor(d.id); toast.success("Deleted"); }}>
