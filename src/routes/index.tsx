@@ -12,7 +12,8 @@ import {
   getWeekEnd,
 } from "@/lib/db";
 import { computeAgentStats } from "@/lib/brain/stats";
-import { Zap, Users, ShieldAlert, FileText, Pencil } from "lucide-react";
+import { Zap, Users, ShieldAlert, FileText, Pencil, Wifi } from "lucide-react";
+import { formatEtb } from "@/lib/format";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -45,39 +46,97 @@ function DashboardPage() {
 
   const cashVariance = closing ? closing.varianceSantim : null;
 
+  const weekNet = useMemo(() => {
+    const inRange = txns.filter((t) => {
+      const d = t.date.slice(0, 10);
+      return d >= weekStart && d <= weekEnd && !t.isPersonal;
+    });
+    const inSum = inRange.filter((t) => t.type === "in").reduce((s, t) => s + t.amountSantim, 0);
+    const outSum = inRange
+      .filter((t) => t.type === "out" || t.type === "expense")
+      .reduce((s, t) => s + t.amountSantim, 0);
+    return inSum - outSum;
+  }, [txns, weekStart, weekEnd]);
+
   return (
-    <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold">Dashboard</h1>
-          <p className="text-sm text-ink-soft">
-            Week of <span className="font-medium text-foreground">{weekStart} → {weekEnd}</span>
-            {closing ? " · closed" : opening ? " · open" : ""}
-          </p>
+    <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-5">
+      {/* Hero week card */}
+      <div className="relative overflow-hidden rounded-2xl p-5 md:p-6 text-white shadow-[var(--shadow-glow)]"
+           style={{ backgroundImage: "var(--gradient-hero)" }}>
+        {/* faint dot texture */}
+        <div
+          aria-hidden
+          className="absolute inset-0 opacity-[0.12] pointer-events-none"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.6) 1px, transparent 0)",
+            backgroundSize: "16px 16px",
+          }}
+        />
+        <div className="relative flex items-start justify-between gap-3">
+          <div>
+            <div className="text-xs uppercase tracking-wider text-white/70 font-semibold">
+              This week
+            </div>
+            <div className="mt-1 text-sm text-white/80">
+              {weekStart} → {weekEnd}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={"inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider " + (closing ? "text-white" : "text-white")}>
+              <span className={"h-1.5 w-1.5 rounded-full " + (closing ? "bg-white/70" : "bg-money-in")} />
+              {closing ? "Closed" : opening ? "Open" : "Not opened"}
+            </span>
+            <Wifi className="h-4 w-4 text-white/60" aria-hidden />
+          </div>
+        </div>
+        <div className="relative mt-5">
+          <div className="text-4xl md:text-5xl font-bold tabular-nums tracking-tight">
+            {formatEtb(weekNet)}
+          </div>
+          <div className="text-xs text-white/70 mt-1">Net cash flow this week</div>
         </div>
         {opening && !closing && (
-          <Button variant="outline" size="sm" onClick={() => setManualOpen(true)}>
-            <Pencil className="h-3.5 w-3.5 mr-1" /> Adjust opening
-          </Button>
+          <div className="relative mt-5 flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setManualOpen(true)}
+              className="bg-white/15 hover:bg-white/25 text-white border-0 backdrop-blur"
+            >
+              <Pencil className="h-3.5 w-3.5 mr-1" /> Adjust opening
+            </Button>
+            <Link
+              to="/close"
+              className="inline-flex items-center rounded-md bg-white text-primary px-3 h-8 text-xs font-semibold hover:bg-white/90 transition-colors"
+            >
+              Close week
+            </Link>
+          </div>
         )}
       </div>
+
       <DashboardTiles txns={txns} openCredit={openCredit} cashVariance={cashVariance} />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* Circular quick actions */}
+      <div className="grid grid-cols-4 gap-3">
         {[
-          { to: "/capture", label: "Quick capture", desc: "Paste SMS or drop a PDF", icon: Zap },
-          { to: "/agents", label: "Agent Book", desc: "Balances & credit", icon: Users },
-          { to: "/alerts", label: "Brain alerts", desc: "Risks & anomalies", icon: ShieldAlert },
-          { to: "/reports", label: "Reports", desc: "Weekly & monthly PDF", icon: FileText },
+          { to: "/capture", label: "Capture", icon: Zap },
+          { to: "/agents", label: "Agents", icon: Users },
+          { to: "/alerts", label: "Alerts", icon: ShieldAlert },
+          { to: "/reports", label: "Reports", icon: FileText },
         ].map((q) => (
           <Link
             key={q.to}
             to={q.to}
-            className="rounded-xl border border-border bg-card p-4 shadow-sm hover:border-primary/50 transition-colors group"
+            className="flex flex-col items-center gap-2 group"
           >
-            <q.icon className="h-5 w-5 text-primary" />
-            <div className="mt-2 font-semibold text-sm group-hover:text-primary">{q.label}</div>
-            <div className="text-xs text-ink-soft">{q.desc}</div>
+            <span className="grid place-items-center h-14 w-14 rounded-full bg-card border border-border/60 text-foreground group-hover:border-primary/60 group-hover:text-primary transition-colors">
+              <q.icon className="h-5 w-5" />
+            </span>
+            <span className="text-[11px] font-semibold text-muted-foreground group-hover:text-foreground">
+              {q.label}
+            </span>
           </Link>
         ))}
       </div>

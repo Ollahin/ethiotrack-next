@@ -22,8 +22,8 @@ export function DashboardTiles({ txns, openCredit, cashVariance }: {
     {
       label: "Cash Variance",
       value: cashVariance ?? 0,
-      color: cashVariance === null ? "text-ink-soft" : cashVariance === 0 ? "text-foreground" : "text-money-out",
-      bar: cashVariance === null ? "bg-muted" : cashVariance === 0 ? "bg-foreground/20" : "bg-money-out",
+      color: cashVariance === null ? "text-muted-foreground" : cashVariance === 0 ? "text-foreground" : "text-money-out",
+      bar: cashVariance === null ? "bg-muted-foreground/40" : cashVariance === 0 ? "bg-foreground/30" : "bg-money-out",
       hint: cashVariance === null ? "Day not closed" : undefined,
     },
   ];
@@ -31,15 +31,21 @@ export function DashboardTiles({ txns, openCredit, cashVariance }: {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {tiles.map((t) => (
-        <div key={t.label} className="rounded-xl bg-card border border-border p-3 shadow-sm relative overflow-hidden">
-          <div className={"absolute top-0 left-0 h-1 w-full " + t.bar} />
-          <div className="text-[11px] uppercase tracking-wide text-ink-soft font-semibold mt-1">
-            {t.label}
+        <div
+          key={t.label}
+          className="relative rounded-2xl bg-card border border-border/60 p-4 overflow-hidden shadow-[var(--shadow-card)]"
+        >
+          <div className={"absolute inset-y-3 left-0 w-[3px] rounded-r-full " + t.bar} />
+          <div className="flex items-center gap-2">
+            <span className={"h-1.5 w-1.5 rounded-full " + t.bar} />
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+              {t.label}
+            </div>
           </div>
-          <div className={"mt-1 text-lg md:text-xl font-bold tabular-nums " + t.color}>
+          <div className={"mt-2 text-lg md:text-2xl font-bold tabular-nums " + t.color}>
             {formatEtb(t.value)}
           </div>
-          {t.hint && <div className="text-[10px] text-ink-soft mt-0.5">{t.hint}</div>}
+          {t.hint && <div className="text-[10px] text-muted-foreground mt-1">{t.hint}</div>}
         </div>
       ))}
     </div>
