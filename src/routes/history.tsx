@@ -1,11 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
+  activeCutoffISO,
   deleteTransaction,
   useArchivedCount,
   useArchivedTransactions,
@@ -15,8 +18,19 @@ import {
 } from "@/lib/db";
 import { formatDateTime, formatEtb } from "@/lib/format";
 import { CHANNELS, TYPE_LABEL, type TxnType } from "@/lib/types";
-import { Trash2 } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+
+const searchSchema = z.object({
+  q: fallback(z.string(), "").default(""),
+  type: fallback(z.string(), "all").default("all"),
+  channel: fallback(z.string(), "all").default("all"),
+  bankId: fallback(z.string(), "all").default("all"),
+  distributorId: fallback(z.string(), "all").default("all"),
+  from: fallback(z.string(), "").default(""),
+  to: fallback(z.string(), "").default(""),
+  archive: fallback(z.boolean(), false).default(false),
+});
 
 export const Route = createFileRoute("/history")({
   head: () => ({
@@ -27,33 +41,49 @@ export const Route = createFileRoute("/history")({
       { property: "og:description", content: "Filter, search and audit every recorded transaction." },
     ],
   }),
+  validateSearch: zodValidator(searchSchema),
   component: HistoryPage,
 });
 
 function HistoryPage() {
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const { q, type, channel, bankId, distributorId, from, to, archive } = search;
+
+  const setSearch = (patch: Partial<typeof search>) =>
+    navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true });
+
   const active = useTransactions();
-  const [showArchive, setShowArchive] = useState(false);
   const archived = useArchivedTransactions();
   const archivedCount = useArchivedCount();
+  // Auto-load archive when a filter demands data older than the active window.
+  const activeCutoffDate = useMemo(() => activeCutoffISO().slice(0, 10), []);
+  const needsArchive =
+    archive ||
+    (!!from && from < activeCutoffDate) ||
+    (!!to && to < activeCutoffDate);
+  useEffect(() => {
+    if (needsArchive && !archive) setSearch({ archive: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsArchive]);
   const transactions = useMemo(
-    () => (showArchive ? [...active, ...archived] : active),
-    [active, archived, showArchive],
+    () => (needsArchive ? [...active, ...archived] : active),
+    [active, archived, needsArchive],
   );
   const banks = useBanks();
   const distributors = useDistributors();
-  const [q, setQ] = useState("");
-  const [type, setType] = useState<TxnType | "all">("all");
-  const [channel, setChannel] = useState<string>("all");
-  const [bankId, setBankId] = useState<string>("all");
-  const [distributorId, setDistributorId] = useState<string>("all");
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
+    const fromIso = from ? from + "T00:00:00" : "";
+    const toIso = to ? to + "T23:59:59" : "";
     return transactions.filter((t) => {
       if (type !== "all" && t.type !== type) return false;
       if (channel !== "all" && t.channel !== channel) return false;
       if (bankId !== "all" && t.bankId !== bankId) return false;
       if (distributorId !== "all" && t.distributorId !== distributorId) return false;
+      if (fromIso && t.date < fromIso) return false;
+      if (toIso && t.date > toIso) return false;
       if (needle) {
         const hay =
           `${t.partyName} ${t.reference ?? ""} ${t.note ?? ""}`.toLowerCase();
@@ -61,7 +91,7 @@ function HistoryPage() {
       }
       return true;
     });
-  }, [transactions, q, type, channel, bankId, distributorId]);
+  }, [transactions, q, type, channel, bankId, distributorId, from, to]);
 
   const totals = useMemo(() => {
     let inSum = 0,
