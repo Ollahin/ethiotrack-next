@@ -226,6 +226,36 @@ function matchTemplates(raw: string): Partial<ParsedRow> | null {
       template: "telebirr.recharge",
     };
   }
+
+  // -------- eBirr / CoopPay --------
+  // Ex: "Transfer ID: FT252955B05V, You have successfully transfered ETB 5,000
+  //      to ( 1035000006094 ) undefined bank account at 2025-10-22 14:01:51."
+  m = raw.match(/Transfer ID:\s*([A-Z0-9]+)[,\s]+You have successfully transfer(?:r)?ed\s+ETB\s*([\d,]+(?:\.\d+)?)\s+to\s*\(\s*([\d*]+)\s*\)\s*(.*?)\s+bank account\s+at\s+([\d\-: ]+)/i);
+  if (m) {
+    const rawParty = m[4].trim();
+    const cleanParty = !rawParty || /^undefined$/i.test(rawParty) ? "Unknown recipient" : rawParty;
+    return {
+      channel: "CoopPay", type: "out",
+      amountSantim: toSantim(m[2]),
+      party: `${cleanParty} (${last4(m[3]) ?? m[3]})`,
+      accountTail: last4(m[3]),
+      reference: m[1],
+      template: "coopay.transfer.out",
+    };
+  }
+  m = raw.match(/Transfer ID:\s*([A-Z0-9]+)[,\s]+You have successfully received\s+ETB\s*([\d,]+(?:\.\d+)?)\s+from\s*\(\s*([\d*]+)\s*\)\s*(.*?)\s+(?:bank account\s+)?at\s+([\d\-: ]+)/i);
+  if (m) {
+    const rawParty = m[4].trim();
+    const cleanParty = !rawParty || /^undefined$/i.test(rawParty) ? "Unknown sender" : rawParty;
+    return {
+      channel: "CoopPay", type: "in",
+      amountSantim: toSantim(m[2]),
+      party: `${cleanParty} (${last4(m[3]) ?? m[3]})`,
+      accountTail: last4(m[3]),
+      reference: m[1],
+      template: "coopay.transfer.in",
+    };
+  }
   return null;
 }
 
