@@ -57,9 +57,13 @@ function SettingsPage() {
           <div><Label>New PIN</Label><Input type="password" value={newPin} onChange={(e) => setNew(e.target.value)} /></div>
         </div>
         <Button className="mt-3" onClick={async () => {
-          const ok = await changePin(oldPin, newPin);
-          if (ok) { toast.success("PIN updated"); setOld(""); setNew(""); }
-          else toast.error("Current PIN is wrong");
+          try {
+            const ok = await changePin(oldPin, newPin);
+            if (ok) { toast.success("PIN updated"); setOld(""); setNew(""); }
+            else toast.error("Current PIN is wrong");
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Locked");
+          }
         }}>Update PIN</Button>
       </Card>
 
