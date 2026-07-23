@@ -212,6 +212,89 @@ function ReportsPage() {
           </div>
         )}
       </div>
+
+      <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 mb-1">
+          <FileText className="h-5 w-5 text-primary" />
+          <div className="font-semibold flex-1">Airtime summary — by telecom & form</div>
+          <div className="inline-flex rounded-md border border-border overflow-hidden text-xs">
+            {(["week", "month", "active"] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => setSummaryRange(r)}
+                className={`px-2.5 py-1 ${summaryRange === r ? "bg-primary text-primary-foreground" : "bg-background text-ink-soft"}`}
+              >
+                {r === "week" ? "This week" : r === "month" ? "This month" : "Active (90d)"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="text-xs text-ink-soft mb-3">
+          Airtime distributed to agents, rolled up by telecom company and airtime form.
+          {summary.untagged > 0 && ` · ${formatEtb(summary.untagged)} untagged (distributor missing telecom).`}
+        </p>
+
+        <div className="grid md:grid-cols-2 gap-3">
+          <div className="rounded-lg border border-border p-3">
+            <div className="text-xs uppercase tracking-wide text-ink-soft mb-2">By telecom</div>
+            <ul className="divide-y divide-border text-sm">
+              {TELECOMS.map((t) => (
+                <li key={t} className="py-1.5 flex justify-between">
+                  <span>{TELECOM_LABEL[t]}</span>
+                  <span className="font-medium">{formatEtb(summary.byTelecom[t])}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-lg border border-border p-3">
+            <div className="text-xs uppercase tracking-wide text-ink-soft mb-2">By form</div>
+            <ul className="divide-y divide-border text-sm">
+              {FORMS.map((f) => (
+                <li key={f} className="py-1.5 flex justify-between">
+                  <span>{AIRTIME_FORM_LABEL[f]}</span>
+                  <span className="font-medium">{formatEtb(summary.byForm[f])}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-xs text-ink-soft">
+              <tr>
+                <th className="text-left py-1.5 pr-3">Telecom \ Form</th>
+                {FORMS.map((f) => (
+                  <th key={f} className="text-right py-1.5 pr-3">{AIRTIME_FORM_LABEL[f]}</th>
+                ))}
+                <th className="text-right py-1.5">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {TELECOMS.map((t) => {
+                const rowTotal = FORMS.reduce((s, f) => s + summary.matrix[`${t}:${f}`], 0);
+                return (
+                  <tr key={t}>
+                    <td className="py-1.5 pr-3">{TELECOM_LABEL[t]}</td>
+                    {FORMS.map((f) => (
+                      <td key={f} className="py-1.5 pr-3 text-right">{formatEtb(summary.matrix[`${t}:${f}`])}</td>
+                    ))}
+                    <td className="py-1.5 text-right font-medium">{formatEtb(rowTotal)}</td>
+                  </tr>
+                );
+              })}
+              <tr className="font-medium">
+                <td className="py-1.5 pr-3">Total</td>
+                {FORMS.map((f) => (
+                  <td key={f} className="py-1.5 pr-3 text-right">{formatEtb(summary.byForm[f])}</td>
+                ))}
+                <td className="py-1.5 text-right">{formatEtb(summary.total)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-2 text-xs text-ink-soft">{summary.count} airtime transaction(s) in range.</div>
+      </div>
     </div>
   );
 }
