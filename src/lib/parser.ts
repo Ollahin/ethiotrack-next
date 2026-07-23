@@ -1,9 +1,12 @@
 import type { TxnType } from "./types";
 
+// SMS "airtime" mentions are represented as EVD credits by default in v2.
+type ParserTxnType = Extract<TxnType, "in" | "out" | "airtime_evd">;
+
 export interface ParsedRow {
   ok: boolean;
   raw: string;
-  type?: TxnType;
+  type?: ParserTxnType;
   amountSantim?: number;
   party?: string;
   channel?: string;
@@ -59,7 +62,7 @@ const RULES: Array<{
     channel: "Telebirr",
     test: /telebirr[\s\S]*?airtime[\s\S]*?ETB\s*([\d,]+(?:\.\d+)?)/i,
     parse: (m) => ({
-      type: "airtime",
+      type: "airtime_evd",
       amountSantim: toSantim(m[1]),
       party: "Airtime",
     }),
@@ -129,11 +132,9 @@ const RULES: Array<{
       const inWords = /\b(received|credited|deposit(?:ed)?|refund(?:ed)?|incoming|transferred to your|added to your)\b/;
       const outWords = /\b(paid|debited|withdrawn|withdrew|purchase(?:d)?|bought|sent|transfer(?:red)? to|payment to|charged|bill|utility|topped? up|recharge)\b/;
       const airWords = /\b(airtime|top[- ]?up|recharge|data bundle|mobile package)\b/;
-      const creditWords = /\b(loan|borrow|owe|credit due|installment|repay(?:ment)?)\b/;
-      let type: TxnType | undefined;
+      let type: ParserTxnType | undefined;
       let needsReview = false;
-      if (airWords.test(t)) type = "airtime";
-      else if (creditWords.test(t)) type = "credit";
+      if (airWords.test(t)) type = "airtime_evd";
       else {
         const hasIn = inWords.test(t);
         const hasOut = outWords.test(t);

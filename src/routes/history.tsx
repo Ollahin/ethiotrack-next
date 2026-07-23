@@ -3,11 +3,7 @@ import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { deleteTransaction, useTransactions } from "@/lib/db";
 import { formatDateTime, formatEtb } from "@/lib/format";
@@ -19,17 +15,16 @@ export const Route = createFileRoute("/history")({
   head: () => ({
     meta: [
       { title: "History · EthioTrack" },
-      {
-        name: "description",
-        content: "Every transaction you have logged, with filters and search.",
-      },
+      { name: "description", content: "Every transaction you have logged, with filters and search." },
+      { property: "og:title", content: "Transaction history · EthioTrack" },
+      { property: "og:description", content: "Filter, search and audit every recorded transaction." },
     ],
   }),
   component: HistoryPage,
 });
 
 function HistoryPage() {
-  const { transactions } = useTransactions();
+  const transactions = useTransactions();
   const [q, setQ] = useState("");
   const [type, setType] = useState<TxnType | "all">("all");
   const [channel, setChannel] = useState<string>("all");
@@ -41,7 +36,7 @@ function HistoryPage() {
       if (channel !== "all" && t.channel !== channel) return false;
       if (needle) {
         const hay =
-          `${t.party} ${t.reference ?? ""} ${t.note ?? ""}`.toLowerCase();
+          `${t.partyName} ${t.reference ?? ""} ${t.note ?? ""}`.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       return true;
@@ -76,8 +71,10 @@ function HistoryPage() {
               <SelectItem value="all">All types</SelectItem>
               <SelectItem value="in">Money In</SelectItem>
               <SelectItem value="out">Money Out</SelectItem>
-              <SelectItem value="airtime">Airtime</SelectItem>
-              <SelectItem value="credit">Credit</SelectItem>
+              <SelectItem value="airtime_evd">Airtime · EVD</SelectItem>
+              <SelectItem value="airtime_float">Airtime · Float</SelectItem>
+              <SelectItem value="expense">Expense</SelectItem>
+              <SelectItem value="personal">Personal</SelectItem>
             </SelectContent>
           </Select>
           <Select value={channel} onValueChange={setChannel}>
@@ -126,14 +123,18 @@ function HistoryPage() {
                       ? "bg-money-in"
                       : t.type === "out"
                         ? "bg-money-out"
-                        : t.type === "airtime"
+                        : t.type === "airtime_evd"
                           ? "bg-airtime"
-                          : "bg-credit")
+                          : t.type === "airtime_float"
+                            ? "bg-credit"
+                            : t.type === "expense"
+                              ? "bg-money-out"
+                              : "bg-muted-foreground")
                   }
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="font-semibold truncate">{t.party}</span>
+                    <span className="font-semibold truncate">{t.partyName}</span>
                     <span
                       className={
                         "font-bold tabular-nums text-sm " +
@@ -155,6 +156,12 @@ function HistoryPage() {
                       <>
                         <span>·</span>
                         <span>#{t.reference}</span>
+                      </>
+                    )}
+                    {t.isSettled && (
+                      <>
+                        <span>·</span>
+                        <span className="text-money-in font-semibold">settled</span>
                       </>
                     )}
                   </div>

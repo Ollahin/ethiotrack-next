@@ -1,93 +1,45 @@
-import { formatEtb } from "@/lib/format";
 import type { Transaction } from "@/lib/types";
-import {
-  ArrowDownRight,
-  ArrowUpRight,
-  Phone,
-  Wallet,
-} from "lucide-react";
+import { formatEtb } from "@/lib/format";
 
-function isToday(iso: string) {
-  const d = new Date(iso);
-  const n = new Date();
-  return (
-    d.getFullYear() === n.getFullYear() &&
-    d.getMonth() === n.getMonth() &&
-    d.getDate() === n.getDate()
-  );
-}
+function todayKey() { return new Date().toISOString().slice(0, 10); }
 
-export function DashboardTiles({ txns }: { txns: Transaction[] }) {
-  const today = txns.filter((t) => isToday(t.date));
-  const moneyIn = today
-    .filter((t) => t.type === "in")
-    .reduce((a, t) => a + t.amountSantim, 0);
-  const moneyOut = today
-    .filter((t) => t.type === "out")
-    .reduce((a, t) => a + t.amountSantim, 0);
-  const airtime = today
-    .filter((t) => t.type === "airtime")
-    .reduce((a, t) => a + t.amountSantim, 0);
-  const credit = txns
-    .filter((t) => t.type === "credit" && !t.settled)
-    .reduce((a, t) => a + t.amountSantim, 0);
+export function DashboardTiles({ txns, openCredit, cashVariance }: {
+  txns: Transaction[];
+  openCredit: number;
+  cashVariance: number | null;
+}) {
+  const today = todayKey();
+  const t = txns.filter((x) => x.date.slice(0, 10) === today && !x.isPersonal);
+  const sum = (type: Transaction["type"]) =>
+    t.filter((x) => x.type === type).reduce((s, x) => s + x.amountSantim, 0);
+  const salesToday = sum("airtime_evd") + sum("airtime_float");
+  const receiptsToday = sum("in");
 
   const tiles = [
+    { label: "Today's Sales", value: salesToday, color: "text-airtime", bar: "bg-airtime" },
+    { label: "Today's Receipts", value: receiptsToday, color: "text-money-in", bar: "bg-money-in" },
+    { label: "Open Credits", value: openCredit, color: "text-credit", bar: "bg-credit" },
     {
-      label: "Money In",
-      value: moneyIn,
-      sub: "today",
-      color: "bg-money-in",
-      Icon: ArrowDownRight,
-    },
-    {
-      label: "Money Out",
-      value: moneyOut,
-      sub: "today",
-      color: "bg-money-out",
-      Icon: ArrowUpRight,
-    },
-    {
-      label: "Airtime",
-      value: airtime,
-      sub: "today",
-      color: "bg-airtime",
-      Icon: Phone,
-    },
-    {
-      label: "Credit open",
-      value: credit,
-      sub: "outstanding",
-      color: "bg-credit",
-      Icon: Wallet,
+      label: "Cash Variance",
+      value: cashVariance ?? 0,
+      color: cashVariance === null ? "text-ink-soft" : cashVariance === 0 ? "text-foreground" : "text-money-out",
+      bar: cashVariance === null ? "bg-muted" : cashVariance === 0 ? "bg-foreground/20" : "bg-money-out",
+      hint: cashVariance === null ? "Day not closed" : undefined,
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3">
-      {tiles.map(({ label, value, sub, color, Icon }) => (
-        <div
-          key={label}
-          className="relative overflow-hidden rounded-xl bg-card border border-border shadow-sm p-3 flex gap-3"
-        >
-          <div
-            className={`${color} w-1 -my-3 -ml-3 rounded-l-xl`}
-            aria-hidden
-          />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
-                {label}
-              </span>
-              <Icon className="h-3.5 w-3.5 text-ink-soft" />
-            </div>
-            <div className="mt-1 text-lg font-extrabold tabular-nums truncate">
-              {formatEtb(value, false)}
-            </div>
-            <div className="text-[10px] text-ink-soft uppercase tracking-wide">
-              ETB · {sub}
-            </div>
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {tiles.map((t) => (
+        <div key={t.label} className="rounded-xl bg-card border border-border p-3 shadow-sm relative overflow-hidden">
+          <div className={"absolute top-0 left-0 h-1 w-full " + t.bar} />
+          <div className="text-[11px] uppercase tracking-wide text-ink-soft font-semibold mt-1">
+            {t.label}
           </div>
+          <div className={"mt-1 text-lg md:text-xl font-bold tabular-nums " + t.color}>
+            {formatEtb(t.value)}
+          </div>
+          {t.hint && <div className="text-[10px] text-ink-soft mt-0.5">{t.hint}</div>}
         </div>
       ))}
     </div>

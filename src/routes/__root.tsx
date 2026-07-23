@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppShell } from "../components/AppShell";
 import { Toaster } from "sonner";
+import { LockGate } from "../components/LockGate";
 
 function NotFoundComponent() {
   return (
@@ -127,9 +128,10 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <AppShell>
-        <Outlet />
+        <LockGate>
+          <Outlet />
+        </LockGate>
       </AppShell>
       <Toaster position="top-center" richColors closeButton />
     </QueryClientProvider>

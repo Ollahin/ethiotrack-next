@@ -1,19 +1,36 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  PencilLine,
-  List,
+  LayoutDashboard,
+  Zap,
   Users,
+  Landmark,
+  Truck,
+  List,
   ShieldAlert,
-  Download,
+  FileText,
+  Settings as Cog,
+  Lock,
+  ScaleIcon,
+  CheckCircle2,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { lock } from "@/lib/crypto";
 
 const TABS = [
-  { to: "/", label: "Log", icon: PencilLine },
-  { to: "/history", label: "History", icon: List },
+  { to: "/", label: "Home", icon: LayoutDashboard },
+  { to: "/capture", label: "Capture", icon: Zap },
   { to: "/agents", label: "Agents", icon: Users },
-  { to: "/leaks", label: "Leaks", icon: ShieldAlert },
-  { to: "/export", label: "Export", icon: Download },
+  { to: "/history", label: "History", icon: List },
+  { to: "/alerts", label: "Alerts", icon: ShieldAlert },
+] as const;
+
+const MORE_TABS = [
+  { to: "/distributors", label: "Distributors", icon: Truck },
+  { to: "/banks", label: "Banks", icon: Landmark },
+  { to: "/reconcile", label: "Reconcile", icon: ScaleIcon },
+  { to: "/close", label: "Close Day", icon: CheckCircle2 },
+  { to: "/reports", label: "Reports", icon: FileText },
+  { to: "/settings", label: "Settings", icon: Cog },
 ] as const;
 
 function todayLabel() {
@@ -27,6 +44,9 @@ function todayLabel() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  if (pathname === "/unlock") {
+    return <div className="min-h-screen bg-background">{children}</div>;
+  }
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row">
       {/* Desktop side rail */}
@@ -37,8 +57,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <div className="text-xs text-white/60 mt-1">{todayLabel()}</div>
         </div>
-        <nav className="flex-1 px-2 py-2 space-y-1">
-          {TABS.map((t) => {
+        <nav className="flex-1 px-2 py-2 space-y-1 overflow-y-auto">
+          {[...TABS, ...MORE_TABS].map((t) => {
             const active = pathname === t.to;
             const Icon = t.icon;
             return (
@@ -58,7 +78,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
-        <div className="px-5 py-4 text-[11px] text-white/40">
+        <button
+          onClick={() => { lock(); location.href = "/unlock"; }}
+          className="mx-3 mb-3 flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-white/70 hover:bg-white/5"
+        >
+          <Lock className="h-3.5 w-3.5" /> Lock
+        </button>
+        <div className="px-5 py-3 text-[11px] text-white/40 border-t border-white/10">
           Local-only · data never leaves this device
         </div>
       </aside>
@@ -76,11 +102,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
           <Link
-            to="/export"
-            className="inline-flex items-center gap-1 rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-semibold"
+            to="/settings"
+            className="inline-flex items-center gap-1 rounded-md bg-white/10 text-white px-3 py-1.5 text-xs font-semibold"
           >
-            <Download className="h-3.5 w-3.5" />
-            Export
+            <Cog className="h-3.5 w-3.5" /> Settings
           </Link>
         </header>
 

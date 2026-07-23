@@ -1,188 +1,296 @@
-import { openDB, type IDBPDatabase } from "idb";
-import { useEffect, useState, useSyncExternalStore } from "react";
-import type { Transaction } from "./types";
+import Dexie, { type Table } from "dexie";
+import { useLiveQuery } from "dexie-react-hooks";
+import type {
+  Agent,
+  Bank,
+  DailyClosing,
+  DailyOpening,
+  Distributor,
+  StatementImport,
+  Transaction,
+} from "./types";
+import { makeId } from "./ids";
 
-const DB_NAME = "ethiotrack";
-const DB_VERSION = 1;
-const STORE_TXN = "transactions";
-const STORE_META = "meta";
+// -- schema ------------------------------------------------------------------
 
-let dbPromise: Promise<IDBPDatabase> | null = null;
+class EthioTrackDB extends Dexie {
+  agents!: Table<Agent, string>;
+  distributors!: Table<Distributor, string>;
+  banks!: Table<Bank, string>;
+  dailyOpenings!: Table<DailyOpening, string>;
+  dailyClosings!: Table<DailyClosing, string>;
+  transactions!: Table<Transaction, string>;
+  statementImports!: Table<StatementImport, string>;
+  meta!: Table<{ key: string; value: unknown }, string>;
 
-function getDb(): Promise<IDBPDatabase> {
-  if (typeof window === "undefined") {
-    return Promise.reject(new Error("IndexedDB unavailable on server"));
-  }
-  if (!dbPromise) {
-    dbPromise = openDB(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains(STORE_TXN)) {
-          const s = db.createObjectStore(STORE_TXN, { keyPath: "id" });
-          s.createIndex("date", "date");
-          s.createIndex("party", "party");
-        }
-        if (!db.objectStoreNames.contains(STORE_META)) {
-          db.createObjectStore(STORE_META, { keyPath: "key" });
-        }
-      },
+  constructor() {
+    super("ethiotrack");
+    this.version(1).stores({
+      agents: "id, name, phone",
+      distributors: "id, name",
+      banks: "id, name, channel",
+      dailyOpenings: "id, date",
+      dailyClosings: "id, date, openingId",
+      transactions:
+        "id, date, type, partyId, channel, isSettled, isPersonal, statementImportId",
+      statementImports: "id, distributorId, importedAt",
+      meta: "key",
     });
   }
-  return dbPromise;
 }
 
-// --- reactive store ---------------------------------------------------------
-
-type Listener = () => void;
-const listeners = new Set<Listener>();
-let cache: Transaction[] = [];
-let loaded = false;
-
-function emit() {
-  for (const l of listeners) l();
+let _db: EthioTrackDB | null = null;
+export function db(): EthioTrackDB {
+  if (!_db) _db = new EthioTrackDB();
+  return _db;
 }
 
-async function refresh() {
-  const db = await getDb();
-  const all = (await db.getAll(STORE_TXN)) as Transaction[];
-  all.sort((a, b) => (a.date < b.date ? 1 : -1));
-  cache = all;
-  loaded = true;
-  emit();
-}
+// -- reactive hooks ----------------------------------------------------------
 
-function subscribe(l: Listener) {
-  listeners.add(l);
-  if (!loaded) void refresh();
-  return () => listeners.delete(l);
-}
-
-function getSnapshot() {
-  return cache;
-}
-
-const EMPTY: Transaction[] = [];
-function getServerSnapshot(): Transaction[] {
-  return EMPTY;
-}
-
-export function useTransactions(): {
-  transactions: Transaction[];
-  loaded: boolean;
-} {
-  const transactions = useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-    getServerSnapshot,
-  );
-  const [ready, setReady] = useState(loaded);
-  useEffect(() => {
-    if (loaded) setReady(true);
-    else void refresh().then(() => setReady(true));
-  }, []);
-  return { transactions, loaded: ready };
-}
-
-function makeId(): string {
+export function useTransactions(): Transaction[] {
   return (
-    Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+    useLiveQuery(async () => {
+      const all = await db().transactions.toArray();
+      all.sort((a, b) => (a.date < b.date ? 1 : -1));
+      return all;
+    }, []) ?? []
   );
 }
+
+export function useAgents(): Agent[] {
+  return useLiveQuery(() => db().agents.orderBy("name").toArray(), []) ?? [];
+}
+
+export function useDistributors(): Distributor[] {
+  return (
+    useLiveQuery(() => db().distributors.orderBy("name").toArray(), []) ?? []
+  );
+}
+
+export function useBanks(): Bank[] {
+  return useLiveQuery(() => db().banks.orderBy("name").toArray(), []) ?? [];
+}
+
+export function useStatementImports(): StatementImport[] {
+  return (
+    useLiveQuery(
+      () => db().statementImports.orderBy("importedAt").reverse().toArray(),
+      [],
+    ) ?? []
+  );
+}
+
+export function useDailyOpening(date: string): DailyOpening | undefined {
+  return useLiveQuery(
+    () => db().dailyOpenings.where("date").equals(date).first(),
+    [date],
+  );
+}
+
+export function useDailyClosing(date: string): DailyClosing | undefined {
+  return useLiveQuery(
+    () => db().dailyClosings.where("date").equals(date).first(),
+    [date],
+  );
+}
+
+// -- transactions ------------------------------------------------------------
 
 export async function addTransaction(
   input: Omit<Transaction, "id" | "createdAt">,
 ): Promise<Transaction> {
-  const db = await getDb();
   const txn: Transaction = {
     ...input,
     id: makeId(),
     createdAt: new Date().toISOString(),
   };
-  await db.put(STORE_TXN, txn);
-  await refresh();
+  await db().transactions.put(txn);
   return txn;
 }
 
 export async function addTransactionsBulk(
   inputs: Array<Omit<Transaction, "id" | "createdAt">>,
-): Promise<{ inserted: number; skipped: number }> {
-  const db = await getDb();
-  // Dedupe against existing rows: same type + amount + party + channel
-  // within a 10-minute window is considered a duplicate. Runs inside the
-  // same transaction so two concurrent imports can't both slip through.
-  const existing = (await db.getAll(STORE_TXN)) as Transaction[];
-  const seenKeys = new Map<string, number[]>();
+): Promise<{ inserted: number; skipped: number; ids: string[] }> {
+  const existing = await db().transactions.toArray();
+  const seen = new Map<string, number[]>();
   for (const t of existing) {
-    const k = `${t.type}|${t.amountSantim}|${t.party.toLowerCase()}|${t.channel}`;
-    seenKeys.set(k, [...(seenKeys.get(k) ?? []), new Date(t.date).getTime()]);
+    const k = `${t.type}|${t.amountSantim}|${t.partyName.toLowerCase()}|${t.channel}`;
+    seen.set(k, [...(seen.get(k) ?? []), new Date(t.date).getTime()]);
   }
-  const tx = db.transaction(STORE_TXN, "readwrite");
-  let inserted = 0;
+  const inserted: Transaction[] = [];
   let skipped = 0;
   for (const input of inputs) {
-    const key = `${input.type}|${input.amountSantim}|${input.party.toLowerCase()}|${input.channel}`;
+    const k = `${input.type}|${input.amountSantim}|${input.partyName.toLowerCase()}|${input.channel}`;
     const ts = new Date(input.date).getTime();
-    const near = (seenKeys.get(key) ?? []).some(
-      (prev) => Math.abs(prev - ts) <= 10 * 60_000,
+    const near = (seen.get(k) ?? []).some(
+      (p) => Math.abs(p - ts) <= 10 * 60_000,
     );
     if (near) {
       skipped++;
       continue;
     }
-    await tx.store.put({
+    const txn: Transaction = {
       ...input,
       id: makeId(),
       createdAt: new Date().toISOString(),
-    });
-    seenKeys.set(key, [...(seenKeys.get(key) ?? []), ts]);
-    inserted++;
+    };
+    inserted.push(txn);
+    seen.set(k, [...(seen.get(k) ?? []), ts]);
   }
-  await tx.done;
-  await refresh();
-  return { inserted, skipped };
+  if (inserted.length) await db().transactions.bulkPut(inserted);
+  return {
+    inserted: inserted.length,
+    skipped,
+    ids: inserted.map((t) => t.id),
+  };
 }
 
 export async function updateTransaction(txn: Transaction): Promise<void> {
-  const db = await getDb();
-  await db.put(STORE_TXN, txn);
-  await refresh();
+  await db().transactions.put(txn);
 }
 
 export async function deleteTransaction(id: string): Promise<void> {
-  const db = await getDb();
-  await db.delete(STORE_TXN, id);
-  await refresh();
+  await db().transactions.delete(id);
+}
+
+// -- master data -------------------------------------------------------------
+
+export async function upsertAgent(a: Omit<Agent, "id" | "createdAt"> & { id?: string }): Promise<Agent> {
+  const rec: Agent = {
+    id: a.id ?? makeId(),
+    name: a.name.trim(),
+    phone: a.phone?.trim() || undefined,
+    creditLimitSantim: a.creditLimitSantim,
+    createdAt: a.id ? (await db().agents.get(a.id))?.createdAt ?? new Date().toISOString() : new Date().toISOString(),
+  };
+  await db().agents.put(rec);
+  return rec;
+}
+export async function deleteAgent(id: string) { await db().agents.delete(id); }
+
+export async function upsertDistributor(a: Omit<Distributor, "id" | "createdAt"> & { id?: string }): Promise<Distributor> {
+  const rec: Distributor = {
+    id: a.id ?? makeId(),
+    name: a.name.trim(),
+    contact: a.contact?.trim() || undefined,
+    statementFormat: a.statementFormat,
+    createdAt: a.id ? (await db().distributors.get(a.id))?.createdAt ?? new Date().toISOString() : new Date().toISOString(),
+  };
+  await db().distributors.put(rec);
+  return rec;
+}
+export async function deleteDistributor(id: string) { await db().distributors.delete(id); }
+
+export async function upsertBank(a: Omit<Bank, "id" | "createdAt"> & { id?: string }): Promise<Bank> {
+  const rec: Bank = {
+    id: a.id ?? makeId(),
+    name: a.name.trim(),
+    accountNumber: a.accountNumber?.trim() || undefined,
+    channel: a.channel,
+    openingBalanceSantim: a.openingBalanceSantim ?? 0,
+    createdAt: a.id ? (await db().banks.get(a.id))?.createdAt ?? new Date().toISOString() : new Date().toISOString(),
+  };
+  await db().banks.put(rec);
+  return rec;
+}
+export async function deleteBank(id: string) { await db().banks.delete(id); }
+
+// -- day open / close --------------------------------------------------------
+
+export async function openDay(input: Omit<DailyOpening, "id" | "openedAt">): Promise<DailyOpening> {
+  const rec: DailyOpening = { ...input, id: makeId(), openedAt: new Date().toISOString() };
+  await db().dailyOpenings.put(rec);
+  return rec;
+}
+
+export async function closeDay(input: Omit<DailyClosing, "id" | "closedAt">): Promise<DailyClosing> {
+  const rec: DailyClosing = { ...input, id: makeId(), closedAt: new Date().toISOString() };
+  await db().dailyClosings.put(rec);
+  return rec;
+}
+
+// -- statement imports -------------------------------------------------------
+
+export async function recordStatementImport(
+  input: Omit<StatementImport, "id" | "importedAt">,
+): Promise<StatementImport> {
+  const rec: StatementImport = {
+    ...input,
+    id: makeId(),
+    importedAt: new Date().toISOString(),
+  };
+  await db().statementImports.put(rec);
+  return rec;
+}
+
+// -- meta --------------------------------------------------------------------
+
+export async function metaGet<T = unknown>(key: string): Promise<T | undefined> {
+  const row = await db().meta.get(key);
+  return row?.value as T | undefined;
+}
+export async function metaSet(key: string, value: unknown): Promise<void> {
+  await db().meta.put({ key, value });
+}
+
+// -- backup ------------------------------------------------------------------
+
+export interface Backup {
+  version: 2;
+  exportedAt: string;
+  agents: Agent[];
+  distributors: Distributor[];
+  banks: Bank[];
+  dailyOpenings: DailyOpening[];
+  dailyClosings: DailyClosing[];
+  transactions: Transaction[];
+  statementImports: StatementImport[];
+}
+
+export async function exportBackup(): Promise<Backup> {
+  const d = db();
+  const [agents, distributors, banks, dailyOpenings, dailyClosings, transactions, statementImports] =
+    await Promise.all([
+      d.agents.toArray(),
+      d.distributors.toArray(),
+      d.banks.toArray(),
+      d.dailyOpenings.toArray(),
+      d.dailyClosings.toArray(),
+      d.transactions.toArray(),
+      d.statementImports.toArray(),
+    ]);
+  return {
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    agents, distributors, banks, dailyOpenings, dailyClosings, transactions, statementImports,
+  };
+}
+
+export async function importBackup(b: Backup): Promise<void> {
+  const d = db();
+  await d.transaction("rw", [d.agents, d.distributors, d.banks, d.dailyOpenings, d.dailyClosings, d.transactions, d.statementImports], async () => {
+    if (b.agents) await d.agents.bulkPut(b.agents);
+    if (b.distributors) await d.distributors.bulkPut(b.distributors);
+    if (b.banks) await d.banks.bulkPut(b.banks);
+    if (b.dailyOpenings) await d.dailyOpenings.bulkPut(b.dailyOpenings);
+    if (b.dailyClosings) await d.dailyClosings.bulkPut(b.dailyClosings);
+    if (b.transactions) await d.transactions.bulkPut(b.transactions);
+    if (b.statementImports) await d.statementImports.bulkPut(b.statementImports);
+  });
 }
 
 export async function clearAll(): Promise<void> {
-  const db = await getDb();
-  await db.clear(STORE_TXN);
-  await refresh();
-}
-
-export async function importAll(txns: Transaction[]): Promise<number> {
-  const db = await getDb();
-  const tx = db.transaction(STORE_TXN, "readwrite");
-  for (const t of txns) await tx.store.put(t);
-  await tx.done;
-  await refresh();
-  return txns.length;
-}
-
-// --- meta (ignored leak IDs) -----------------------------------------------
-
-export async function getIgnoredLeaks(): Promise<Set<string>> {
-  try {
-    const db = await getDb();
-    const rec = (await db.get(STORE_META, "ignoredLeaks")) as
-      | { key: string; ids: string[] }
-      | undefined;
-    return new Set(rec?.ids ?? []);
-  } catch {
-    return new Set();
-  }
-}
-
-export async function setIgnoredLeaks(ids: Set<string>): Promise<void> {
-  const db = await getDb();
-  await db.put(STORE_META, { key: "ignoredLeaks", ids: [...ids] });
+  const d = db();
+  await d.transaction("rw", [d.agents, d.distributors, d.banks, d.dailyOpenings, d.dailyClosings, d.transactions, d.statementImports, d.meta], async () => {
+    await Promise.all([
+      d.agents.clear(),
+      d.distributors.clear(),
+      d.banks.clear(),
+      d.dailyOpenings.clear(),
+      d.dailyClosings.clear(),
+      d.transactions.clear(),
+      d.statementImports.clear(),
+      // keep meta so PIN stays; caller decides
+    ]);
+  });
 }
