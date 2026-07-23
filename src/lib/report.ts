@@ -1,15 +1,15 @@
-import jsPDF from "jspdf";
 import { formatEtb } from "./format";
 import type { Agent, Transaction } from "./types";
 import { computeAgentStats } from "./brain/stats";
 
-export function generateRangeReport(
+export async function generateRangeReport(
   agents: Agent[],
   txns: Transaction[],
   from: Date,
   to: Date,
   title = "EthioTrack — Report",
-): Blob {
+): Promise<Blob> {
+  const { default: jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const range = txns.filter((t) => {
     const d = new Date(t.date);
@@ -62,7 +62,7 @@ export function generateRangeReport(
   return doc.output("blob");
 }
 
-export function generateWeeklyReport(agents: Agent[], txns: Transaction[]): Blob {
+export function generateWeeklyReport(agents: Agent[], txns: Transaction[]): Promise<Blob> {
   const to = new Date();
   const from = new Date(to.getTime() - 7 * 86_400_000);
   return generateRangeReport(agents, txns, from, to, "EthioTrack — Weekly Report");
@@ -73,7 +73,7 @@ export function generateMonthlyReport(
   txns: Transaction[],
   year: number,
   month: number, // 1-12
-): Blob {
+): Promise<Blob> {
   const from = new Date(year, month - 1, 1);
   const to = new Date(year, month, 0, 23, 59, 59);
   const monthName = from.toLocaleDateString(undefined, { month: "long", year: "numeric" });
