@@ -375,7 +375,8 @@ export const CHANNEL_KEYWORDS: Array<{ channel: string; rx: RegExp }> = [
   { channel: "Awash",     rx: /\bAwash(?:\s+Bank)?\b/i },
   { channel: "Dashen",    rx: /\bDashen(?:\s+Bank)?\b/i },
   { channel: "Wegagen",   rx: /\bWegagen(?:\s+Bank)?\b/i },
-  { channel: "Telebirr",  rx: /\b(telebirr|E[- ]?Money\s+Account)\b/i },
+  { channel: "Telebirr",  rx: /\b(telebirr|tele[- ]?birr|E[- ]?Money\s+Account)\b/i },
+  { channel: "CoopPay",   rx: /\b(coop[- ]?pay|coopay|e[- ]?birr|ebirr)\b/i },
   { channel: "M-Pesa",    rx: /\b(M[- ]?Pesa|Safaricom(?:\s+M[- ]?Pesa)?)\b/i },
 ];
 
