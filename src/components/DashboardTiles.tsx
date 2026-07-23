@@ -29,7 +29,7 @@ export function DashboardTiles({ txns, openCredit, cashVariance }: {
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {tiles.map((t) => (
         <div
           key={t.label}
@@ -42,7 +42,7 @@ export function DashboardTiles({ txns, openCredit, cashVariance }: {
               {t.label}
             </div>
           </div>
-          <div className={"mt-2 text-lg md:text-2xl font-bold tabular-nums " + t.color}>
+          <div className={"mt-2 text-lg md:text-xl lg:text-2xl font-bold tabular-nums whitespace-nowrap " + t.color}>
             {formatEtb(t.value)}
           </div>
           {t.hint && <div className="text-[10px] text-muted-foreground mt-1">{t.hint}</div>}
