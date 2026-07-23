@@ -13,8 +13,9 @@ import {
   ScaleIcon,
   CheckCircle2,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { lock } from "@/lib/crypto";
+import { ensurePeriodOpeningsMigrated, useBanks, useDistributors } from "@/lib/db";
 
 const TABS = [
   { to: "/", label: "Home", icon: LayoutDashboard },
@@ -44,6 +45,16 @@ function todayLabel() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // Backfill legacy period openings whenever banks/distributors change,
+  // so aggregate stock totals get split across current distributors
+  // and zero rows appear for newly-added accounts.
+  const banks = useBanks();
+  const distributors = useDistributors();
+  useEffect(() => {
+    ensurePeriodOpeningsMigrated().catch((err) => {
+      console.warn("period opening migration failed", err);
+    });
+  }, [banks.length, distributors.length]);
   if (pathname === "/unlock") {
     return <div className="min-h-screen bg-background">{children}</div>;
   }
