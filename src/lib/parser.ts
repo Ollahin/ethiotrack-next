@@ -36,6 +36,12 @@ function toSantim(s: string): number {
   return Math.round(n * 100);
 }
 
+function normalizeSms(raw: string): string {
+  return raw
+    .replace(/[\u00A0\u1680\u180E\u2000-\u200D\u202F\u205F\u2060\u3000\uFEFF]/g, " ")
+    .trim();
+}
+
 function last4(s: string | undefined): string | undefined {
   if (!s) return undefined;
   const digits = s.replace(/\D+/g, "");
@@ -190,11 +196,12 @@ function matchTemplates(raw: string): Partial<ParsedRow> | null {
     counterpartyPhone: m[2], reference: m[4],
     template: "telebirr.receive.airtime",
   };
-  m = raw.match(/You have received ETB\s*([\d,]+(?:\.\d+)?)\s+by transaction number\s+([A-Z0-9]+)\s+on\s+\S+\s+\S+\s+from\s+(.+?)\s+to your telebirr Account\s+([\d*]+)/i);
+  m = raw.match(/You have received\s+ETB\s*([\d,]+(?:\.\d+)?)\s+by transaction number\s+([A-Z0-9]+)\s+on\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(?::\d{2})?\s+from\s+(.+?)\s+to your\s+tele[- ]?birr\s+Account\s+([\d*]+)(?:\s*-\s*[^.]+)?\.?(?:.*?current balance is ETB\s*([\d,]+(?:\.\d+)?))?/i);
   if (m) return {
     channel: "Telebirr", type: "in",
     amountSantim: toSantim(m[1]), party: m[3].trim(),
     reference: m[2], accountTail: last4(m[4]),
+    balanceSantim: m[5] ? toSantim(m[5]) : undefined,
     template: "telebirr.receive.bank",
   };
   m = raw.match(/You have paid ETB\s*([\d,]+(?:\.\d+)?)\s+for\s+([a-zA-Z ]+?)\s+purchased from\s+(\d+)\s*-\s*(.+?)(?:\s+for plate number\s+(\S+))?\s+on\s+([^.]+)\.\s*Your transaction number is\s+([A-Z0-9]+)/i);
@@ -411,6 +418,9 @@ export const CHANNEL_KEYWORDS: Array<{ channel: string; rx: RegExp }> = [
 ];
 
 export function detectChannel(raw: string): string | undefined {
+  if (/\b(?:to your\s+tele[- ]?birr\s+Account|from your\s+tele[- ]?birr\s+account|E[- ]?Money\s+Account|Thank you for using\s+tele[- ]?birr|Ethio telecom)\b/i.test(raw)) {
+    return "Telebirr";
+  }
   for (const { channel, rx } of CHANNEL_KEYWORDS) {
     if (rx.test(raw)) return channel;
   }
@@ -426,7 +436,7 @@ function detectAccountTail(raw: string): string | undefined {
 }
 
 export function parseOne(raw: string): ParsedRow {
-  const line = raw.trim();
+  const line = normalizeSms(raw);
   if (!line) return { ok: false, raw, reason: "empty" };
   const tpl = matchTemplates(line);
   if (tpl) {
@@ -477,7 +487,16 @@ export function parseMany(text: string): ParsedRow[] {
     .split(/\n\s*\n+/)
     .map((b) => b.trim())
     .filter(Boolean);
-  const blockRows = blocks.length > 1 ? blocks : text.split(/\n+/);
+  if (blocks.length > 1) {
+    const parsedBlocks = blocks.map(parseOne);
+    const okBlocks = parsedBlocks.filter((r) => r.ok).length;
+    const whole = parseOne(text);
+    if (whole.ok && okBlocks <= 1 && parsedBlocks.some((r) => !r.ok)) {
+      return [whole];
+    }
+    return parsedBlocks;
+  }
+  const blockRows = text.split(/\n+/);
   return blockRows
     .map((r) => r.trim())
     .filter(Boolean)
