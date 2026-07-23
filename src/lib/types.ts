@@ -10,6 +10,19 @@ export type TxnType =
 
 export type PartyType = "agent" | "distributor" | "bank" | "other";
 
+export type Telecom = "ethiotelecom" | "safaricom";
+export type AirtimeForm = "evd" | "float";
+
+export const TELECOM_LABEL: Record<Telecom, string> = {
+  ethiotelecom: "Ethio Telecom",
+  safaricom: "Safaricom",
+};
+
+export const AIRTIME_FORM_LABEL: Record<AirtimeForm, string> = {
+  evd: "EVD",
+  float: "Float",
+};
+
 export type TxnSource =
   | "manual"
   | "paste_parse"
@@ -30,6 +43,10 @@ export interface Distributor {
   name: string;
   contact?: string;
   statementFormat?: string; // e.g. "ethio-evd", "generic"
+  /** Which telecom(s) this distributor supplies (Ethio Telecom, Safaricom, or both). */
+  telecoms?: Telecom[];
+  /** Which airtime form(s) this distributor supplies (EVD, Float, or both). */
+  forms?: AirtimeForm[];
   createdAt: string;
 }
 
