@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LicenseStatus } from "@/components/LicenseStatus";
 import { LicenseExpiryBanner } from "@/components/LicenseExpiryBanner";
-import { changeMasterPin, changePin, clearPin, renewLicense } from "@/lib/crypto";
+import { changeMasterPin, changePin, clearPin, renewLicense, verifyPin } from "@/lib/crypto";
 import { clearAll } from "@/lib/db";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { getUserProfile, setUserProfile, useUserName, type UserProfile } from "@/lib/user";
 import { toast } from "sonner";
 
@@ -30,6 +31,9 @@ function AccountPage() {
   const [oldMaster, setOldMaster] = useState("");
   const [newMaster, setNewMaster] = useState("");
   const [renewPin, setRenewPin] = useState("");
+  const [wipeOpen, setWipeOpen] = useState(false);
+  const [wipePin, setWipePin] = useState("");
+  const [wipeBusy, setWipeBusy] = useState(false);
 
   useEffect(() => {
     getUserProfile().then((p) => {
@@ -158,11 +162,9 @@ function AccountPage() {
 
       <Card title="Danger zone" desc="Both actions are irreversible.">
         <div className="flex flex-wrap gap-2">
-          <Button variant="destructive" onClick={async () => {
-            if (!confirm("Delete ALL transactions and master data? This cannot be undone.")) return;
-            await clearAll();
-            toast.success("All data cleared");
-          }}>Clear all data</Button>
+          <Button variant="destructive" onClick={() => { setWipePin(""); setWipeOpen(true); }}>
+            Clear all data
+          </Button>
           <Button variant="outline" onClick={async () => {
             if (!confirm("Remove the daily PIN? App will ask to set a new one.")) return;
             await clearPin();
@@ -170,6 +172,48 @@ function AccountPage() {
           }}>Remove PIN</Button>
         </div>
       </Card>
+
+      <Dialog open={wipeOpen} onOpenChange={(v) => { if (!wipeBusy) setWipeOpen(v); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Confirm with your PIN</DialogTitle>
+            <DialogDescription>
+              This deletes ALL transactions, agents, banks, distributors and settings on this device. Enter your daily PIN to continue — this cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            type="password"
+            autoFocus
+            placeholder="Daily PIN"
+            value={wipePin}
+            onChange={(e) => setWipePin(e.target.value)}
+            className="text-center text-lg tracking-widest"
+          />
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="ghost" onClick={() => setWipeOpen(false)} disabled={wipeBusy}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={wipeBusy || wipePin.length < 4}
+              onClick={async () => {
+                setWipeBusy(true);
+                try {
+                  const ok = await verifyPin(wipePin);
+                  if (!ok) { toast.error("Incorrect PIN"); return; }
+                  await clearAll();
+                  toast.success("All data cleared");
+                  setWipeOpen(false);
+                  setWipePin("");
+                  location.href = "/unlock";
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Locked");
+                } finally { setWipeBusy(false); }
+              }}
+            >
+              {wipeBusy ? "Verifying…" : "Delete everything"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
