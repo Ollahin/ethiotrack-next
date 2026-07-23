@@ -113,7 +113,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
         </header>
 
-        <main className="flex-1 pb-28 md:pb-8 fade-rise">{children}</main>
+        <main className="flex-1 pb-36 md:pb-8 fade-rise">{children}</main>
 
         {/* Mobile bottom tabs */}
         <nav
