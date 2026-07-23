@@ -133,6 +133,13 @@ export function subscribeUnlock(l: () => void) {
 export function isUnlocked() { return _unlocked; }
 export function lock() { _unlocked = false; emit(); }
 
+/** Mark the app as unlocked without a PIN (e.g. after biometric assertion). */
+export function markUnlocked() {
+  _unlocked = true;
+  emit();
+  clearFailures("user").catch(() => {});
+}
+
 export async function hasPin(): Promise<boolean> {
   return !!(await metaGet<PinRecord>(PIN_META_KEY));
 }
