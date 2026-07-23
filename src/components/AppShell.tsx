@@ -28,7 +28,7 @@ const MORE_TABS = [
   { to: "/distributors", label: "Distributors", icon: Truck },
   { to: "/banks", label: "Banks", icon: Landmark },
   { to: "/reconcile", label: "Reconcile", icon: ScaleIcon },
-  { to: "/close", label: "Close Day", icon: CheckCircle2 },
+  { to: "/close", label: "Close Week", icon: CheckCircle2 },
   { to: "/reports", label: "Reports", icon: FileText },
   { to: "/settings", label: "Settings", icon: Cog },
 ] as const;

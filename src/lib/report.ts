@@ -3,22 +3,26 @@ import { formatEtb } from "./format";
 import type { Agent, Transaction } from "./types";
 import { computeAgentStats } from "./brain/stats";
 
-export function generateWeeklyReport(
+export function generateRangeReport(
   agents: Agent[],
   txns: Transaction[],
+  from: Date,
+  to: Date,
+  title = "EthioTrack — Report",
 ): Blob {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
-  const now = new Date();
-  const weekAgo = new Date(now.getTime() - 7 * 86_400_000);
-  const week = txns.filter((t) => new Date(t.date) >= weekAgo);
+  const range = txns.filter((t) => {
+    const d = new Date(t.date);
+    return d >= from && d <= to && !t.isPersonal;
+  });
   const sum = (t: Transaction[], type: Transaction["type"]) =>
     t.filter((x) => x.type === type).reduce((s, x) => s + x.amountSantim, 0);
 
   let y = 48;
   doc.setFont("helvetica", "bold"); doc.setFontSize(18);
-  doc.text("EthioTrack — Weekly Report", 40, y); y += 20;
+  doc.text(title, 40, y); y += 20;
   doc.setFontSize(10); doc.setFont("helvetica", "normal");
-  doc.text(`${weekAgo.toISOString().slice(0,10)} → ${now.toISOString().slice(0,10)}`, 40, y);
+  doc.text(`${from.toISOString().slice(0,10)} → ${to.toISOString().slice(0,10)}`, 40, y);
   y += 24;
 
   doc.setFont("helvetica", "bold"); doc.text("Summary", 40, y); y += 16;
@@ -26,12 +30,12 @@ export function generateWeeklyReport(
   const line = (k: string, v: string) => {
     doc.text(k, 40, y); doc.text(v, 320, y, { align: "right" }); y += 14;
   };
-  line("Airtime distributed — EVD", formatEtb(sum(week, "airtime_evd")));
-  line("Airtime distributed — Float", formatEtb(sum(week, "airtime_float")));
-  line("Cash collected (Money In)", formatEtb(sum(week, "in")));
-  line("Cash paid (Money Out)", formatEtb(sum(week, "out")));
-  line("Expenses", formatEtb(sum(week, "expense")));
-  const net = sum(week, "in") - sum(week, "out") - sum(week, "expense");
+  line("Airtime distributed — EVD", formatEtb(sum(range, "airtime_evd")));
+  line("Airtime distributed — Float", formatEtb(sum(range, "airtime_float")));
+  line("Cash collected (Money In)", formatEtb(sum(range, "in")));
+  line("Cash paid (Money Out)", formatEtb(sum(range, "out")));
+  line("Expenses", formatEtb(sum(range, "expense")));
+  const net = sum(range, "in") - sum(range, "out") - sum(range, "expense");
   line("Net", formatEtb(net));
   y += 12;
 
@@ -56,4 +60,22 @@ export function generateWeeklyReport(
     }
   }
   return doc.output("blob");
+}
+
+export function generateWeeklyReport(agents: Agent[], txns: Transaction[]): Blob {
+  const to = new Date();
+  const from = new Date(to.getTime() - 7 * 86_400_000);
+  return generateRangeReport(agents, txns, from, to, "EthioTrack — Weekly Report");
+}
+
+export function generateMonthlyReport(
+  agents: Agent[],
+  txns: Transaction[],
+  year: number,
+  month: number, // 1-12
+): Blob {
+  const from = new Date(year, month - 1, 1);
+  const to = new Date(year, month, 0, 23, 59, 59);
+  const monthName = from.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  return generateRangeReport(agents, txns, from, to, `EthioTrack — Monthly Report · ${monthName}`);
 }

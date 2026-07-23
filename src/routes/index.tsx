@@ -1,15 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { DashboardTiles } from "@/components/DashboardTiles";
-import { OpenDayModal } from "@/components/OpenDayModal";
+import { OpenPeriodModal } from "@/components/OpenPeriodModal";
+import { Button } from "@/components/ui/button";
 import {
   useAgents,
-  useDailyClosing,
-  useDailyOpening,
+  usePeriodClosing,
+  usePeriodOpening,
   useTransactions,
+  getWeekStart,
+  getWeekEnd,
 } from "@/lib/db";
 import { computeAgentStats } from "@/lib/brain/stats";
-import { Zap, Users, ShieldAlert, FileText } from "lucide-react";
+import { Zap, Users, ShieldAlert, FileText, Pencil } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -23,29 +26,18 @@ export const Route = createFileRoute("/")({
   component: DashboardPage,
 });
 
-function todayKey() { return new Date().toISOString().slice(0, 10); }
-
 function DashboardPage() {
-  const date = todayKey();
-  const opening = useDailyOpening(date);
-  const closing = useDailyClosing(date);
+  const weekStart = getWeekStart();
+  const weekEnd = getWeekEnd(weekStart);
+  const opening = usePeriodOpening(weekStart);
+  const closing = usePeriodClosing(weekStart);
   const txns = useTransactions();
   const agents = useAgents();
-  const [modalOpen, setModalOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
 
-  useEffect(() => {
-    // Show the modal only after we've confirmed there is no opening today.
-    if (opening === undefined) return; // still loading
-    setModalOpen(opening === null || opening === undefined ? opening === null || opening === undefined : false);
-    // opening will be `undefined` while loading, `undefined` again if none; we
-    // detect "none" by waiting one microtask; simpler: rely on the effect
-    // running after live-query settles.
-  }, [opening]);
-
-  // A cleaner rule: if the live query has run (opening is not the initial
-  // undefined), and there's still no record, open the modal.
-  const noOpening = opening === undefined ? false : !opening;
-  useEffect(() => { setModalOpen(noOpening); }, [noOpening]);
+  const loading = opening === undefined;
+  const needsOpen = opening === null;
+  const modalOpen = needsOpen || manualOpen;
 
   const openCredit = useMemo(() => {
     return agents.reduce((sum, a) => sum + computeAgentStats(a, txns).openCreditSantim, 0);
@@ -55,9 +47,19 @@ function DashboardPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-4">
-      <div>
-        <h1 className="text-xl md:text-2xl font-bold">Dashboard</h1>
-        <p className="text-sm text-ink-soft">Local ledger for Ethiopian telecom subdistributors.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold">Dashboard</h1>
+          <p className="text-sm text-ink-soft">
+            Week of <span className="font-medium text-foreground">{weekStart} → {weekEnd}</span>
+            {closing ? " · closed" : opening ? " · open" : ""}
+          </p>
+        </div>
+        {opening && !closing && (
+          <Button variant="outline" size="sm" onClick={() => setManualOpen(true)}>
+            <Pencil className="h-3.5 w-3.5 mr-1" /> Adjust opening
+          </Button>
+        )}
       </div>
       <DashboardTiles txns={txns} openCredit={openCredit} cashVariance={cashVariance} />
 
@@ -66,7 +68,7 @@ function DashboardPage() {
           { to: "/capture", label: "Quick capture", desc: "Paste SMS or drop a PDF", icon: Zap },
           { to: "/agents", label: "Agent Book", desc: "Balances & credit", icon: Users },
           { to: "/alerts", label: "Brain alerts", desc: "Risks & anomalies", icon: ShieldAlert },
-          { to: "/reports", label: "Reports", desc: "Weekly PDF", icon: FileText },
+          { to: "/reports", label: "Reports", desc: "Weekly & monthly PDF", icon: FileText },
         ].map((q) => (
           <Link
             key={q.to}
@@ -80,7 +82,15 @@ function DashboardPage() {
         ))}
       </div>
 
-      <OpenDayModal date={date} open={modalOpen} onOpened={() => setModalOpen(false)} />
+      {!loading && (
+        <OpenPeriodModal
+          weekStart={weekStart}
+          open={modalOpen}
+          existing={manualOpen ? opening ?? null : null}
+          onOpened={() => setManualOpen(false)}
+          onCancel={() => setManualOpen(false)}
+        />
+      )}
     </div>
   );
 }
