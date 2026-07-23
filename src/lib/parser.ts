@@ -315,7 +315,7 @@ const RULES: Array<{
     // Capture the preposition itself so direction comes from the SAME match,
     // never from a second loose scan of the whole line.
     // Party stops before " on ", " Ref", punctuation, or end of line.
-    test: /(?:ETB|Br\.?)\s*([\d,]+(?:\.\d+)?)\s*(to|from)\s+([A-Za-z0-9.'-][A-Za-z0-9 .'-]*?)(?=\s+(?:on|Ref|Txn|TrxID)\b|[.,;\n]|$)/i,
+    test: /(?:ETB|Birr|Br\.?)\s*([\d,]+(?:\.\d+)?)\s*(to|from)\s+([A-Za-z0-9.'-][A-Za-z0-9 .'-]*?)(?=\s+(?:on|Ref|Txn|TrxID)\b|[.,;\n]|$)/i,
     parse: (m) => ({
       type: m[2].toLowerCase() === "from" ? "in" : "out",
       amountSantim: toSantim(m[1]),
@@ -327,7 +327,7 @@ const RULES: Array<{
   // conclusive is found do we flag for review (no silent "out" default).
   {
     channel: "Other",
-    test: /(?:ETB|Br\.?)\s*([\d,]+(?:\.\d+)?)/i,
+    test: /(?:ETB|Birr|Br\.?)\s*([\d,]+(?:\.\d+)?)/i,
     parse: (m, raw) => {
       const t = raw.toLowerCase();
       const inWords = /\b(received|credited|deposit(?:ed)?|refund(?:ed)?|incoming|transferred to your|added to your)\b/;
