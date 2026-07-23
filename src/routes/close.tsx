@@ -108,15 +108,15 @@ function ClosePage() {
           if (variance !== 0 && !notes.trim()) return toast.error("Explain the variance");
           await closePeriod({ weekStart, openingId: opening.id, actualCashSantim: actualSantim, varianceSantim: variance, notes });
           toast.success("Week closed — downloading weekly report");
-          const blob = generateRangeReport(agents, txns, new Date(weekStart), new Date(weekEnd + "T23:59:59"), `EthioTrack — Weekly Report`);
+          const blob = await generateRangeReport(agents, txns, new Date(weekStart), new Date(weekEnd + "T23:59:59"), `EthioTrack — Weekly Report`);
           triggerDownload(blob, `ethiotrack-week-${weekStart}.pdf`);
         }}>Close week</Button>
       </div>
     </div>
   );
 
-  function downloadWeekly(ws: string, we: string) {
-    const blob = generateRangeReport(agents, txns, new Date(ws), new Date(we + "T23:59:59"), `EthioTrack — Weekly Report`);
+  async function downloadWeekly(ws: string, we: string) {
+    const blob = await generateRangeReport(agents, txns, new Date(ws), new Date(we + "T23:59:59"), `EthioTrack — Weekly Report`);
     triggerDownload(blob, `ethiotrack-week-${ws}.pdf`);
   }
 }
