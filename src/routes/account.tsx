@@ -8,6 +8,13 @@ import { LicenseExpiryBanner } from "@/components/LicenseExpiryBanner";
 import { changeMasterPin, changePin, clearPin, renewLicense } from "@/lib/crypto";
 import { clearAll } from "@/lib/db";
 import { getUserProfile, setUserProfile, useUserName, type UserProfile } from "@/lib/user";
+import {
+  disableBiometric,
+  enrollBiometric,
+  isBiometricEnabled,
+  isBiometricSupported,
+  isPlatformAuthenticatorAvailable,
+} from "@/lib/biometric";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/account")({
@@ -30,6 +37,9 @@ function AccountPage() {
   const [oldMaster, setOldMaster] = useState("");
   const [newMaster, setNewMaster] = useState("");
   const [renewPin, setRenewPin] = useState("");
+  const [bioEnabled, setBioEnabled] = useState(false);
+  const [bioSupported, setBioSupported] = useState(false);
+  const [bioBusy, setBioBusy] = useState(false);
 
   useEffect(() => {
     getUserProfile().then((p) => {
@@ -41,6 +51,20 @@ function AccountPage() {
         role: p.role ?? "",
       });
     });
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const [enabled, platform] = await Promise.all([
+        isBiometricEnabled(),
+        isPlatformAuthenticatorAvailable(),
+      ]);
+      if (!alive) return;
+      setBioEnabled(enabled);
+      setBioSupported(isBiometricSupported() && platform);
+    })();
+    return () => { alive = false; };
   }, []);
 
   function update<K extends keyof UserProfile>(key: K, value: string) {
@@ -137,6 +161,46 @@ function AccountPage() {
             Renew
           </Button>
         </div>
+      </Card>
+
+      <Card title="Biometric unlock" desc="Use Face ID, Touch ID, or fingerprint instead of typing your daily PIN. PIN still works as fallback.">
+        {!bioSupported ? (
+          <p className="text-xs text-ink-soft">This device or browser doesn't support biometric unlock.</p>
+        ) : bioEnabled ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600">Enabled</span>
+            <Button
+              variant="outline"
+              disabled={bioBusy}
+              onClick={async () => {
+                setBioBusy(true);
+                try {
+                  await disableBiometric();
+                  setBioEnabled(false);
+                  toast.success("Biometric unlock disabled");
+                } finally { setBioBusy(false); }
+              }}
+            >
+              Disable biometrics
+            </Button>
+          </div>
+        ) : (
+          <Button
+            disabled={bioBusy}
+            onClick={async () => {
+              setBioBusy(true);
+              try {
+                await enrollBiometric(profile.name || currentName || "EthioTrack");
+                setBioEnabled(true);
+                toast.success("Biometric unlock enabled");
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Enrollment failed");
+              } finally { setBioBusy(false); }
+            }}
+          >
+            {bioBusy ? "Waiting for biometrics…" : "Enable biometric unlock"}
+          </Button>
+        )}
       </Card>
 
       <Card title="Change master PIN" desc="Owner-only. Requires the current master PIN.">

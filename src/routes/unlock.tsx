@@ -9,6 +9,7 @@ import {
   hasPin,
   isLicenseActive,
   isUnlocked,
+  markUnlocked,
   renewLicense,
   setPin,
   setupMasterPin,
@@ -16,11 +17,12 @@ import {
   type LockoutStatus,
   verifyPin,
 } from "@/lib/crypto";
-import { KeyRound, Lock, ShieldCheck, Timer } from "lucide-react";
+import { Fingerprint, KeyRound, Lock, ShieldCheck, Timer } from "lucide-react";
 import { toast } from "sonner";
 import { LicenseStatus } from "@/components/LicenseStatus";
 import { LicenseExpiryBanner } from "@/components/LicenseExpiryBanner";
 import { setUserName } from "@/lib/user";
+import { assertBiometric, isBiometricEnabled } from "@/lib/biometric";
 
 export const Route = createFileRoute("/unlock")({
   head: () => ({
@@ -44,6 +46,29 @@ function UnlockPage() {
   const [busy, setBusy] = useState(false);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [lockout, setLockout] = useState<LockoutStatus | null>(null);
+  const [bioReady, setBioReady] = useState(false);
+  const [bioBusy, setBioBusy] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    isBiometricEnabled().then((v) => { if (alive) setBioReady(v); });
+    return () => { alive = false; };
+  }, [mode]);
+
+  async function tryBiometric() {
+    setBioBusy(true);
+    try {
+      const ok = await assertBiometric();
+      if (ok) {
+        markUnlocked();
+        nav({ to: "/" });
+      } else {
+        toast.error("Biometric unlock failed");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Biometric unlock failed");
+    } finally { setBioBusy(false); }
+  }
 
   const lockoutKind = mode === "unlock" ? "user" : (mode === "renew" ? "master" : null);
 
@@ -211,6 +236,18 @@ function UnlockPage() {
             ? `Locked · ${Math.ceil(lockout.msRemaining / 1000)}s`
             : copy.cta}
         </Button>
+        {mode === "unlock" && bioReady && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={tryBiometric}
+            disabled={bioBusy || !!lockout?.locked}
+            className="w-full bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white"
+          >
+            <Fingerprint className="h-4 w-4 mr-2" />
+            {bioBusy ? "Waiting for biometrics…" : "Use biometrics"}
+          </Button>
+        )}
         {lockout && !lockout.locked && lockout.failures > 0 && (
           <p className="text-[11px] text-amber-300/80 text-center">
             {lockout.attemptsLeft} attempt{lockout.attemptsLeft === 1 ? "" : "s"} left before temporary lockout.
