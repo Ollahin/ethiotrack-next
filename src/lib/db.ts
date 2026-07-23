@@ -328,37 +328,43 @@ export interface Backup {
   banks: Bank[];
   dailyOpenings: DailyOpening[];
   dailyClosings: DailyClosing[];
+  periodOpenings?: PeriodOpening[];
+  periodClosings?: PeriodClosing[];
   transactions: Transaction[];
   statementImports: StatementImport[];
 }
 
 export async function exportBackup(): Promise<Backup> {
   const d = db();
-  const [agents, distributors, banks, dailyOpenings, dailyClosings, transactions, statementImports] =
+  const [agents, distributors, banks, dailyOpenings, dailyClosings, periodOpenings, periodClosings, transactions, statementImports] =
     await Promise.all([
       d.agents.toArray(),
       d.distributors.toArray(),
       d.banks.toArray(),
       d.dailyOpenings.toArray(),
       d.dailyClosings.toArray(),
+      d.periodOpenings.toArray(),
+      d.periodClosings.toArray(),
       d.transactions.toArray(),
       d.statementImports.toArray(),
     ]);
   return {
     version: 2,
     exportedAt: new Date().toISOString(),
-    agents, distributors, banks, dailyOpenings, dailyClosings, transactions, statementImports,
+    agents, distributors, banks, dailyOpenings, dailyClosings, periodOpenings, periodClosings, transactions, statementImports,
   };
 }
 
 export async function importBackup(b: Backup): Promise<void> {
   const d = db();
-  await d.transaction("rw", [d.agents, d.distributors, d.banks, d.dailyOpenings, d.dailyClosings, d.transactions, d.statementImports], async () => {
+  await d.transaction("rw", [d.agents, d.distributors, d.banks, d.dailyOpenings, d.dailyClosings, d.periodOpenings, d.periodClosings, d.transactions, d.statementImports], async () => {
     if (b.agents) await d.agents.bulkPut(b.agents);
     if (b.distributors) await d.distributors.bulkPut(b.distributors);
     if (b.banks) await d.banks.bulkPut(b.banks);
     if (b.dailyOpenings) await d.dailyOpenings.bulkPut(b.dailyOpenings);
     if (b.dailyClosings) await d.dailyClosings.bulkPut(b.dailyClosings);
+    if (b.periodOpenings) await d.periodOpenings.bulkPut(b.periodOpenings);
+    if (b.periodClosings) await d.periodClosings.bulkPut(b.periodClosings);
     if (b.transactions) await d.transactions.bulkPut(b.transactions);
     if (b.statementImports) await d.statementImports.bulkPut(b.statementImports);
   });
@@ -366,13 +372,15 @@ export async function importBackup(b: Backup): Promise<void> {
 
 export async function clearAll(): Promise<void> {
   const d = db();
-  await d.transaction("rw", [d.agents, d.distributors, d.banks, d.dailyOpenings, d.dailyClosings, d.transactions, d.statementImports, d.meta], async () => {
+  await d.transaction("rw", [d.agents, d.distributors, d.banks, d.dailyOpenings, d.dailyClosings, d.periodOpenings, d.periodClosings, d.transactions, d.statementImports, d.meta], async () => {
     await Promise.all([
       d.agents.clear(),
       d.distributors.clear(),
       d.banks.clear(),
       d.dailyOpenings.clear(),
       d.dailyClosings.clear(),
+      d.periodOpenings.clear(),
+      d.periodClosings.clear(),
       d.transactions.clear(),
       d.statementImports.clear(),
       // keep meta so PIN stays; caller decides
