@@ -8,13 +8,6 @@ import { LicenseExpiryBanner } from "@/components/LicenseExpiryBanner";
 import { changeMasterPin, changePin, clearPin, renewLicense } from "@/lib/crypto";
 import { clearAll } from "@/lib/db";
 import { getUserProfile, setUserProfile, useUserName, type UserProfile } from "@/lib/user";
-import {
-  disableBiometric,
-  enrollBiometric,
-  isBiometricEnabled,
-  isBiometricSupported,
-  isPlatformAuthenticatorAvailable,
-} from "@/lib/biometric";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/account")({
@@ -37,9 +30,6 @@ function AccountPage() {
   const [oldMaster, setOldMaster] = useState("");
   const [newMaster, setNewMaster] = useState("");
   const [renewPin, setRenewPin] = useState("");
-  const [bioEnabled, setBioEnabled] = useState(false);
-  const [bioSupported, setBioSupported] = useState(false);
-  const [bioBusy, setBioBusy] = useState(false);
 
   useEffect(() => {
     getUserProfile().then((p) => {
@@ -51,20 +41,6 @@ function AccountPage() {
         role: p.role ?? "",
       });
     });
-  }, []);
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      const [enabled, platform] = await Promise.all([
-        isBiometricEnabled(),
-        isPlatformAuthenticatorAvailable(),
-      ]);
-      if (!alive) return;
-      setBioEnabled(enabled);
-      setBioSupported(isBiometricSupported() && platform);
-    })();
-    return () => { alive = false; };
   }, []);
 
   function update<K extends keyof UserProfile>(key: K, value: string) {
