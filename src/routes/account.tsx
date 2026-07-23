@@ -163,10 +163,6 @@ function AccountPage() {
         </div>
       </Card>
 
-      <Card title="Change master PIN" desc="Owner-only. Requires the current master PIN.">
-        <></>
-      </Card>
-
       <Card title="Biometric unlock" desc="Use Face ID, Touch ID, or fingerprint instead of typing your daily PIN. PIN still works as fallback.">
         {!bioSupported ? (
           <p className="text-xs text-ink-soft">This device or browser doesn't support biometric unlock.</p>
@@ -207,7 +203,7 @@ function AccountPage() {
         )}
       </Card>
 
-      <Card title="Change master PIN (owner)" desc="Owner-only. Requires the current master PIN.">
+      <Card title="Change master PIN" desc="Owner-only. Requires the current master PIN.">
         <div className="grid grid-cols-2 gap-3">
           <div><Label>Current master PIN</Label><Input type="password" value={oldMaster} onChange={(e) => setOldMaster(e.target.value)} /></div>
           <div><Label>New master PIN</Label><Input type="password" value={newMaster} onChange={(e) => setNewMaster(e.target.value)} /></div>
