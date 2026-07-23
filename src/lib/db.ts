@@ -80,6 +80,34 @@ class EthioTrackDB extends Dexie {
             migratePeriodOpeningShape(rec, bankIds, distIds);
           });
       });
+    // v4: distributors now carry telecom + airtime form tags.
+    this.version(4)
+      .stores({
+        agents: "id, name, phone",
+        distributors: "id, name",
+        banks: "id, name, channel",
+        dailyOpenings: "id, date",
+        dailyClosings: "id, date, openingId",
+        periodOpenings: "id, weekStart",
+        periodClosings: "id, weekStart, openingId",
+        transactions:
+          "id, date, type, partyId, channel, isSettled, isPersonal, statementImportId",
+        statementImports: "id, distributorId, importedAt",
+        meta: "key",
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table("distributors")
+          .toCollection()
+          .modify((rec: Distributor) => {
+            if (!rec.telecoms || rec.telecoms.length === 0) {
+              rec.telecoms = ["ethiotelecom", "safaricom"];
+            }
+            if (!rec.forms || rec.forms.length === 0) {
+              rec.forms = ["evd", "float"];
+            }
+          });
+      });
   }
 }
 
