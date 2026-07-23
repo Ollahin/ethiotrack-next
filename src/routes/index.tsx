@@ -75,10 +75,10 @@ function DashboardPage() {
         />
         <div className="relative flex items-start justify-between gap-3">
           <div>
-            <div className="text-xs uppercase tracking-wider text-white/70 font-semibold">
+            <div className="text-xs uppercase tracking-wider text-white/85 font-semibold">
               This week
             </div>
-            <div className="mt-1 text-sm text-white/80">
+            <div className="mt-1 text-sm text-white/90">
               {weekStart} → {weekEnd}
             </div>
           </div>
@@ -94,7 +94,7 @@ function DashboardPage() {
           <div className="text-4xl md:text-5xl font-bold tabular-nums tracking-tight">
             {formatEtb(weekNet)}
           </div>
-          <div className="text-xs text-white/70 mt-1">Net cash flow this week</div>
+          <div className="text-xs text-white/85 mt-1">Net cash flow this week</div>
         </div>
         {opening && !closing && (
           <div className="relative mt-5 flex items-center gap-2">
@@ -129,7 +129,7 @@ function DashboardPage() {
           <Link
             key={q.to}
             to={q.to}
-            className="flex flex-col items-center gap-2 group"
+            className="flex flex-col items-center gap-2 group rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             <span className="grid place-items-center h-14 w-14 rounded-full bg-card border border-border/60 text-foreground group-hover:border-primary/60 group-hover:text-primary transition-colors">
               <q.icon className="h-5 w-5" />

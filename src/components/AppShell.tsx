@@ -66,7 +66,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={t.to}
                 to={t.to}
                 className={
-                  "relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors " +
+                  "relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
                   (active
                     ? "bg-primary text-primary-foreground shadow-[var(--shadow-glow)]"
                     : "text-muted-foreground hover:bg-card hover:text-foreground")
@@ -80,7 +80,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
         <button
           onClick={() => { lock(); location.href = "/unlock"; }}
-          className="mx-3 mb-3 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-muted-foreground hover:bg-card hover:text-foreground"
+          className="mx-3 mb-3 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-muted-foreground hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Lock className="h-3.5 w-3.5" /> Lock
         </button>
@@ -106,7 +106,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <Link
             to="/settings"
-            className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-card border border-border/60 text-foreground"
+            className="inline-flex items-center justify-center h-11 w-11 rounded-full bg-card border border-border/60 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Settings"
           >
             <Cog className="h-4 w-4" />
@@ -127,7 +127,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={t.to}
                 to={t.to}
                 className={
-                  "flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-semibold transition-colors " +
+                  "flex flex-col items-center justify-center gap-1 py-3 min-h-[52px] text-[10px] font-semibold transition-colors rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
                   (active ? "text-primary" : "text-muted-foreground hover:text-foreground")
                 }
               >
