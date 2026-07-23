@@ -28,7 +28,7 @@ describe("parseOne", () => {
   it("parses Telebirr airtime", () => {
     const r = parseOne("Telebirr: Airtime purchase ETB 100.00 successful.");
     expect(r.ok).toBe(true);
-    expect(r.type).toBe("airtime");
+    expect(r.type).toBe("airtime_evd");
     expect(r.amountSantim).toBe(10000);
   });
 
