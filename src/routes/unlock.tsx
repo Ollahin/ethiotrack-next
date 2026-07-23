@@ -236,6 +236,18 @@ function UnlockPage() {
             ? `Locked · ${Math.ceil(lockout.msRemaining / 1000)}s`
             : copy.cta}
         </Button>
+        {mode === "unlock" && bioReady && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={tryBiometric}
+            disabled={bioBusy || !!lockout?.locked}
+            className="w-full bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white"
+          >
+            <Fingerprint className="h-4 w-4 mr-2" />
+            {bioBusy ? "Waiting for biometrics…" : "Use biometrics"}
+          </Button>
+        )}
         {lockout && !lockout.locked && lockout.failures > 0 && (
           <p className="text-[11px] text-amber-300/80 text-center">
             {lockout.attemptsLeft} attempt{lockout.attemptsLeft === 1 ? "" : "s"} left before temporary lockout.
