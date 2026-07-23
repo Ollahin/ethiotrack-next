@@ -92,16 +92,16 @@ function ReportsPage() {
     return { byTelecom, byForm, matrix, untagged, count, total };
   }, [txns, distributors, summaryRange, weekStart, weekEnd]);
 
-  function downloadCurrentWeek() {
-    const blob = generateRangeReport(agents, txns, new Date(weekStart), new Date(weekEnd + "T23:59:59"), "EthioTrack — Weekly Report");
+  async function downloadCurrentWeek() {
+    const blob = await generateRangeReport(agents, txns, new Date(weekStart), new Date(weekEnd + "T23:59:59"), "EthioTrack — Weekly Report");
     trigger(blob, `ethiotrack-week-${weekStart}.pdf`);
   }
-  function downloadMonth() {
-    const blob = generateMonthlyReport(agents, txns, year, month);
+  async function downloadMonth() {
+    const blob = await generateMonthlyReport(agents, txns, year, month);
     trigger(blob, `ethiotrack-month-${year}-${String(month).padStart(2, "0")}.pdf`);
   }
-  function downloadPastWeek(ws: string, we: string) {
-    const blob = generateRangeReport(agents, txns, new Date(ws), new Date(we + "T23:59:59"), "EthioTrack — Weekly Report");
+  async function downloadPastWeek(ws: string, we: string) {
+    const blob = await generateRangeReport(agents, txns, new Date(ws), new Date(we + "T23:59:59"), "EthioTrack — Weekly Report");
     trigger(blob, `ethiotrack-week-${ws}.pdf`);
   }
 
