@@ -13,11 +13,14 @@ import {
   ScaleIcon,
   CheckCircle2,
   MoreHorizontal,
+  UserCog,
+  Download,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { lock } from "@/lib/crypto";
 import { ensurePeriodOpeningsMigrated, purgeExpiredRecords, useBanks, useDistributors } from "@/lib/db";
 import { GlobalSearchHotkey, GlobalSearchIconButton } from "@/components/GlobalSearch";
+import { firstName, useUserName } from "@/lib/user";
 import {
   Sheet,
   SheetContent,
@@ -40,6 +43,8 @@ const MORE_TABS = [
   { to: "/reconcile", label: "Reconcile", icon: ScaleIcon },
   { to: "/close", label: "Close Week", icon: CheckCircle2 },
   { to: "/reports", label: "Reports", icon: FileText },
+  { to: "/account", label: "Account", icon: UserCog },
+  { to: "/exports", label: "Exports", icon: Download },
   { to: "/settings", label: "Settings", icon: Cog },
 ] as const;
 
@@ -55,6 +60,8 @@ function todayLabel() {
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [moreOpen, setMoreOpen] = useState(false);
+  const userName = useUserName();
+  const first = firstName(userName);
   useEffect(() => { setMoreOpen(false); }, [pathname]);
   // Backfill legacy period openings whenever banks/distributors change,
   // so aggregate stock totals get split across current distributors
@@ -124,10 +131,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="md:hidden px-4 pt-5 pb-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-primary/50 grid place-items-center text-primary-foreground font-bold text-sm">
-              ET
+              {first ? first[0].toUpperCase() : "ET"}
             </div>
             <div>
-              <div className="text-[11px] text-muted-foreground leading-tight">Welcome back,</div>
+              <div className="text-[11px] text-muted-foreground leading-tight">
+                {first ? `Welcome back, ${first}` : "Welcome back,"}
+              </div>
               <div className="text-base font-semibold tracking-tight leading-tight text-foreground">
               Ethio<span className="text-primary">Track</span>
             </div>
@@ -136,11 +145,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-2">
             <GlobalSearchIconButton />
             <Link
-              to="/settings"
+              to="/account"
               className="inline-flex items-center justify-center h-11 w-11 rounded-full bg-card border border-border/60 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label="Settings"
+              aria-label="Account"
             >
-              <Cog className="h-4 w-4" />
+              <UserCog className="h-4 w-4" />
             </Link>
           </div>
         </header>

@@ -46,7 +46,9 @@ const PAGES: {
   { to: "/reconcile", label: "Reconcile", hint: "Expected vs actual balances", icon: Scale },
   { to: "/close", label: "Close week", hint: "End-of-week reconciliation", icon: CalendarCheck },
   { to: "/reports", label: "Reports", hint: "Export & analytics", icon: FileText },
-  { to: "/settings", label: "Settings", hint: "License, backup, PIN", icon: SettingsIcon },
+  { to: "/account", label: "Account", hint: "Name, license, PIN, master PIN", icon: SettingsIcon },
+  { to: "/exports", label: "Exports & backups", hint: "JSON / CSV download and restore", icon: SettingsIcon },
+  { to: "/settings", label: "Settings", hint: "Account & exports hub", icon: SettingsIcon },
 ];
 
 function useGlobalHotkey(onOpen: () => void) {
