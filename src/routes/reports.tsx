@@ -28,6 +28,7 @@ function ReportsPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+  const [summaryRange, setSummaryRange] = useState<"week" | "month" | "active">("week");
 
   const weekStart = getWeekStart();
   const weekEnd = getWeekEnd(weekStart);
@@ -44,6 +45,52 @@ function ReportsPage() {
 
   const TELECOMS: Telecom[] = ["ethiotelecom", "safaricom"];
   const FORMS: AirtimeForm[] = ["evd", "float"];
+
+  const summary = useMemo(() => {
+    let from = 0;
+    let to = Date.now();
+    if (summaryRange === "week") {
+      from = new Date(weekStart).getTime();
+      to = new Date(weekEnd + "T23:59:59").getTime();
+    } else if (summaryRange === "month") {
+      const d = new Date();
+      from = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+      to = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59).getTime();
+    }
+    const scoped = txns.filter((t) => {
+      if (t.isPersonal) return false;
+      if (t.type !== "airtime_evd" && t.type !== "airtime_float") return false;
+      const ts = new Date(t.date).getTime();
+      return ts >= from && ts <= to;
+    });
+    const distMap = new Map(distributors.map((d) => [d.id, d]));
+    const byTelecom: Record<Telecom, number> = { ethiotelecom: 0, safaricom: 0 };
+    const byForm: Record<AirtimeForm, number> = { evd: 0, float: 0 };
+    const matrix: Record<`${Telecom}:${AirtimeForm}`, number> = {
+      "ethiotelecom:evd": 0, "ethiotelecom:float": 0,
+      "safaricom:evd": 0, "safaricom:float": 0,
+    };
+    let untagged = 0;
+    let count = 0;
+    let total = 0;
+    for (const t of scoped) {
+      count++;
+      total += t.amountSantim;
+      const form: AirtimeForm = t.type === "airtime_evd" ? "evd" : "float";
+      byForm[form] += t.amountSantim;
+      const d = t.distributorId ? distMap.get(t.distributorId) : undefined;
+      const telecoms = d?.telecoms;
+      if (!telecoms || !telecoms.length) { untagged += t.amountSantim; continue; }
+      const share = Math.floor(t.amountSantim / telecoms.length);
+      const remainder = t.amountSantim - share * telecoms.length;
+      telecoms.forEach((tel, i) => {
+        const portion = share + (i === 0 ? remainder : 0);
+        byTelecom[tel] += portion;
+        matrix[`${tel}:${form}` as `${Telecom}:${AirtimeForm}`] += portion;
+      });
+    }
+    return { byTelecom, byForm, matrix, untagged, count, total };
+  }, [txns, distributors, summaryRange, weekStart, weekEnd]);
 
   function downloadCurrentWeek() {
     const blob = generateRangeReport(agents, txns, new Date(weekStart), new Date(weekEnd + "T23:59:59"), "EthioTrack — Weekly Report");
@@ -164,6 +211,89 @@ function ReportsPage() {
             Add telecom / form tags on Distributors to include them.
           </div>
         )}
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 mb-1">
+          <FileText className="h-5 w-5 text-primary" />
+          <div className="font-semibold flex-1">Airtime summary — by telecom & form</div>
+          <div className="inline-flex rounded-md border border-border overflow-hidden text-xs">
+            {(["week", "month", "active"] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => setSummaryRange(r)}
+                className={`px-2.5 py-1 ${summaryRange === r ? "bg-primary text-primary-foreground" : "bg-background text-ink-soft"}`}
+              >
+                {r === "week" ? "This week" : r === "month" ? "This month" : "Active (90d)"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="text-xs text-ink-soft mb-3">
+          Airtime distributed to agents, rolled up by telecom company and airtime form.
+          {summary.untagged > 0 && ` · ${formatEtb(summary.untagged)} untagged (distributor missing telecom).`}
+        </p>
+
+        <div className="grid md:grid-cols-2 gap-3">
+          <div className="rounded-lg border border-border p-3">
+            <div className="text-xs uppercase tracking-wide text-ink-soft mb-2">By telecom</div>
+            <ul className="divide-y divide-border text-sm">
+              {TELECOMS.map((t) => (
+                <li key={t} className="py-1.5 flex justify-between">
+                  <span>{TELECOM_LABEL[t]}</span>
+                  <span className="font-medium">{formatEtb(summary.byTelecom[t])}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-lg border border-border p-3">
+            <div className="text-xs uppercase tracking-wide text-ink-soft mb-2">By form</div>
+            <ul className="divide-y divide-border text-sm">
+              {FORMS.map((f) => (
+                <li key={f} className="py-1.5 flex justify-between">
+                  <span>{AIRTIME_FORM_LABEL[f]}</span>
+                  <span className="font-medium">{formatEtb(summary.byForm[f])}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-xs text-ink-soft">
+              <tr>
+                <th className="text-left py-1.5 pr-3">Telecom \ Form</th>
+                {FORMS.map((f) => (
+                  <th key={f} className="text-right py-1.5 pr-3">{AIRTIME_FORM_LABEL[f]}</th>
+                ))}
+                <th className="text-right py-1.5">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {TELECOMS.map((t) => {
+                const rowTotal = FORMS.reduce((s, f) => s + summary.matrix[`${t}:${f}`], 0);
+                return (
+                  <tr key={t}>
+                    <td className="py-1.5 pr-3">{TELECOM_LABEL[t]}</td>
+                    {FORMS.map((f) => (
+                      <td key={f} className="py-1.5 pr-3 text-right">{formatEtb(summary.matrix[`${t}:${f}`])}</td>
+                    ))}
+                    <td className="py-1.5 text-right font-medium">{formatEtb(rowTotal)}</td>
+                  </tr>
+                );
+              })}
+              <tr className="font-medium">
+                <td className="py-1.5 pr-3">Total</td>
+                {FORMS.map((f) => (
+                  <td key={f} className="py-1.5 pr-3 text-right">{formatEtb(summary.byForm[f])}</td>
+                ))}
+                <td className="py-1.5 text-right">{formatEtb(summary.total)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-2 text-xs text-ink-soft">{summary.count} airtime transaction(s) in range.</div>
       </div>
     </div>
   );
