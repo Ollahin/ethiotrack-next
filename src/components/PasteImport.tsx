@@ -50,7 +50,8 @@ function isGenericParty(name: string | undefined): boolean {
 
 function suggestBankName(channel: string, accountTail?: string): string {
   if (accountTail) return `${channel} ···${accountTail}`;
-  return channel === "Telebirr" || channel === "M-Pesa"
+  const wallets = ["Telebirr", "M-Pesa", "CoopPay", "eBirr"];
+  return wallets.includes(channel)
     ? `${channel} wallet`
     : `${channel} account`;
 }
