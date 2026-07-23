@@ -8,8 +8,7 @@ import {
 } from "@/components/ui/select";
 import { addTransaction, useAgents, useBanks, useDistributors } from "@/lib/db";
 import { parseEtbToSantim } from "@/lib/format";
-import { CHANNELS, TYPE_LABEL, type PartyType, type TxnType } from "@/lib/types";
-import { TELECOM_LABEL, type Telecom } from "@/lib/types";
+import { CHANNELS, TELECOM_LABEL, TYPE_LABEL, type PartyType, type Telecom, type TxnType } from "@/lib/types";
 import { toast } from "sonner";
 
 const TYPES: TxnType[] = ["in", "out", "airtime_evd", "airtime_float", "expense", "personal"];
