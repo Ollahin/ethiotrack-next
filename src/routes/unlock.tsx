@@ -15,6 +15,7 @@ import {
 } from "@/lib/crypto";
 import { KeyRound, Lock, ShieldCheck, Timer } from "lucide-react";
 import { toast } from "sonner";
+import { LicenseStatus } from "@/components/LicenseStatus";
 
 export const Route = createFileRoute("/unlock")({
   head: () => ({
@@ -163,6 +164,9 @@ function UnlockPage() {
         <Button type="submit" disabled={busy} className="w-full">{copy.cta}</Button>
         {copy.note && (
           <p className="text-[11px] text-white/50 text-center leading-relaxed">{copy.note}</p>
+        )}
+        {mode !== "setup-master" && (
+          <LicenseStatus variant="dark" />
         )}
       </form>
     </div>
