@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { openPeriod, useBanks, useDistributors, getWeekEnd } from "@/lib/db";
+import { openPeriod, useBanks, useDistributors, getWeekEnd, usePreviousPeriodExpected } from "@/lib/db";
 import { formatEtb, parseEtbToSantim } from "@/lib/format";
 import type { PeriodOpening } from "@/lib/types";
 import { toast } from "sonner";
@@ -34,6 +34,7 @@ export function OpenPeriodModal({
 }) {
   const banks = useBanks();
   const distributors = useDistributors();
+  const expected = usePreviousPeriodExpected(weekStart);
   const [cash, setCash] = useState(existing ? (existing.cashOnHandSantim / 100).toString() : "");
   const [bankBal, setBankBal] = useState<Record<string, string>>(() => {
     const o: Record<string, string> = {};
@@ -100,6 +101,67 @@ export function OpenPeriodModal({
 
   const invalid = totals.errors.length > 0;
 
+  /** Small helper: given expected & entered santim, return match state + delta. */
+  function diffState(exp: number | undefined, entered: number) {
+    if (exp === undefined) return { state: "none" as const, delta: 0 };
+    const delta = entered - exp;
+    if (delta === 0) return { state: "match" as const, delta };
+    return { state: "mismatch" as const, delta };
+  }
+
+  const expectedCash = expected?.cashSantim;
+  const expectedBankTotal = expected
+    ? banks.reduce((s, b) => s + (expected.bankBalances[b.id] ?? 0), 0)
+    : undefined;
+  const expectedEvdTotal = expected
+    ? distributors.reduce((s, d) => s + (expected.evdStockByDistributor[d.id] ?? 0), 0)
+    : undefined;
+  const expectedFltTotal = expected
+    ? distributors.reduce((s, d) => s + (expected.floatStockByDistributor[d.id] ?? 0), 0)
+    : undefined;
+  const expectedGrand =
+    expected !== undefined && expected !== null
+      ? (expectedCash ?? 0) + (expectedBankTotal ?? 0) + (expectedEvdTotal ?? 0) + (expectedFltTotal ?? 0)
+      : undefined;
+
+  // Count mismatched fields for the header summary.
+  const mismatchCount = (() => {
+    if (!expected) return 0;
+    let n = 0;
+    if ((expected.cashSantim ?? 0) !== totals.cashSantim) n++;
+    for (const b of banks) {
+      const exp = expected.bankBalances[b.id] ?? 0;
+      if (exp !== (totals.bankParsed[b.id]?.santim ?? 0)) n++;
+    }
+    for (const d of distributors) {
+      const eExp = expected.evdStockByDistributor[d.id] ?? 0;
+      const fExp = expected.floatStockByDistributor[d.id] ?? 0;
+      if (eExp !== (totals.evdParsed[d.id]?.santim ?? 0)) n++;
+      if (fExp !== (totals.fltParsed[d.id]?.santim ?? 0)) n++;
+    }
+    return n;
+  })();
+
+  function autoFillFromExpected() {
+    if (!expected) return;
+    setCash(((expected.cashSantim ?? 0) / 100).toString());
+    setBankBal(() => {
+      const o: Record<string, string> = {};
+      for (const b of banks) o[b.id] = ((expected.bankBalances[b.id] ?? 0) / 100).toString();
+      return o;
+    });
+    setEvdBal(() => {
+      const o: Record<string, string> = {};
+      for (const d of distributors) o[d.id] = ((expected.evdStockByDistributor[d.id] ?? 0) / 100).toString();
+      return o;
+    });
+    setFltBal(() => {
+      const o: Record<string, string> = {};
+      for (const d of distributors) o[d.id] = ((expected.floatStockByDistributor[d.id] ?? 0) / 100).toString();
+      return o;
+    });
+  }
+
   async function save() {
     if (invalid) {
       toast.error(totals.errors[0]);
@@ -139,6 +201,34 @@ export function OpenPeriodModal({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
+          {expected && (
+            <div className="rounded-xl border border-border/60 bg-primary/5 p-3 text-[11px] space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-ink-soft">
+                  Expected carry-forward from week of{" "}
+                  <span className="font-medium text-foreground">{expected.prevWeekStart}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={autoFillFromExpected}
+                  className="text-primary underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                >
+                  Use expected
+                </button>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-soft">Expected weekly total</span>
+                <span className="tabular-nums font-semibold">{formatEtb(expectedGrand ?? 0)}</span>
+              </div>
+              {mismatchCount > 0 ? (
+                <div className="text-destructive">
+                  {mismatchCount} field{mismatchCount === 1 ? "" : "s"} differ from expected.
+                </div>
+              ) : (
+                <div className="text-emerald-600 dark:text-emerald-400">All entries match expected carry-forward.</div>
+              )}
+            </div>
+          )}
           <div>
             <Label>Cash on hand (ETB)</Label>
             <Input
@@ -147,10 +237,25 @@ export function OpenPeriodModal({
               onChange={(e) => setCash(e.target.value)}
               placeholder="0.00"
               aria-invalid={parseAmount(cash).error ? true : undefined}
+              className={
+                expectedCash !== undefined && expectedCash !== totals.cashSantim && !parseAmount(cash).error
+                  ? "border-amber-500/70 focus-visible:ring-amber-500"
+                  : undefined
+              }
             />
             {parseAmount(cash).error && (
               <p className="text-[10px] text-destructive mt-1">{parseAmount(cash).error}</p>
             )}
+            {expectedCash !== undefined && !parseAmount(cash).error && (() => {
+              const d = diffState(expectedCash, totals.cashSantim);
+              if (d.state === "match")
+                return <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1">Matches expected {formatEtb(expectedCash)}.</p>;
+              return (
+                <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                  Expected {formatEtb(expectedCash)} · {d.delta > 0 ? "+" : ""}{formatEtb(d.delta)}
+                </p>
+              );
+            })()}
           </div>
           {banks.length > 0 && (
             <div className="space-y-2">
@@ -158,10 +263,24 @@ export function OpenPeriodModal({
                 <Label className="text-xs uppercase tracking-wide text-ink-soft">Bank / wallet balances</Label>
                 <span className="text-[10px] text-ink-soft tabular-nums">
                   Subtotal <span className="font-semibold text-foreground">{formatEtb(totals.bankTotal)}</span>
+                  {expectedBankTotal !== undefined && (
+                    <span
+                      className={
+                        expectedBankTotal === totals.bankTotal
+                          ? " text-emerald-600 dark:text-emerald-400 ml-1"
+                          : " text-amber-600 dark:text-amber-400 ml-1"
+                      }
+                    >
+                      / exp {formatEtb(expectedBankTotal)}
+                    </span>
+                  )}
                 </span>
               </div>
               {banks.map((b) => {
                 const p = totals.bankParsed[b.id];
+                const exp = expected?.bankBalances[b.id];
+                const d = diffState(exp, p?.santim ?? 0);
+                const mismatch = d.state === "mismatch" && !p?.error;
                 return (
                   <div key={b.id} className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -172,9 +291,21 @@ export function OpenPeriodModal({
                         value={bankBal[b.id] ?? ""}
                         onChange={(e) => setBankBal((s) => ({ ...s, [b.id]: e.target.value }))}
                         aria-invalid={p?.error ? true : undefined}
+                        className={mismatch ? "border-amber-500/70 focus-visible:ring-amber-500" : undefined}
                       />
                     </div>
                     {p?.error && <p className="text-[10px] text-destructive ml-[7.5rem]">{p.error}</p>}
+                    {!p?.error && exp !== undefined && (
+                      d.state === "match" ? (
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 ml-[7.5rem]">
+                          Matches expected {formatEtb(exp)}.
+                        </p>
+                      ) : (
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400 ml-[7.5rem]">
+                          Expected {formatEtb(exp)} · {d.delta > 0 ? "+" : ""}{formatEtb(d.delta)}
+                        </p>
+                      )
+                    )}
                   </div>
                 );
               })}
@@ -186,8 +317,18 @@ export function OpenPeriodModal({
                 <Label className="text-xs uppercase tracking-wide text-ink-soft">Airtime stock by distributor</Label>
                 <span className="text-[10px] text-ink-soft tabular-nums">
                   EVD <span className="font-semibold text-foreground">{formatEtb(totals.evdTotal)}</span>
+                  {expectedEvdTotal !== undefined && (
+                    <span className={expectedEvdTotal === totals.evdTotal ? " text-emerald-600 dark:text-emerald-400" : " text-amber-600 dark:text-amber-400"}>
+                      /exp {formatEtb(expectedEvdTotal)}
+                    </span>
+                  )}
                   {" · "}
                   Float <span className="font-semibold text-foreground">{formatEtb(totals.fltTotal)}</span>
+                  {expectedFltTotal !== undefined && (
+                    <span className={expectedFltTotal === totals.fltTotal ? " text-emerald-600 dark:text-emerald-400" : " text-amber-600 dark:text-amber-400"}>
+                      /exp {formatEtb(expectedFltTotal)}
+                    </span>
+                  )}
                 </span>
               </div>
               <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 text-[10px] uppercase tracking-wide text-ink-soft">
@@ -196,6 +337,12 @@ export function OpenPeriodModal({
               {distributors.map((d) => {
                 const e = totals.evdParsed[d.id];
                 const f = totals.fltParsed[d.id];
+                const eExp = expected?.evdStockByDistributor[d.id];
+                const fExp = expected?.floatStockByDistributor[d.id];
+                const eDiff = diffState(eExp, e?.santim ?? 0);
+                const fDiff = diffState(fExp, f?.santim ?? 0);
+                const eMismatch = eDiff.state === "mismatch" && !e?.error;
+                const fMismatch = fDiff.state === "mismatch" && !f?.error;
                 return (
                   <div key={d.id} className="space-y-1">
                     <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 items-center">
@@ -211,6 +358,7 @@ export function OpenPeriodModal({
                         value={evdBal[d.id] ?? ""}
                         onChange={(ev) => setEvdBal((s) => ({ ...s, [d.id]: ev.target.value }))}
                         aria-invalid={e?.error ? true : undefined}
+                        className={eMismatch ? "border-amber-500/70 focus-visible:ring-amber-500" : undefined}
                       />
                       <Input
                         inputMode="decimal"
@@ -218,10 +366,30 @@ export function OpenPeriodModal({
                         value={fltBal[d.id] ?? ""}
                         onChange={(ev) => setFltBal((s) => ({ ...s, [d.id]: ev.target.value }))}
                         aria-invalid={f?.error ? true : undefined}
+                        className={fMismatch ? "border-amber-500/70 focus-visible:ring-amber-500" : undefined}
                       />
                     </div>
                     {(e?.error || f?.error) && (
                       <p className="text-[10px] text-destructive">{e?.error ?? f?.error}</p>
+                    )}
+                    {!e?.error && !f?.error && (eExp !== undefined || fExp !== undefined) && (
+                      <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 text-[10px] tabular-nums">
+                        <div />
+                        {eExp !== undefined ? (
+                          eDiff.state === "match" ? (
+                            <span className="text-emerald-600 dark:text-emerald-400">exp {formatEtb(eExp)}</span>
+                          ) : (
+                            <span className="text-amber-600 dark:text-amber-400">exp {formatEtb(eExp)} · {eDiff.delta > 0 ? "+" : ""}{formatEtb(eDiff.delta)}</span>
+                          )
+                        ) : <div />}
+                        {fExp !== undefined ? (
+                          fDiff.state === "match" ? (
+                            <span className="text-emerald-600 dark:text-emerald-400">exp {formatEtb(fExp)}</span>
+                          ) : (
+                            <span className="text-amber-600 dark:text-amber-400">exp {formatEtb(fExp)} · {fDiff.delta > 0 ? "+" : ""}{formatEtb(fDiff.delta)}</span>
+                          )
+                        ) : <div />}
+                      </div>
                     )}
                   </div>
                 );
@@ -245,6 +413,22 @@ export function OpenPeriodModal({
               <span className="font-semibold">Weekly opening total</span>
               <span className="tabular-nums font-bold text-primary">{formatEtb(totals.grandTotal)}</span>
             </div>
+            {expectedGrand !== undefined && (
+              <div className="flex justify-between">
+                <span className="text-ink-soft">vs expected {formatEtb(expectedGrand)}</span>
+                <span
+                  className={
+                    "tabular-nums font-semibold " +
+                    (totals.grandTotal === expectedGrand
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-amber-600 dark:text-amber-400")
+                  }
+                >
+                  {totals.grandTotal - expectedGrand > 0 ? "+" : ""}
+                  {formatEtb(totals.grandTotal - expectedGrand)}
+                </span>
+              </div>
+            )}
           </div>
           {invalid && (
             <p className="text-[11px] text-destructive" role="alert">
