@@ -37,6 +37,10 @@ export function TransactionForm() {
   const isAirtime = type === "airtime_evd" || type === "airtime_float";
   const isMoney = type === "in" || type === "out" || type === "expense" || type === "personal";
   const needsBank = isMoney && channel !== "Cash";
+  const airtimeForm = type === "airtime_evd" ? "evd" : type === "airtime_float" ? "float" : null;
+  const eligibleDistributors = airtimeForm
+    ? distributors.filter((d) => (d.forms ?? ["evd", "float"]).includes(airtimeForm))
+    : distributors;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -146,17 +150,20 @@ export function TransactionForm() {
         {isAirtime && (
           <div className="col-span-2">
             <Label>Airtime distributor <span className="text-money-out">*</span></Label>
-            {distributors.length ? (
+            {eligibleDistributors.length ? (
               <Select value={distributorId} onValueChange={setDistributorId}>
                 <SelectTrigger><SelectValue placeholder="Select distributor…" /></SelectTrigger>
                 <SelectContent>
-                  {distributors.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  {eligibleDistributors.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                      {d.telecoms?.length ? ` · ${d.telecoms.map((t) => t === "ethiotelecom" ? "Ethio" : "Safaricom").join("/")}` : ""}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             ) : (
-              <p className="text-xs text-ink-soft">Add a distributor in Distributors to record airtime stock.</p>
+              <p className="text-xs text-ink-soft">No distributors supply {airtimeForm === "evd" ? "EVD" : "Float"} yet. Add one in Distributors.</p>
             )}
           </div>
         )}
