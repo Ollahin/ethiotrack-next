@@ -17,6 +17,7 @@ import {
 import { useEffect, useState, type ReactNode } from "react";
 import { lock } from "@/lib/crypto";
 import { ensurePeriodOpeningsMigrated, purgeExpiredRecords, useBanks, useDistributors } from "@/lib/db";
+import { GlobalSearchHotkey, GlobalSearchIconButton } from "@/components/GlobalSearch";
 import {
   Sheet,
   SheetContent,
