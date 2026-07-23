@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { DashboardTiles } from "@/components/DashboardTiles";
 import { OpenPeriodModal } from "@/components/OpenPeriodModal";
 import { WeekBreakdown } from "@/components/WeekBreakdown";
+import { GlobalSearchTrigger } from "@/components/GlobalSearch";
 import { Button } from "@/components/ui/button";
 import {
   useAgents,
@@ -61,6 +62,7 @@ function DashboardPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-5">
+      <GlobalSearchTrigger />
       {/* Hero week card */}
       <div className="relative overflow-hidden rounded-2xl p-5 md:p-6 text-white shadow-[var(--shadow-glow)]"
            style={{ backgroundImage: "var(--gradient-hero)" }}>
