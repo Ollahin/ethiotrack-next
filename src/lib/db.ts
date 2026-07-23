@@ -244,6 +244,67 @@ export function usePeriodOpening(weekStart: string): PeriodOpening | undefined |
   }, [weekStart]);
 }
 
+/**
+ * Expected opening balances for a week, carried forward from the previous
+ * week's opening + net transaction deltas within that previous week.
+ * Returns undefined while loading, or null when there is no prior week.
+ */
+export function usePreviousPeriodExpected(weekStart: string):
+  | {
+      prevWeekStart: string;
+      cashSantim: number;
+      bankBalances: Record<string, number>;
+      evdStockByDistributor: Record<string, number>;
+      floatStockByDistributor: Record<string, number>;
+    }
+  | null
+  | undefined {
+  return useLiveQuery(async () => {
+    const prev = await db()
+      .periodOpenings
+      .where("weekStart")
+      .below(weekStart)
+      .reverse()
+      .sortBy("weekStart");
+    const prevRec = prev[0];
+    if (!prevRec) return null;
+    const prevWeekStart = prevRec.weekStart;
+    const prevWeekEnd = getWeekEnd(prevWeekStart);
+    // include everything strictly before the new weekStart
+    const txns = await db()
+      .transactions
+      .where("date")
+      .between(prevWeekStart, weekStart, true, false)
+      .toArray();
+    let cash = prevRec.cashOnHandSantim;
+    const bankBalances: Record<string, number> = { ...prevRec.bankBalances };
+    const evd: Record<string, number> = { ...(prevRec.evdStockByDistributor ?? {}) };
+    const flt: Record<string, number> = { ...(prevRec.floatStockByDistributor ?? {}) };
+    for (const t of txns) {
+      if (t.isPersonal) continue;
+      if (t.type === "in") {
+        if (t.bankId) bankBalances[t.bankId] = (bankBalances[t.bankId] ?? 0) + t.amountSantim;
+        else cash += t.amountSantim;
+      } else if (t.type === "out" || t.type === "expense") {
+        if (t.bankId) bankBalances[t.bankId] = (bankBalances[t.bankId] ?? 0) - t.amountSantim;
+        else cash -= t.amountSantim;
+      } else if (t.type === "airtime_evd" && t.distributorId) {
+        evd[t.distributorId] = (evd[t.distributorId] ?? 0) - t.amountSantim;
+      } else if (t.type === "airtime_float" && t.distributorId) {
+        flt[t.distributorId] = (flt[t.distributorId] ?? 0) - t.amountSantim;
+      }
+    }
+    void prevWeekEnd;
+    return {
+      prevWeekStart,
+      cashSantim: cash,
+      bankBalances,
+      evdStockByDistributor: evd,
+      floatStockByDistributor: flt,
+    };
+  }, [weekStart]);
+}
+
 export function usePeriodClosing(weekStart: string): PeriodClosing | undefined | null {
   return useLiveQuery(async () => {
     const rec = await db().periodClosings.where("weekStart").equals(weekStart).first();
