@@ -19,6 +19,7 @@ import {
 import { KeyRound, Lock, ShieldCheck, Timer } from "lucide-react";
 import { toast } from "sonner";
 import { LicenseStatus } from "@/components/LicenseStatus";
+import { LicenseExpiryBanner } from "@/components/LicenseExpiryBanner";
 import { setUserName } from "@/lib/user";
 
 export const Route = createFileRoute("/unlock")({
@@ -184,6 +185,9 @@ function UnlockPage() {
           value={pin} onChange={(e) => setPinInput(e.target.value)}
           className="bg-white/5 border-white/10 text-white text-center text-lg tracking-widest"
         />
+        {mode !== "setup-master" && mode !== "renew" && (
+          <LicenseExpiryBanner variant="dark" showAction={false} />
+        )}
         {copy.confirm && (
           <Input
             type="password"

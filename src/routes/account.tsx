@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LicenseStatus } from "@/components/LicenseStatus";
+import { LicenseExpiryBanner } from "@/components/LicenseExpiryBanner";
 import { changeMasterPin, changePin, clearPin, renewLicense } from "@/lib/crypto";
 import { clearAll } from "@/lib/db";
 import { getUserProfile, setUserProfile, useUserName, type UserProfile } from "@/lib/user";
@@ -55,6 +56,7 @@ function AccountPage() {
         )}
       </div>
 
+      <LicenseExpiryBanner showAction={false} />
       <LicenseStatus />
 
       <Card title="Your profile" desc="How the app addresses you and who owns this ledger.">
