@@ -99,6 +99,10 @@ export interface Transaction {
   /** Free-text party name — kept even after link, for search & audit. */
   partyName: string;
   channel: string;
+  /** Bank / wallet account this money moved through (for cash txns leave undefined). */
+  bankId?: string;
+  /** Airtime distributor this stock came from (airtime_evd / airtime_float only). */
+  distributorId?: string;
   reference?: string;
   note?: string;
   isPersonal?: boolean;
