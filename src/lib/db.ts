@@ -53,7 +53,115 @@ class EthioTrackDB extends Dexie {
       statementImports: "id, distributorId, importedAt",
       meta: "key",
     });
+    // v3: backfill per-bank & per-distributor breakdowns on legacy openings.
+    this.version(3)
+      .stores({
+        agents: "id, name, phone",
+        distributors: "id, name",
+        banks: "id, name, channel",
+        dailyOpenings: "id, date",
+        dailyClosings: "id, date, openingId",
+        periodOpenings: "id, weekStart",
+        periodClosings: "id, weekStart, openingId",
+        transactions:
+          "id, date, type, partyId, channel, isSettled, isPersonal, statementImportId",
+        statementImports: "id, distributorId, importedAt",
+        meta: "key",
+      })
+      .upgrade(async (tx) => {
+        const distributors = await tx.table("distributors").toArray();
+        const banks = await tx.table("banks").toArray();
+        const distIds = distributors.map((d: { id: string }) => d.id);
+        const bankIds = banks.map((b: { id: string }) => b.id);
+        await tx
+          .table("periodOpenings")
+          .toCollection()
+          .modify((rec: PeriodOpening) => {
+            migratePeriodOpeningShape(rec, bankIds, distIds);
+          });
+      });
   }
+}
+
+// -- migration helpers -------------------------------------------------------
+
+function splitEvenly(total: number, ids: string[]): Record<string, number> {
+  if (!ids.length || total <= 0) return Object.fromEntries(ids.map((id) => [id, 0]));
+  const share = Math.floor(total / ids.length);
+  const remainder = total - share * ids.length;
+  return Object.fromEntries(
+    ids.map((id, i) => [id, share + (i === 0 ? remainder : 0)]),
+  );
+}
+
+/** Fill in per-bank & per-distributor maps from legacy aggregate totals. Mutates rec. Returns true if changed. */
+export function migratePeriodOpeningShape(
+  rec: PeriodOpening,
+  bankIds: string[],
+  distIds: string[],
+): boolean {
+  let changed = false;
+  if (!rec.bankBalances || typeof rec.bankBalances !== "object") {
+    rec.bankBalances = {};
+    changed = true;
+  }
+  // Seed zero entries for any newly-registered banks so the UI can show them.
+  for (const id of bankIds) {
+    if (rec.bankBalances[id] === undefined) {
+      rec.bankBalances[id] = 0;
+      changed = true;
+    }
+  }
+  const needsEvd =
+    !rec.evdStockByDistributor || Object.keys(rec.evdStockByDistributor).length === 0;
+  if (needsEvd) {
+    rec.evdStockByDistributor = splitEvenly(rec.evdStockSantim ?? 0, distIds);
+    changed = true;
+  } else {
+    for (const id of distIds) {
+      if (rec.evdStockByDistributor![id] === undefined) {
+        rec.evdStockByDistributor![id] = 0;
+        changed = true;
+      }
+    }
+  }
+  const needsFloat =
+    !rec.floatStockByDistributor || Object.keys(rec.floatStockByDistributor).length === 0;
+  if (needsFloat) {
+    rec.floatStockByDistributor = splitEvenly(rec.floatStockSantim ?? 0, distIds);
+    changed = true;
+  } else {
+    for (const id of distIds) {
+      if (rec.floatStockByDistributor![id] === undefined) {
+        rec.floatStockByDistributor![id] = 0;
+        changed = true;
+      }
+    }
+  }
+  return changed;
+}
+
+/**
+ * Lazy migration for openings created before distributors/banks existed.
+ * Splits legacy aggregate stock across current distributors and seeds
+ * zero entries for newly-registered banks. Idempotent — safe to call often.
+ */
+export async function ensurePeriodOpeningsMigrated(): Promise<number> {
+  const [openings, distributors, banks] = await Promise.all([
+    db().periodOpenings.toArray(),
+    db().distributors.toArray(),
+    db().banks.toArray(),
+  ]);
+  const distIds = distributors.map((d) => d.id);
+  const bankIds = banks.map((b) => b.id);
+  let migrated = 0;
+  for (const rec of openings) {
+    if (migratePeriodOpeningShape(rec, bankIds, distIds)) {
+      await db().periodOpenings.put(rec);
+      migrated++;
+    }
+  }
+  return migrated;
 }
 
 let _db: EthioTrackDB | null = null;
