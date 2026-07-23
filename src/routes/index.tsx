@@ -16,6 +16,7 @@ import {
 import { computeAgentStats } from "@/lib/brain/stats";
 import { Zap, Users, ShieldAlert, FileText, Pencil, Wifi } from "lucide-react";
 import { formatEtb } from "@/lib/format";
+import { firstName, useUserName } from "@/lib/user";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -37,6 +38,8 @@ function DashboardPage() {
   const txns = useTransactions();
   const agents = useAgents();
   const [manualOpen, setManualOpen] = useState(false);
+  const userName = useUserName();
+  const first = firstName(userName);
 
   const loading = opening === undefined;
   const needsOpen = opening === null;
@@ -62,6 +65,14 @@ function DashboardPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-5">
+      {first && (
+        <div className="hidden md:block">
+          <h1 className="text-2xl font-bold tracking-tight">
+            {greetingPrefix()}, <span className="text-primary">{first}</span>
+          </h1>
+          <p className="text-sm text-muted-foreground">Here's your week at a glance.</p>
+        </div>
+      )}
       <GlobalSearchTrigger />
       {/* Hero week card */}
       <div className="relative overflow-hidden rounded-2xl p-5 md:p-6 text-white shadow-[var(--shadow-glow)]"
@@ -157,4 +168,11 @@ function DashboardPage() {
       )}
     </div>
   );
+}
+
+function greetingPrefix() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
 }

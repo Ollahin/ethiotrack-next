@@ -14,12 +14,14 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ReconcileRouteImport } from './routes/reconcile'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as ExportsRouteImport } from './routes/exports'
 import { Route as DistributorsRouteImport } from './routes/distributors'
 import { Route as CloseRouteImport } from './routes/close'
 import { Route as CaptureRouteImport } from './routes/capture'
 import { Route as BanksRouteImport } from './routes/banks'
 import { Route as AlertsRouteImport } from './routes/alerts'
 import { Route as AgentsRouteImport } from './routes/agents'
+import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
 
 const UnlockRoute = UnlockRouteImport.update({
@@ -45,6 +47,11 @@ const ReconcileRoute = ReconcileRouteImport.update({
 const HistoryRoute = HistoryRouteImport.update({
   id: '/history',
   path: '/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExportsRoute = ExportsRouteImport.update({
+  id: '/exports',
+  path: '/exports',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DistributorsRoute = DistributorsRouteImport.update({
@@ -77,6 +84,11 @@ const AgentsRoute = AgentsRouteImport.update({
   path: '/agents',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccountRoute = AccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -85,12 +97,14 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/agents': typeof AgentsRoute
   '/alerts': typeof AlertsRoute
   '/banks': typeof BanksRoute
   '/capture': typeof CaptureRoute
   '/close': typeof CloseRoute
   '/distributors': typeof DistributorsRoute
+  '/exports': typeof ExportsRoute
   '/history': typeof HistoryRoute
   '/reconcile': typeof ReconcileRoute
   '/reports': typeof ReportsRoute
@@ -99,12 +113,14 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/agents': typeof AgentsRoute
   '/alerts': typeof AlertsRoute
   '/banks': typeof BanksRoute
   '/capture': typeof CaptureRoute
   '/close': typeof CloseRoute
   '/distributors': typeof DistributorsRoute
+  '/exports': typeof ExportsRoute
   '/history': typeof HistoryRoute
   '/reconcile': typeof ReconcileRoute
   '/reports': typeof ReportsRoute
@@ -114,12 +130,14 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/agents': typeof AgentsRoute
   '/alerts': typeof AlertsRoute
   '/banks': typeof BanksRoute
   '/capture': typeof CaptureRoute
   '/close': typeof CloseRoute
   '/distributors': typeof DistributorsRoute
+  '/exports': typeof ExportsRoute
   '/history': typeof HistoryRoute
   '/reconcile': typeof ReconcileRoute
   '/reports': typeof ReportsRoute
@@ -130,12 +148,14 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/account'
     | '/agents'
     | '/alerts'
     | '/banks'
     | '/capture'
     | '/close'
     | '/distributors'
+    | '/exports'
     | '/history'
     | '/reconcile'
     | '/reports'
@@ -144,12 +164,14 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/account'
     | '/agents'
     | '/alerts'
     | '/banks'
     | '/capture'
     | '/close'
     | '/distributors'
+    | '/exports'
     | '/history'
     | '/reconcile'
     | '/reports'
@@ -158,12 +180,14 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/account'
     | '/agents'
     | '/alerts'
     | '/banks'
     | '/capture'
     | '/close'
     | '/distributors'
+    | '/exports'
     | '/history'
     | '/reconcile'
     | '/reports'
@@ -173,12 +197,14 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccountRoute: typeof AccountRoute
   AgentsRoute: typeof AgentsRoute
   AlertsRoute: typeof AlertsRoute
   BanksRoute: typeof BanksRoute
   CaptureRoute: typeof CaptureRoute
   CloseRoute: typeof CloseRoute
   DistributorsRoute: typeof DistributorsRoute
+  ExportsRoute: typeof ExportsRoute
   HistoryRoute: typeof HistoryRoute
   ReconcileRoute: typeof ReconcileRoute
   ReportsRoute: typeof ReportsRoute
@@ -223,6 +249,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/exports': {
+      id: '/exports'
+      path: '/exports'
+      fullPath: '/exports'
+      preLoaderRoute: typeof ExportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/distributors': {
       id: '/distributors'
       path: '/distributors'
@@ -265,6 +298,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/account': {
+      id: '/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -277,12 +317,14 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccountRoute: AccountRoute,
   AgentsRoute: AgentsRoute,
   AlertsRoute: AlertsRoute,
   BanksRoute: BanksRoute,
   CaptureRoute: CaptureRoute,
   CloseRoute: CloseRoute,
   DistributorsRoute: DistributorsRoute,
+  ExportsRoute: ExportsRoute,
   HistoryRoute: HistoryRoute,
   ReconcileRoute: ReconcileRoute,
   ReportsRoute: ReportsRoute,

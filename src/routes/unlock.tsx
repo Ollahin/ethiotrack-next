@@ -19,6 +19,7 @@ import {
 import { KeyRound, Lock, ShieldCheck, Timer } from "lucide-react";
 import { toast } from "sonner";
 import { LicenseStatus } from "@/components/LicenseStatus";
+import { setUserName } from "@/lib/user";
 
 export const Route = createFileRoute("/unlock")({
   head: () => ({
@@ -38,6 +39,7 @@ function UnlockPage() {
   const [mode, setMode] = useState<Mode>("loading");
   const [pin, setPinInput] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [lockout, setLockout] = useState<LockoutStatus | null>(null);
@@ -101,10 +103,12 @@ function UnlockPage() {
           toast.error(err instanceof Error ? err.message : "Locked");
         }
       } else if (mode === "setup-user") {
+        if (name.trim().length < 2) return toast.error("Enter your name");
         if (pin.length < 4) return toast.error("PIN must be at least 4 characters");
         if (pin !== confirm) return toast.error("PINs don't match");
+        await setUserName(name);
         await setPin(pin);
-        toast.success("PIN set");
+        toast.success(`Welcome, ${name.trim().split(/\s+/)[0]}`);
         nav({ to: "/" });
       } else {
         try {
@@ -186,6 +190,16 @@ function UnlockPage() {
             placeholder="Confirm PIN"
             value={confirm} onChange={(e) => setConfirm(e.target.value)}
             className="bg-white/5 border-white/10 text-white text-center text-lg tracking-widest"
+          />
+        )}
+        {mode === "setup-user" && (
+          <Input
+            type="text"
+            placeholder="Your name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoComplete="name"
+            className="bg-white/5 border-white/10 text-white text-center"
           />
         )}
         <Button type="submit" disabled={busy || !!lockout?.locked} className="w-full">
