@@ -23,6 +23,8 @@ export function TransactionForm() {
   const [partyType, setPartyType] = useState<PartyType>("agent");
   const [partyId, setPartyId] = useState<string>("");
   const [partyName, setPartyName] = useState("");
+  const [bankId, setBankId] = useState<string>("");
+  const [distributorId, setDistributorId] = useState<string>("");
   const [reference, setReference] = useState("");
   const [note, setNote] = useState("");
 
@@ -32,12 +34,18 @@ export function TransactionForm() {
     : partyType === "bank" ? banks.map((b) => ({ id: b.id, name: b.name }))
     : [];
 
+  const isAirtime = type === "airtime_evd" || type === "airtime_float";
+  const isMoney = type === "in" || type === "out" || type === "expense" || type === "personal";
+  const needsBank = isMoney && channel !== "Cash";
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const santim = parseEtbToSantim(amount);
     if (!santim) return toast.error("Enter an amount");
     const resolvedName = partyOptions.find((p) => p.id === partyId)?.name || partyName.trim();
     if (!resolvedName) return toast.error("Choose or type a party");
+    if (isAirtime && !distributorId) return toast.error("Pick the airtime distributor");
+    if (needsBank && !bankId) return toast.error("Pick the bank / wallet used");
     await addTransaction({
       type,
       amountSantim: santim,
@@ -45,6 +53,8 @@ export function TransactionForm() {
       partyId: partyId || undefined,
       partyType: partyId ? partyType : undefined,
       channel,
+      bankId: needsBank ? bankId : undefined,
+      distributorId: isAirtime ? distributorId : undefined,
       reference: reference || undefined,
       note: note || undefined,
       date: new Date().toISOString(),
@@ -53,6 +63,12 @@ export function TransactionForm() {
     });
     toast.success("Saved");
     setAmount(""); setReference(""); setNote(""); setPartyName(""); setPartyId("");
+  }
+
+  function onBankChange(id: string) {
+    setBankId(id);
+    const b = banks.find((x) => x.id === id);
+    if (b?.channel) setChannel(b.channel);
   }
 
   return (
@@ -110,6 +126,40 @@ export function TransactionForm() {
           <Label>Reference</Label>
           <Input value={reference} onChange={(e) => setReference(e.target.value)} />
         </div>
+        {isMoney && (
+          <div className="col-span-2">
+            <Label>Bank / wallet {needsBank && <span className="text-money-out">*</span>}</Label>
+            {banks.length ? (
+              <Select value={bankId} onValueChange={onBankChange}>
+                <SelectTrigger><SelectValue placeholder={channel === "Cash" ? "None (cash)" : "Select account…"} /></SelectTrigger>
+                <SelectContent>
+                  {banks.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.name} · {b.channel}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-xs text-ink-soft">Add a bank / wallet in Banks to attribute this transaction.</p>
+            )}
+          </div>
+        )}
+        {isAirtime && (
+          <div className="col-span-2">
+            <Label>Airtime distributor <span className="text-money-out">*</span></Label>
+            {distributors.length ? (
+              <Select value={distributorId} onValueChange={setDistributorId}>
+                <SelectTrigger><SelectValue placeholder="Select distributor…" /></SelectTrigger>
+                <SelectContent>
+                  {distributors.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-xs text-ink-soft">Add a distributor in Distributors to record airtime stock.</p>
+            )}
+          </div>
+        )}
       </div>
       <div>
         <Label>Note</Label>
