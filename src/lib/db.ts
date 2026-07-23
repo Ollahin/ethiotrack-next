@@ -527,6 +527,8 @@ export async function upsertDistributor(a: Omit<Distributor, "id" | "createdAt">
     name: a.name.trim(),
     contact: a.contact?.trim() || undefined,
     statementFormat: a.statementFormat,
+    telecoms: a.telecoms && a.telecoms.length ? a.telecoms : ["ethiotelecom", "safaricom"],
+    forms: a.forms && a.forms.length ? a.forms : ["evd", "float"],
     createdAt: a.id ? (await db().distributors.get(a.id))?.createdAt ?? new Date().toISOString() : new Date().toISOString(),
   };
   await db().distributors.put(rec);
