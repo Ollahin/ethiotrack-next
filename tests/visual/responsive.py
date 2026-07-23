@@ -63,14 +63,19 @@ async def audit(page: Page, bp: dict) -> list[str]:
     """Return a list of failed invariants (empty = pass)."""
     failures: list[str] = []
 
-    # 1. Navigation is visible.
-    nav = page.locator("nav").last
-    if not await nav.count():
-        failures.append("no <nav> element rendered")
-    else:
-        box = await nav.bounding_box()
-        if not box or box["width"] < 10:
-            failures.append("nav has zero width")
+    # 1. A visible <nav> is rendered (the layout ships both a sidebar and a
+    #    floating tab bar; only one is visible at a given breakpoint).
+    navs = page.locator("nav")
+    nav = None
+    for i in range(await navs.count()):
+        candidate = navs.nth(i)
+        if await candidate.is_visible():
+            box = await candidate.bounding_box()
+            if box and box["width"] >= 10:
+                nav = candidate
+                break
+    if nav is None:
+        failures.append("no visible <nav> element rendered")
 
     # 2. Hero card ("This week") is rendered.
     hero = page.get_by_text("This week", exact=False)
@@ -97,7 +102,7 @@ async def audit(page: Page, bp: dict) -> list[str]:
     #    bar (nav bottom near viewport bottom); desktop/tablet has a
     #    sidebar (nav bottom == viewport bottom, nav width narrow relative
     #    to viewport).
-    nav_box = await nav.bounding_box()
+    nav_box = await nav.bounding_box() if nav else None
     if nav_box:
         if bp["layout"] == "floating-tabs":
             gap = bp["height"] - (nav_box["y"] + nav_box["height"])
