@@ -42,7 +42,7 @@ export function DashboardTiles({ txns, openCredit, cashVariance }: {
               {t.label}
             </div>
           </div>
-          <div className={"mt-2 text-lg md:text-2xl font-bold tabular-nums " + t.color}>
+          <div className={"mt-2 text-lg md:text-xl lg:text-2xl font-bold tabular-nums whitespace-nowrap " + t.color}>
             {formatEtb(t.value)}
           </div>
           {t.hint && <div className="text-[10px] text-muted-foreground mt-1">{t.hint}</div>}
