@@ -160,7 +160,18 @@ export function TransactionForm() {
           </div>
         )}
         {isAirtime && (
-          <div className="col-span-2">
+          <>
+            <div className="col-span-2">
+              <Label>Telecom <span className="text-money-out">*</span></Label>
+              <Select value={telecom} onValueChange={(v) => { setTelecom(v as Telecom); setDistributorId(""); }}>
+                <SelectTrigger><SelectValue placeholder="Select telecom…" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ethiotelecom">{TELECOM_LABEL.ethiotelecom}</SelectItem>
+                  <SelectItem value="safaricom">{TELECOM_LABEL.safaricom}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2">
             <Label>Airtime distributor <span className="text-money-out">*</span></Label>
             {eligibleDistributors.length ? (
               <Select value={distributorId} onValueChange={setDistributorId}>
@@ -175,9 +186,13 @@ export function TransactionForm() {
                 </SelectContent>
               </Select>
             ) : (
-              <p className="text-xs text-ink-soft">No distributors supply {airtimeForm === "evd" ? "EVD" : "Float"} yet. Add one in Distributors.</p>
+              <p className="text-xs text-ink-soft">
+                No distributors supply {airtimeForm === "evd" ? "EVD" : "Float"}
+                {telecom ? ` for ${TELECOM_LABEL[telecom]}` : ""} yet. Add one in Distributors.
+              </p>
             )}
-          </div>
+            </div>
+          </>
         )}
       </div>
       <div>
