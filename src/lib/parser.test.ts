@@ -32,6 +32,31 @@ describe("parseOne", () => {
     expect(r.amountSantim).toBe(10000);
   });
 
+  it("parses Telebirr bank-to-wallet credit with greeting/footer", () => {
+    const raw = [
+      "Dear MERAOL,",
+      "",
+      "You have received  ETB 500.00 by transaction number CIN52H16QN on 2025-09-23 09:01:40 from Commercial Bank of Ethiopia to your telebirr Account 251915845556 - MERAOL HUSSEIN HINDHESA. Your current balance is ETB 4,631.00.",
+      "",
+      "Thank you for using telebirr",
+      "",
+      "Ethio telecom",
+    ].join("\n");
+    const rows = parseMany(raw);
+    expect(rows).toHaveLength(1);
+    const r = rows[0];
+    expect(r.ok).toBe(true);
+    expect(r.channel).toBe("Telebirr");
+    expect(r.type).toBe("in");
+    expect(r.amountSantim).toBe(50000);
+    expect(r.party).toBe("Commercial Bank of Ethiopia");
+    expect(r.reference).toBe("CIN52H16QN");
+    expect(r.accountTail).toBe("5556");
+    expect(r.balanceSantim).toBe(463100);
+    expect(r.date).toBe("2025-09-23T09:01:40.000Z");
+    expect(r.template).toBe("telebirr.receive.bank");
+  });
+
   it("parses a CBE credit", () => {
     const r = parseOne(
       "CBE: Your account has been credited with ETB 2500.00 from Almaz T. on 2026-07-01. Ref: CBE7788",
