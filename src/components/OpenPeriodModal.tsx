@@ -7,6 +7,7 @@ import { openPeriod, useBanks, useDistributors, getWeekEnd, usePreviousPeriodExp
 import { formatEtb, parseEtbToSantim } from "@/lib/format";
 import type { PeriodOpening } from "@/lib/types";
 import { toast } from "sonner";
+import { Link } from "@tanstack/react-router";
 
 /** Validate a user-entered ETB amount. Empty is treated as 0. */
 function parseAmount(input: string): { santim: number; error: string | null } {
@@ -197,10 +198,24 @@ export function OpenPeriodModal({
         <DialogHeader>
           <DialogTitle>{existing ? "Adjust opening balance" : "Open the week"}</DialogTitle>
           <DialogDescription>
-            Set starting balances per bank and per airtime distributor for the week of {weekStart} → {weekEnd}. You can adjust this any time before closing the week.
+            Set starting balances per bank and per airtime distributor for the week of {weekStart} → {weekEnd}. Every field is optional — fill in what you know now and adjust anytime before closing the week.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
+          {banks.length === 0 && distributors.length === 0 && (
+            <div className="rounded-xl border border-border/60 bg-muted/40 p-3 text-[11px] space-y-2">
+              <p className="text-ink-soft">
+                You haven't added any banks, wallets or distributors yet. You can skip this for now and set them up first.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Link to="/banks" className="text-primary underline underline-offset-2">Add banks / wallets</Link>
+                <span className="text-ink-soft">·</span>
+                <Link to="/distributors" className="text-primary underline underline-offset-2">Add distributors</Link>
+                <span className="text-ink-soft">·</span>
+                <Link to="/agents" className="text-primary underline underline-offset-2">Add agents</Link>
+              </div>
+            </div>
+          )}
           {expected && (
             <div className="rounded-xl border border-border/60 bg-primary/5 p-3 text-[11px] space-y-1">
               <div className="flex items-center justify-between gap-2">
@@ -230,12 +245,12 @@ export function OpenPeriodModal({
             </div>
           )}
           <div>
-            <Label>Cash on hand (ETB)</Label>
+            <Label>Cash on hand (ETB) <span className="text-ink-soft font-normal">· optional</span></Label>
             <Input
               inputMode="decimal"
               value={cash}
               onChange={(e) => setCash(e.target.value)}
-              placeholder="0.00"
+              placeholder="Leave blank if none"
               aria-invalid={parseAmount(cash).error ? true : undefined}
               className={
                 expectedCash !== undefined && expectedCash !== totals.cashSantim && !parseAmount(cash).error
@@ -435,9 +450,27 @@ export function OpenPeriodModal({
               Fix {totals.errors.length} field{totals.errors.length === 1 ? "" : "s"} before saving.
             </p>
           )}
-          <Button className="w-full" onClick={save} disabled={saving || invalid}>
-            {saving ? "Saving…" : existing ? "Save opening" : "Open week"}
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button className="w-full" onClick={save} disabled={saving || invalid}>
+              {saving ? "Saving…" : existing ? "Save opening" : "Open week"}
+            </Button>
+            {onCancel && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={onCancel}
+                disabled={saving}
+              >
+                {existing ? "Cancel" : "Skip for now"}
+              </Button>
+            )}
+          </div>
+          {!existing && (
+            <p className="text-[10px] text-ink-soft text-center">
+              You can open or adjust the week later from the dashboard.
+            </p>
+          )}
         </div>
       </DialogContent>
     </Dialog>

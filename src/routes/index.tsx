@@ -38,11 +38,12 @@ function DashboardPage() {
   const txns = useTransactions();
   const agents = useAgents();
   const [manualOpen, setManualOpen] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
   const userName = useUserName();
   const first = firstName(userName);
 
   const loading = opening === undefined;
-  const needsOpen = opening === null;
+  const needsOpen = opening === null && !dismissed;
   const modalOpen = needsOpen || manualOpen;
 
   const openCredit = useMemo(() => {
@@ -128,6 +129,18 @@ function DashboardPage() {
             </Link>
           </div>
         )}
+        {!opening && !closing && dismissed && (
+          <div className="relative mt-5">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setManualOpen(true)}
+              className="bg-white/15 hover:bg-white/25 text-white border-0 backdrop-blur"
+            >
+              <Pencil className="h-3.5 w-3.5 mr-1" /> Open the week
+            </Button>
+          </div>
+        )}
       </div>
 
       <DashboardTiles txns={txns} openCredit={openCredit} cashVariance={cashVariance} />
@@ -162,8 +175,8 @@ function DashboardPage() {
           weekStart={weekStart}
           open={modalOpen}
           existing={manualOpen ? opening ?? null : null}
-          onOpened={() => setManualOpen(false)}
-          onCancel={() => setManualOpen(false)}
+          onOpened={() => { setManualOpen(false); setDismissed(false); }}
+          onCancel={() => { setManualOpen(false); setDismissed(true); }}
         />
       )}
     </div>
