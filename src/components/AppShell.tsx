@@ -12,20 +12,28 @@ import {
   Lock,
   ScaleIcon,
   CheckCircle2,
+  MoreHorizontal,
 } from "lucide-react";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { lock } from "@/lib/crypto";
 import { ensurePeriodOpeningsMigrated, useBanks, useDistributors } from "@/lib/db";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 
 const TABS = [
   { to: "/", label: "Home", icon: LayoutDashboard },
   { to: "/capture", label: "Capture", icon: Zap },
   { to: "/agents", label: "Agents", icon: Users },
   { to: "/history", label: "History", icon: List },
-  { to: "/alerts", label: "Alerts", icon: ShieldAlert },
 ] as const;
 
 const MORE_TABS = [
+  { to: "/alerts", label: "Alerts", icon: ShieldAlert },
   { to: "/distributors", label: "Distributors", icon: Truck },
   { to: "/banks", label: "Banks", icon: Landmark },
   { to: "/reconcile", label: "Reconcile", icon: ScaleIcon },
@@ -45,6 +53,8 @@ function todayLabel() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [moreOpen, setMoreOpen] = useState(false);
+  useEffect(() => { setMoreOpen(false); }, [pathname]);
   // Backfill legacy period openings whenever banks/distributors change,
   // so aggregate stock totals get split across current distributors
   // and zero rows appear for newly-added accounts.
@@ -154,7 +164,71 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
+          <button
+            type="button"
+            onClick={() => setMoreOpen(true)}
+            aria-label="More sections"
+            className={
+              "flex flex-col items-center justify-center gap-1 py-3 min-h-[52px] text-[10px] font-semibold transition-colors rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
+              (MORE_TABS.some((t) => t.to === pathname)
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground")
+            }
+          >
+            <span
+              className={
+                "grid place-items-center h-8 w-8 rounded-full transition-colors " +
+                (MORE_TABS.some((t) => t.to === pathname)
+                  ? "bg-primary/15 text-primary"
+                  : "text-muted-foreground")
+              }
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </span>
+            More
+          </button>
         </nav>
+
+        {/* Mobile "More" sheet — mirrors every desktop side-rail entry */}
+        <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+          <SheetContent side="bottom" className="md:hidden rounded-t-2xl border-border/60 bg-card/95 backdrop-blur-md">
+            <SheetHeader className="text-left">
+              <SheetTitle>All sections</SheetTitle>
+              <SheetDescription>Everything from the desktop side rail.</SheetDescription>
+            </SheetHeader>
+            <div className="mt-4 grid grid-cols-3 gap-2 pb-2">
+              {MORE_TABS.map((t) => {
+                const active = pathname === t.to;
+                const Icon = t.icon;
+                return (
+                  <Link
+                    key={t.to}
+                    to={t.to}
+                    onClick={() => setMoreOpen(false)}
+                    className={
+                      "flex flex-col items-center justify-center gap-2 py-4 rounded-xl border text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
+                      (active
+                        ? "border-primary/40 bg-primary/10 text-primary"
+                        : "border-border/60 bg-background/40 text-muted-foreground hover:text-foreground")
+                    }
+                  >
+                    <Icon className="h-5 w-5" />
+                    {t.label}
+                  </Link>
+                );
+              })}
+            </div>
+            <button
+              onClick={() => { lock(); location.href = "/unlock"; }}
+              className="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border/60 bg-background/40 px-3 py-3 text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Lock className="h-4 w-4" /> Lock app
+            </button>
+            <p className="mt-3 text-center text-[11px] text-muted-foreground/70">
+              Local-only · data never leaves this device
+            </p>
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   );
