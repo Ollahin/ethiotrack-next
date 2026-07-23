@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Landmark, Radio, Wallet, ArrowRight } from "lucide-react";
 import {
   useBanks,
@@ -339,8 +339,8 @@ function ReconcilePage() {
               </thead>
               <tbody>
                 {distRows.map((r) => (
-                  <>
-                    <tr key={r.dist.id + "-evd"} className="border-b border-border/30">
+                  <Fragment key={r.dist.id}>
+                    <tr className="border-b border-border/30">
                       <td className="px-4 py-2" rowSpan={2}>
                         <div className="font-semibold truncate">{r.dist.name}</div>
                         <div className="text-[10px] text-ink-soft">{r.count} txn{r.count === 1 ? "" : "s"}</div>
@@ -363,7 +363,7 @@ function ReconcilePage() {
                         {r.evdVariance === null ? "—" : (r.evdVariance >= 0 ? "+" : "−") + formatEtb(Math.abs(r.evdVariance))}
                       </td>
                     </tr>
-                    <tr key={r.dist.id + "-flt"} className="border-b border-border/60 last:border-0">
+                    <tr className="border-b border-border/60 last:border-0">
                       <td className="px-2 py-2 text-right font-semibold text-credit">Float</td>
                       <td className="px-2 py-2 text-right tabular-nums">{formatEtb(r.fltOpen)}</td>
                       <td className="px-2 py-2 text-right tabular-nums">−{formatEtb(r.fltSold)}</td>
@@ -382,7 +382,7 @@ function ReconcilePage() {
                         {r.fltVariance === null ? "—" : (r.fltVariance >= 0 ? "+" : "−") + formatEtb(Math.abs(r.fltVariance))}
                       </td>
                     </tr>
-                  </>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
