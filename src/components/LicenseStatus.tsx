@@ -15,7 +15,15 @@ function daysBetween(ms: number) {
   return Math.ceil(ms / (24 * 60 * 60 * 1000));
 }
 
-export function LicenseStatus({ variant = "card" }: { variant?: Variant }) {
+export function LicenseStatus({
+  variant = "card",
+  onlyNearExpiry = false,
+  nearExpiryDays = 3,
+}: {
+  variant?: Variant;
+  onlyNearExpiry?: boolean;
+  nearExpiryDays?: number;
+}) {
   const [lic, setLic] = useState<LicenseRecord | null | undefined>(undefined);
   const [now, setNow] = useState(Date.now());
 
@@ -34,6 +42,14 @@ export function LicenseStatus({ variant = "card" }: { variant?: Variant }) {
   if (lic === undefined) return null;
 
   const dark = variant === "dark";
+
+  if (onlyNearExpiry) {
+    if (!lic) return null;
+    const remaining = lic.expiresAt - now;
+    const withinWindow = remaining <= nearExpiryDays * 24 * 60 * 60 * 1000;
+    if (!withinWindow) return null;
+  }
+
   const wrap = dark
     ? "rounded-xl border border-white/10 bg-white/5 p-4 text-white"
     : "rounded-xl border border-border bg-card p-4 shadow-sm";

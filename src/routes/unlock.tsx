@@ -220,9 +220,10 @@ function UnlockPage() {
         {copy.note && (
           <p className="text-[11px] text-white/50 text-center leading-relaxed">{copy.note}</p>
         )}
-        {mode !== "setup-master" && (
-          <LicenseStatus variant="dark" />
+        {mode !== "setup-master" && mode !== "renew" && (
+          <LicenseStatus variant="dark" onlyNearExpiry />
         )}
+        {mode === "renew" && <LicenseStatus variant="dark" />}
       </form>
     </div>
   );
