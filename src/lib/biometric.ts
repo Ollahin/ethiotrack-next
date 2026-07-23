@@ -104,7 +104,7 @@ export async function assertBiometric(): Promise<boolean> {
       userVerification: "required",
       allowCredentials: [{
         type: "public-key",
-        id: fromB64url(rec.credentialIdB64),
+        id: fromB64url(rec.credentialIdB64) as BufferSource,
         transports: ["internal"],
       }],
     },
