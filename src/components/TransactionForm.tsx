@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/select";
 import { addTransaction, useAgents, useBanks, useDistributors } from "@/lib/db";
 import { parseEtbToSantim } from "@/lib/format";
-import { CHANNELS, TYPE_LABEL, type PartyType, type TxnType } from "@/lib/types";
+import { CHANNELS, TELECOM_LABEL, TYPE_LABEL, type PartyType, type Telecom, type TxnType } from "@/lib/types";
 import { toast } from "sonner";
 
 const TYPES: TxnType[] = ["in", "out", "airtime_evd", "airtime_float", "expense", "personal"];
@@ -25,6 +25,7 @@ export function TransactionForm() {
   const [partyName, setPartyName] = useState("");
   const [bankId, setBankId] = useState<string>("");
   const [distributorId, setDistributorId] = useState<string>("");
+  const [telecom, setTelecom] = useState<Telecom | "">("");
   const [reference, setReference] = useState("");
   const [note, setNote] = useState("");
 
@@ -39,7 +40,15 @@ export function TransactionForm() {
   const needsBank = isMoney && channel !== "Cash";
   const airtimeForm = type === "airtime_evd" ? "evd" : type === "airtime_float" ? "float" : null;
   const eligibleDistributors = airtimeForm
-    ? distributors.filter((d) => (d.forms ?? ["evd", "float"]).includes(airtimeForm))
+    ? distributors.filter((d) => {
+        const forms = d.forms ?? ["evd", "float"];
+        if (!forms.includes(airtimeForm)) return false;
+        if (telecom) {
+          const tels = d.telecoms ?? ["ethiotelecom", "safaricom"];
+          if (!tels.includes(telecom)) return false;
+        }
+        return true;
+      })
     : distributors;
 
   async function submit(e: React.FormEvent) {
@@ -49,6 +58,7 @@ export function TransactionForm() {
     const resolvedName = partyOptions.find((p) => p.id === partyId)?.name || partyName.trim();
     if (!resolvedName) return toast.error("Choose or type a party");
     if (isAirtime && !distributorId) return toast.error("Pick the airtime distributor");
+    if (isAirtime && !telecom) return toast.error("Pick the telecom");
     if (needsBank && !bankId) return toast.error("Pick the bank / wallet used");
     await addTransaction({
       type,
@@ -59,6 +69,7 @@ export function TransactionForm() {
       channel,
       bankId: needsBank ? bankId : undefined,
       distributorId: isAirtime ? distributorId : undefined,
+      telecom: isAirtime ? (telecom as Telecom) : undefined,
       reference: reference || undefined,
       note: note || undefined,
       date: new Date().toISOString(),
@@ -148,7 +159,18 @@ export function TransactionForm() {
           </div>
         )}
         {isAirtime && (
-          <div className="col-span-2">
+          <>
+            <div className="col-span-2">
+              <Label>Telecom <span className="text-money-out">*</span></Label>
+              <Select value={telecom} onValueChange={(v) => { setTelecom(v as Telecom); setDistributorId(""); }}>
+                <SelectTrigger><SelectValue placeholder="Select telecom…" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ethiotelecom">{TELECOM_LABEL.ethiotelecom}</SelectItem>
+                  <SelectItem value="safaricom">{TELECOM_LABEL.safaricom}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2">
             <Label>Airtime distributor <span className="text-money-out">*</span></Label>
             {eligibleDistributors.length ? (
               <Select value={distributorId} onValueChange={setDistributorId}>
@@ -163,9 +185,13 @@ export function TransactionForm() {
                 </SelectContent>
               </Select>
             ) : (
-              <p className="text-xs text-ink-soft">No distributors supply {airtimeForm === "evd" ? "EVD" : "Float"} yet. Add one in Distributors.</p>
+              <p className="text-xs text-ink-soft">
+                No distributors supply {airtimeForm === "evd" ? "EVD" : "Float"}
+                {telecom ? ` for ${TELECOM_LABEL[telecom]}` : ""} yet. Add one in Distributors.
+              </p>
             )}
-          </div>
+            </div>
+          </>
         )}
       </div>
       <div>

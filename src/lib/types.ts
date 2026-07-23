@@ -122,6 +122,8 @@ export interface Transaction {
   distributorId?: string;
   reference?: string;
   note?: string;
+  /** Telecom this airtime transaction belongs to (airtime_evd / airtime_float only). */
+  telecom?: Telecom;
   isPersonal?: boolean;
   isSettled?: boolean;
   settledAt?: string;
