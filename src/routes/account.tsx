@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { LicenseStatus } from "@/components/LicenseStatus";
 import { changeMasterPin, changePin, clearPin, renewLicense } from "@/lib/crypto";
 import { clearAll } from "@/lib/db";
-import { getUserName, setUserName, useUserName } from "@/lib/user";
+import { getUserProfile, setUserProfile, useUserName, type UserProfile } from "@/lib/user";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/account")({
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/account")({
 
 function AccountPage() {
   const currentName = useUserName();
-  const [name, setName] = useState("");
+  const [profile, setProfile] = useState<UserProfile>({ name: "", phone: "", email: "", businessName: "", role: "" });
   const [oldPin, setOld] = useState("");
   const [newPin, setNew] = useState("");
   const [oldMaster, setOldMaster] = useState("");
@@ -31,8 +31,20 @@ function AccountPage() {
   const [renewPin, setRenewPin] = useState("");
 
   useEffect(() => {
-    getUserName().then((n) => setName(n ?? ""));
+    getUserProfile().then((p) => {
+      if (p) setProfile({
+        name: p.name ?? "",
+        phone: p.phone ?? "",
+        email: p.email ?? "",
+        businessName: p.businessName ?? "",
+        role: p.role ?? "",
+      });
+    });
   }, []);
+
+  function update<K extends keyof UserProfile>(key: K, value: string) {
+    setProfile((prev) => ({ ...prev, [key]: value }));
+  }
 
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-4">
@@ -45,22 +57,49 @@ function AccountPage() {
 
       <LicenseStatus />
 
-      <Card title="Your name" desc="How the app addresses you.">
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" />
-          <Button
-            onClick={async () => {
-              try {
-                await setUserName(name);
-                toast.success("Name updated");
-              } catch (err) {
-                toast.error(err instanceof Error ? err.message : "Could not save");
-              }
-            }}
-          >
-            Save name
-          </Button>
+      <Card title="Your profile" desc="How the app addresses you and who owns this ledger.">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="sm:col-span-2">
+            <Label>Full name</Label>
+            <Input value={profile.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. Meraol Tesfaye" maxLength={60} />
+          </div>
+          <div>
+            <Label>Phone</Label>
+            <Input value={profile.phone ?? ""} onChange={(e) => update("phone", e.target.value)} placeholder="+251 9…" maxLength={32} inputMode="tel" />
+          </div>
+          <div>
+            <Label>Email</Label>
+            <Input type="email" value={profile.email ?? ""} onChange={(e) => update("email", e.target.value)} placeholder="you@example.com" maxLength={120} />
+          </div>
+          <div>
+            <Label>Business name</Label>
+            <Input value={profile.businessName ?? ""} onChange={(e) => update("businessName", e.target.value)} placeholder="Shop or company" maxLength={80} />
+          </div>
+          <div>
+            <Label>Role</Label>
+            <Input value={profile.role ?? ""} onChange={(e) => update("role", e.target.value)} placeholder="Subdistributor, Agent…" maxLength={60} />
+          </div>
         </div>
+        <Button
+          className="mt-3"
+          onClick={async () => {
+            try {
+              const saved = await setUserProfile(profile);
+              setProfile({
+                name: saved.name,
+                phone: saved.phone ?? "",
+                email: saved.email ?? "",
+                businessName: saved.businessName ?? "",
+                role: saved.role ?? "",
+              });
+              toast.success("Profile updated");
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Could not save");
+            }
+          }}
+        >
+          Save profile
+        </Button>
       </Card>
 
       <Card title="Change PIN" desc="Set a new daily PIN. Doesn't affect stored data.">
