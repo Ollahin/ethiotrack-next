@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { DashboardTiles } from "@/components/DashboardTiles";
 import { OpenPeriodModal } from "@/components/OpenPeriodModal";
+import { WeekBreakdown } from "@/components/WeekBreakdown";
 import { Button } from "@/components/ui/button";
 import {
   useAgents,
@@ -117,6 +118,8 @@ function DashboardPage() {
       </div>
 
       <DashboardTiles txns={txns} openCredit={openCredit} cashVariance={cashVariance} />
+
+      <WeekBreakdown />
 
       {/* Circular quick actions */}
       <div className="grid grid-cols-4 gap-3">
