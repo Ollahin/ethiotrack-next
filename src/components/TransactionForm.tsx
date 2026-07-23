@@ -9,6 +9,7 @@ import {
 import { addTransaction, useAgents, useBanks, useDistributors } from "@/lib/db";
 import { parseEtbToSantim } from "@/lib/format";
 import { CHANNELS, TYPE_LABEL, type PartyType, type TxnType } from "@/lib/types";
+import { TELECOM_LABEL, type Telecom } from "@/lib/types";
 import { toast } from "sonner";
 
 const TYPES: TxnType[] = ["in", "out", "airtime_evd", "airtime_float", "expense", "personal"];
@@ -25,6 +26,7 @@ export function TransactionForm() {
   const [partyName, setPartyName] = useState("");
   const [bankId, setBankId] = useState<string>("");
   const [distributorId, setDistributorId] = useState<string>("");
+  const [telecom, setTelecom] = useState<Telecom | "">("");
   const [reference, setReference] = useState("");
   const [note, setNote] = useState("");
 
@@ -39,7 +41,15 @@ export function TransactionForm() {
   const needsBank = isMoney && channel !== "Cash";
   const airtimeForm = type === "airtime_evd" ? "evd" : type === "airtime_float" ? "float" : null;
   const eligibleDistributors = airtimeForm
-    ? distributors.filter((d) => (d.forms ?? ["evd", "float"]).includes(airtimeForm))
+    ? distributors.filter((d) => {
+        const forms = d.forms ?? ["evd", "float"];
+        if (!forms.includes(airtimeForm)) return false;
+        if (telecom) {
+          const tels = d.telecoms ?? ["ethiotelecom", "safaricom"];
+          if (!tels.includes(telecom)) return false;
+        }
+        return true;
+      })
     : distributors;
 
   async function submit(e: React.FormEvent) {
@@ -49,6 +59,7 @@ export function TransactionForm() {
     const resolvedName = partyOptions.find((p) => p.id === partyId)?.name || partyName.trim();
     if (!resolvedName) return toast.error("Choose or type a party");
     if (isAirtime && !distributorId) return toast.error("Pick the airtime distributor");
+    if (isAirtime && !telecom) return toast.error("Pick the telecom");
     if (needsBank && !bankId) return toast.error("Pick the bank / wallet used");
     await addTransaction({
       type,
@@ -59,6 +70,7 @@ export function TransactionForm() {
       channel,
       bankId: needsBank ? bankId : undefined,
       distributorId: isAirtime ? distributorId : undefined,
+      telecom: isAirtime ? (telecom as Telecom) : undefined,
       reference: reference || undefined,
       note: note || undefined,
       date: new Date().toISOString(),
