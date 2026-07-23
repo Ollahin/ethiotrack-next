@@ -95,7 +95,7 @@ export function computeAlerts(
 
   const byKey = new Map<string, Transaction[]>();
   for (const t of txns) {
-    const k = `${t.type}|${t.amountSantim}|${t.partyName.toLowerCase()}|${t.channel}`;
+    const k = `${t.type}|${t.amountSantim}|${(t.partyName ?? "").toLowerCase()}|${t.channel}`;
     byKey.set(k, [...(byKey.get(k) ?? []), t]);
   }
   for (const [, list] of byKey) {
