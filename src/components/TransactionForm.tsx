@@ -28,6 +28,7 @@ export function TransactionForm() {
   const [telecom, setTelecom] = useState<Telecom | "">("");
   const [reference, setReference] = useState("");
   const [note, setNote] = useState("");
+  const [showAllDistributors, setShowAllDistributors] = useState(false);
 
   const partyOptions =
     partyType === "agent" ? agents.map((a) => ({ id: a.id, name: a.name }))
@@ -39,7 +40,7 @@ export function TransactionForm() {
   const isMoney = type === "in" || type === "out" || type === "expense" || type === "personal";
   const needsBank = isMoney && channel !== "Cash";
   const airtimeForm = type === "airtime_evd" ? "evd" : type === "airtime_float" ? "float" : null;
-  const eligibleDistributors = airtimeForm
+  const filteredDistributors = airtimeForm
     ? distributors.filter((d) => {
         const forms = d.forms ?? ["evd", "float"];
         if (!forms.includes(airtimeForm)) return false;
@@ -50,6 +51,11 @@ export function TransactionForm() {
         return true;
       })
     : distributors;
+  const eligibleDistributors =
+    airtimeForm && showAllDistributors ? distributors : filteredDistributors;
+  const hiddenCount = airtimeForm
+    ? distributors.length - filteredDistributors.length
+    : 0;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -172,6 +178,37 @@ export function TransactionForm() {
             </div>
             <div className="col-span-2">
             <Label>Airtime distributor <span className="text-money-out">*</span></Label>
+            <div className="flex flex-wrap items-center gap-1.5 mb-2">
+              <span className="text-[11px] text-ink-soft">Filtering by:</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-airtime/15 text-airtime px-2 py-0.5 text-[11px] font-semibold uppercase">
+                {airtimeForm === "evd" ? "EVD" : "Float"}
+              </span>
+              {telecom ? (
+                <button
+                  type="button"
+                  onClick={() => { setTelecom(""); setDistributorId(""); }}
+                  className="inline-flex items-center gap-1 rounded-full bg-credit/15 text-credit px-2 py-0.5 text-[11px] font-semibold hover:bg-credit/25"
+                  aria-label="Clear telecom filter"
+                >
+                  {TELECOM_LABEL[telecom]} <span aria-hidden>×</span>
+                </button>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] text-ink-soft">
+                  Any telecom
+                </span>
+              )}
+              {(hiddenCount > 0 || showAllDistributors) && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllDistributors((v) => !v)}
+                  className="ml-auto text-[11px] font-semibold text-primary hover:underline"
+                >
+                  {showAllDistributors
+                    ? "Apply filter"
+                    : `Show all (${distributors.length})`}
+                </button>
+              )}
+            </div>
             {eligibleDistributors.length ? (
               <Select value={distributorId} onValueChange={setDistributorId}>
                 <SelectTrigger><SelectValue placeholder="Select distributor…" /></SelectTrigger>
@@ -188,6 +225,11 @@ export function TransactionForm() {
               <p className="text-xs text-ink-soft">
                 No distributors supply {airtimeForm === "evd" ? "EVD" : "Float"}
                 {telecom ? ` for ${TELECOM_LABEL[telecom]}` : ""} yet. Add one in Distributors.
+              </p>
+            )}
+            {showAllDistributors && hiddenCount > 0 && (
+              <p className="text-[11px] text-ink-soft mt-1">
+                Showing all distributors — {hiddenCount} don't match the current telecom/form tags.
               </p>
             )}
             </div>
