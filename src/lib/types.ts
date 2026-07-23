@@ -62,6 +62,29 @@ export interface DailyClosing {
   closedAt: string;
 }
 
+// Weekly period (Mon → Sun). Replaces daily open/close as the primary cycle.
+export interface PeriodOpening {
+  id: string;
+  weekStart: string; // YYYY-MM-DD (Monday)
+  weekEnd: string;   // YYYY-MM-DD (Sunday)
+  cashOnHandSantim: number;
+  bankBalances: Record<string, number>;
+  evdStockSantim: number;
+  floatStockSantim: number;
+  openedAt: string;
+}
+
+export interface PeriodClosing {
+  id: string;
+  weekStart: string;
+  weekEnd: string;
+  openingId: string;
+  actualCashSantim: number;
+  varianceSantim: number;
+  notes?: string;
+  closedAt: string;
+}
+
 export interface Transaction {
   id: string;
   type: TxnType;
