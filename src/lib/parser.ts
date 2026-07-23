@@ -362,6 +362,38 @@ const RULES: Array<{
 
 const REF_RX = /\b(?:Ref|Transaction ID|Txn|TrxID)[:# ]*([A-Za-z0-9]{4,})/i;
 
+/**
+ * Channel/bank keyword detection — scans an SMS/notification for the standard
+ * name or well-known abbreviation of a bank/wallet. Used as a fallback when
+ * no high-precision template matches, so we can still categorize the txn
+ * under a specific bank instead of "Other".
+ */
+export const CHANNEL_KEYWORDS: Array<{ channel: string; rx: RegExp }> = [
+  { channel: "CBE",       rx: /\b(CBE|Commercial\s+Bank\s+of\s+Ethiopia)\b/i },
+  { channel: "Abyssinia", rx: /\b(BoA|Bank\s+of\s+Abyssinia|Abyssinia)\b/i },
+  { channel: "Coop",      rx: /\b(Coop(?:erative)?(?:\s+Bank(?:\s+of\s+Oromia)?)?|CBO)\b/i },
+  { channel: "Awash",     rx: /\bAwash(?:\s+Bank)?\b/i },
+  { channel: "Dashen",    rx: /\bDashen(?:\s+Bank)?\b/i },
+  { channel: "Wegagen",   rx: /\bWegagen(?:\s+Bank)?\b/i },
+  { channel: "Telebirr",  rx: /\b(telebirr|E[- ]?Money\s+Account)\b/i },
+  { channel: "M-Pesa",    rx: /\b(M[- ]?Pesa|Safaricom(?:\s+M[- ]?Pesa)?)\b/i },
+];
+
+export function detectChannel(raw: string): string | undefined {
+  for (const { channel, rx } of CHANNEL_KEYWORDS) {
+    if (rx.test(raw)) return channel;
+  }
+  return undefined;
+}
+
+/** Generic account/wallet-tail extractor for messages we can't template-match. */
+function detectAccountTail(raw: string): string | undefined {
+  const m = raw.match(
+    /(?:A\/C|A\/c|Acc(?:ount)?|Wallet)\s*(?:no\.?|number)?\s*[:#]?\s*[*xX•·]*\s*(\d{4,})/i,
+  );
+  return last4(m?.[1]);
+}
+
 export function parseOne(raw: string): ParsedRow {
   const line = raw.trim();
   if (!line) return { ok: false, raw, reason: "empty" };
@@ -381,14 +413,22 @@ export function parseOne(raw: string): ParsedRow {
     if (m) {
       const partial = rule.parse(m, line);
       const refM = line.match(REF_RX);
+      // Prefer a keyword-detected channel over the rule's own default.
+      // "Other" is the generic fallback and should be replaced whenever a
+      // real bank/wallet keyword shows up anywhere in the message.
+      const kwChannel = detectChannel(line);
+      const ruleChannel = partial.channel ?? rule.channel;
+      const channel =
+        ruleChannel === "Other" && kwChannel ? kwChannel : ruleChannel;
       return {
         ok: true,
         raw: line,
-        channel: partial.channel ?? rule.channel,
+        channel,
         type: partial.type,
         amountSantim: partial.amountSantim,
         party: partial.party,
         reference: refM?.[1],
+        accountTail: detectAccountTail(line),
         date: parseDate(line) ?? new Date().toISOString(),
         // Keep the full original message as the description — truncating it
         // loses reference numbers, dates, and context we need 1 year later.
