@@ -40,13 +40,13 @@ type DistributorAction =
   | { kind: "none" }
   | { kind: "link"; id: string };
 
-function isAirtimeRow(t: ParsedRow["type"]): t is "airtime_evd" | "airtime_float" {
-  return t === "airtime_evd" || t === "airtime_float";
+function isAirtimeRow(t: ParsedRow["type"]): boolean {
+  return t === "airtime_evd" || (t as string) === "airtime_float";
 }
 
 function airtimeFormOf(t: ParsedRow["type"]): AirtimeForm | undefined {
   if (t === "airtime_evd") return "evd";
-  if (t === "airtime_float") return "float";
+  if ((t as string) === "airtime_float") return "float";
   return undefined;
 }
 
