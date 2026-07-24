@@ -245,6 +245,7 @@ export function PasteImport() {
         note: row.note ?? row.raw,
         date: row.date ?? new Date().toISOString(),
         isPersonal,
+        needsReview: row.needsReview,
         source: "paste_parse",
       });
     }
