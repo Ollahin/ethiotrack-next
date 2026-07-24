@@ -13,6 +13,7 @@ import {
 import { parseMany, type ParsedRow } from "@/lib/parser";
 import {
   addTransactionsBulk,
+  forceInsertTransactions,
   updateTransaction,
   upsertAgent,
   upsertBank,
@@ -107,6 +108,9 @@ export function PasteImport() {
   const [partyActions, setPartyActions] = useState<Record<number, PartyAction>>({});
   const [bankActions, setBankActions] = useState<Record<number, BankAction>>({});
   const [distActions, setDistActions] = useState<Record<number, DistributorAction>>({});
+  const [skippedInfo, setSkippedInfo] = useState<
+    Array<{ input: Omit<Transaction, "id" | "createdAt">; reason: "reference" | "heuristic" }>
+  >([]);
 
   function matchBank(row: ParsedRow): Bank | null {
     if (!row.ok) return null;
@@ -246,6 +250,7 @@ export function PasteImport() {
     }
 
     const res = await addTransactionsBulk(inputs);
+    setSkippedInfo(res.skippedRows.map((s) => ({ input: s.input, reason: s.reason })));
 
     // FIFO settle: for each new 'in' payment linked to an agent, settle oldest credits.
     for (let i = 0; i < inputs.length; i++) {
@@ -271,6 +276,13 @@ export function PasteImport() {
         (extras ? ` · registered ${extras}` : ""),
     );
     setText(""); setRows(null); setPartyActions({}); setBankActions({}); setDistActions({});
+  }
+
+  async function forceImportSkipped() {
+    if (!skippedInfo.length) return;
+    const ids = await forceInsertTransactions(skippedInfo.map((s) => s.input));
+    toast.success(`Force-imported ${ids.length} row(s)`);
+    setSkippedInfo([]);
   }
 
   function encodePartyAction(a: PartyAction): string {
