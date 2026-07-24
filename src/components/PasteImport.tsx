@@ -25,7 +25,7 @@ import {
 import { matchAgent } from "@/lib/brain/fuzzy";
 import { openCreditsFor, planFifoSettlement } from "@/lib/brain/credits";
 import { formatEtb } from "@/lib/format";
-import type { Bank, Transaction } from "@/lib/types";
+import type { AirtimeForm, Bank, Distributor, Transaction } from "@/lib/types";
 import { toast } from "sonner";
 
 type PartyAction =
@@ -35,6 +35,46 @@ type PartyAction =
   | { kind: "link"; partyType: "agent" | "distributor"; id: string };
 
 type BankAction = { kind: "auto" } | { kind: "skip" };
+
+type DistributorAction =
+  | { kind: "none" }
+  | { kind: "link"; id: string };
+
+function isAirtimeRow(t: ParsedRow["type"]): boolean {
+  return t === "airtime_evd" || (t as string) === "airtime_float";
+}
+
+function airtimeFormOf(t: ParsedRow["type"]): AirtimeForm | undefined {
+  if (t === "airtime_evd") return "evd";
+  if ((t as string) === "airtime_float") return "float";
+  return undefined;
+}
+
+/** Normalize a phone/msisdn for loose comparison — last 9 digits wins. */
+function phoneKey(s: string | undefined): string | undefined {
+  if (!s) return undefined;
+  const d = s.replace(/\D+/g, "");
+  return d.length >= 9 ? d.slice(-9) : d || undefined;
+}
+
+function matchDistributor(row: ParsedRow, distributors: Distributor[]): Distributor | null {
+  if (!row.ok || !isAirtimeRow(row.type)) return null;
+  const form = airtimeFormOf(row.type);
+  const phone = phoneKey(row.counterpartyPhone);
+  // 1) Contact-phone match wins if the SMS has a phone.
+  if (phone) {
+    const hit = distributors.find((d) => phoneKey(d.contact) === phone);
+    if (hit) return hit;
+  }
+  // 2) Otherwise: if exactly one distributor supplies this airtime form, use it.
+  if (form) {
+    const candidates = distributors.filter(
+      (d) => !d.forms || d.forms.length === 0 || d.forms.includes(form),
+    );
+    if (candidates.length === 1) return candidates[0];
+  }
+  return null;
+}
 
 /**
  * Party names our templates produce that are generic labels, not real
@@ -66,6 +106,7 @@ export function PasteImport() {
   const txns = useTransactions();
   const [partyActions, setPartyActions] = useState<Record<number, PartyAction>>({});
   const [bankActions, setBankActions] = useState<Record<number, BankAction>>({});
+  const [distActions, setDistActions] = useState<Record<number, DistributorAction>>({});
 
   function matchBank(row: ParsedRow): Bank | null {
     if (!row.ok) return null;
@@ -91,9 +132,10 @@ export function PasteImport() {
     return (rows ?? []).map((r) => {
       const match = r.ok && r.party ? matchAgent(r.party, agents) : null;
       const bank = matchBank(r);
-      return { row: r, agent: match, bank };
+      const distributor = matchDistributor(r, distributors);
+      return { row: r, agent: match, bank, distributor };
     });
-  }, [rows, agents, banks]);
+  }, [rows, agents, banks, distributors]);
 
   function partyActionFor(i: number, e: (typeof enriched)[number]): PartyAction {
     const override = partyActions[i];
@@ -113,11 +155,19 @@ export function PasteImport() {
     return { kind: "skip" };
   }
 
+  function distActionFor(i: number, e: (typeof enriched)[number]): DistributorAction {
+    const override = distActions[i];
+    if (override) return override;
+    if (e.distributor) return { kind: "link", id: e.distributor.id };
+    return { kind: "none" };
+  }
+
   function detect() {
     if (!text.trim()) return;
     setRows(parseMany(text));
     setPartyActions({});
     setBankActions({});
+    setDistActions({});
   }
 
   async function importAll() {
@@ -168,6 +218,16 @@ export function PasteImport() {
         createdDistributors++;
       }
 
+      // ----- Distributor resolution (airtime rows only)
+      let distributorId: string | undefined;
+      if (isAirtimeRow(row.type)) {
+        const dAction = distActionFor(i, e);
+        if (dAction.kind === "link") distributorId = dAction.id;
+        // If the party itself was linked as a distributor, prefer that link
+        // so the two sides can never disagree.
+        if (partyType === "distributor" && partyId) distributorId = partyId;
+      }
+
       inputs.push({
         type: row.type!,
         amountSantim: row.amountSantim!,
@@ -176,6 +236,7 @@ export function PasteImport() {
         partyType,
         channel: row.channel ?? "Other",
         bankId,
+        distributorId,
         reference: row.reference,
         note: row.note ?? row.raw,
         date: row.date ?? new Date().toISOString(),
@@ -209,7 +270,7 @@ export function PasteImport() {
         (res.skipped ? `, skipped ${res.skipped} duplicate(s)` : "") +
         (extras ? ` · registered ${extras}` : ""),
     );
-    setText(""); setRows(null); setPartyActions({}); setBankActions({});
+    setText(""); setRows(null); setPartyActions({}); setBankActions({}); setDistActions({});
   }
 
   function encodePartyAction(a: PartyAction): string {
@@ -251,13 +312,25 @@ export function PasteImport() {
       {enriched.length > 0 && (
         <ul className="text-sm divide-y divide-border rounded-md border border-border overflow-hidden">
           {enriched.map((e, i) => {
-            const { row, agent, bank } = e;
+            const { row, agent, bank, distributor } = e;
             const pAction = partyActionFor(i, e);
             const bAction = bankActionFor(i, e);
+            const dAction = distActionFor(i, e);
             const suggestedBank = !bank && row.channel && row.channel !== "Other"
               ? suggestBankName(row.channel, row.accountTail)
               : null;
             const partyIsReal = row.party && !isGenericParty(row.party);
+            const airtime = row.ok && isAirtimeRow(row.type);
+            const airtimeForm = airtime ? airtimeFormOf(row.type) : undefined;
+            const distributorChoices = airtime
+              ? distributors.filter(
+                  (d) =>
+                    !airtimeForm ||
+                    !d.forms ||
+                    d.forms.length === 0 ||
+                    d.forms.includes(airtimeForm),
+                )
+              : [];
             return (
             <li key={i} className={"p-2 " + (row.ok ? "" : "bg-money-out/5")}>
               {row.ok ? (
@@ -287,6 +360,12 @@ export function PasteImport() {
                     ) : row.accountTail ? (
                       <span className="text-airtime"> · no bank match (···{row.accountTail})</span>
                     ) : null}
+                    {airtime && distributor && (
+                      <span className="text-money-in font-semibold"> · distributor → {distributor.name}</span>
+                    )}
+                    {airtime && !distributor && (
+                      <span className="text-airtime"> · no distributor linked</span>
+                    )}
                     {row.needsReview && (
                       <span className="ml-1 inline-flex items-center rounded bg-airtime/15 text-airtime text-[10px] font-semibold px-1.5 py-0.5">review</span>
                     )}
@@ -294,7 +373,7 @@ export function PasteImport() {
                       <span className="ml-1 inline-flex items-center rounded bg-money-in/10 text-money-in text-[10px] font-semibold px-1.5 py-0.5">{row.template}</span>
                     )}
                   </div>
-                  {(suggestedBank || partyIsReal) && (
+                  {(suggestedBank || partyIsReal || airtime) && (
                     <div className="flex flex-wrap gap-2 pt-1">
                       {suggestedBank && (
                         <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
@@ -311,6 +390,41 @@ export function PasteImport() {
                             <SelectContent>
                               <SelectItem value="auto">Register “{suggestedBank}”</SelectItem>
                               <SelectItem value="skip">Skip — leave unlinked</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      {airtime && (
+                        <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
+                          <span className="text-ink-soft">
+                            {airtimeForm === "float" ? "Float" : "EVD"} from →
+                          </span>
+                          <Select
+                            value={dAction.kind === "link" ? `link:${dAction.id}` : "none"}
+                            onValueChange={(v) =>
+                              setDistActions((s) => ({
+                                ...s,
+                                [i]: v === "none"
+                                  ? { kind: "none" }
+                                  : { kind: "link", id: v.slice("link:".length) },
+                              }))
+                            }
+                          >
+                            <SelectTrigger className="h-6 w-auto min-w-[10rem] text-[11px]">
+                              <SelectValue placeholder="Pick distributor…" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Don't link (skew expected stock)</SelectItem>
+                              {distributorChoices.map((d) => (
+                                <SelectItem key={d.id} value={`link:${d.id}`}>
+                                  {d.name}
+                                </SelectItem>
+                              ))}
+                              {distributorChoices.length === 0 && (
+                                <SelectItem value="none" disabled>
+                                  No matching distributor — add one first
+                                </SelectItem>
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
