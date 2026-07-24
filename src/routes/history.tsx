@@ -30,6 +30,7 @@ const searchSchema = z.object({
   from: fallback(z.string(), "").default(""),
   to: fallback(z.string(), "").default(""),
   archive: fallback(z.boolean(), false).default(false),
+  review: fallback(z.boolean(), false).default(false),
 });
 
 export const Route = createFileRoute("/history")({
@@ -48,7 +49,7 @@ export const Route = createFileRoute("/history")({
 function HistoryPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  const { q, type, channel, bankId, distributorId, from, to, archive } = search;
+  const { q, type, channel, bankId, distributorId, from, to, archive, review } = search;
 
   const setSearch = (patch: Partial<typeof search>) =>
     navigate({
@@ -85,6 +86,7 @@ function HistoryPage() {
       if (channel !== "all" && t.channel !== channel) return false;
       if (bankId !== "all" && t.bankId !== bankId) return false;
       if (distributorId !== "all" && t.distributorId !== distributorId) return false;
+      if (review && !t.needsReview) return false;
       if (fromIso && t.date < fromIso) return false;
       if (toIso && t.date > toIso) return false;
       if (needle) {
@@ -94,7 +96,7 @@ function HistoryPage() {
       }
       return true;
     });
-  }, [transactions, q, type, channel, bankId, distributorId, from, to]);
+  }, [transactions, q, type, channel, bankId, distributorId, from, to, review]);
 
   const totals = useMemo(() => {
     let inSum = 0,
@@ -190,7 +192,15 @@ function HistoryPage() {
           <span className="text-money-out font-semibold tabular-nums">
             − {formatEtb(totals.outSum)}
           </span>
-          {(q || type !== "all" || channel !== "all" || bankId !== "all" || distributorId !== "all" || from || to) && (
+          <Button
+            size="sm"
+            variant={review ? "secondary" : "outline"}
+            className="h-6 px-2 text-xs"
+            onClick={() => setSearch({ review: !review })}
+          >
+            {review ? "✓ Needs review" : "Needs review"}
+          </Button>
+          {(q || type !== "all" || channel !== "all" || bankId !== "all" || distributorId !== "all" || from || to || review) && (
             <Button
               size="sm"
               variant="ghost"
@@ -199,7 +209,7 @@ function HistoryPage() {
                 setSearch({
                   q: "", type: "all", channel: "all",
                   bankId: "all", distributorId: "all",
-                  from: "", to: "", archive: false,
+                  from: "", to: "", archive: false, review: false,
                 })
               }
             >
@@ -285,6 +295,12 @@ function HistoryPage() {
                       <>
                         <span>·</span>
                         <span className="text-money-in font-semibold">settled</span>
+                      </>
+                    )}
+                    {t.needsReview && (
+                      <>
+                        <span>·</span>
+                        <span className="text-airtime font-semibold uppercase">review</span>
                       </>
                     )}
                   </div>
