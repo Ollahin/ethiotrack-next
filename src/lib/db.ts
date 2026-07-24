@@ -541,6 +541,20 @@ export async function deleteTransaction(id: string): Promise<void> {
   await db().transactions.delete(id);
 }
 
+/** Force-insert transactions bypassing duplicate detection. For "not actually a dupe" overrides. */
+export async function forceInsertTransactions(
+  inputs: Array<Omit<Transaction, "id" | "createdAt">>,
+): Promise<string[]> {
+  const now = new Date().toISOString();
+  const txns: Transaction[] = inputs.map((input) => ({
+    ...input,
+    id: makeId(),
+    createdAt: now,
+  }));
+  if (txns.length) await db().transactions.bulkPut(txns);
+  return txns.map((t) => t.id);
+}
+
 // -- master data -------------------------------------------------------------
 
 export async function upsertAgent(a: Omit<Agent, "id" | "createdAt"> & { id?: string }): Promise<Agent> {
