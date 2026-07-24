@@ -278,7 +278,7 @@ const RULES: Array<{
   // Telebirr — credited / received
   {
     channel: "Telebirr",
-    test: /telebirr[\s\S]*?(?:received|credited)[\s\S]*?ETB\s*([\d,]+(?:\.\d+)?)[\s\S]*?from\s+([A-Za-z0-9 .'-]+?)(?:\.|,|\s+(?:on|Ref))/i,
+    test: /telebirr[\s\S]*?(?:received|credited)[\s\S]*?ETB\s*([\d,]+(?:\.\d+)?)[\s\S]*?from\s+([A-Za-z0-9\u1200-\u137F .'-]+?)(?:\.|,|\s+(?:on|Ref))/i,
     parse: (m) => ({
       type: "in",
       amountSantim: toSantim(m[1]),
@@ -288,7 +288,7 @@ const RULES: Array<{
   // Telebirr — paid / debited
   {
     channel: "Telebirr",
-    test: /telebirr[\s\S]*?(?:paid|debited|sent)[\s\S]*?ETB\s*([\d,]+(?:\.\d+)?)[\s\S]*?to\s+([A-Za-z0-9 .'-]+?)(?:\.|,|\s+(?:on|Ref))/i,
+    test: /telebirr[\s\S]*?(?:paid|debited|sent)[\s\S]*?ETB\s*([\d,]+(?:\.\d+)?)[\s\S]*?to\s+([A-Za-z0-9\u1200-\u137F .'-]+?)(?:\.|,|\s+(?:on|Ref))/i,
     parse: (m) => ({
       type: "out",
       amountSantim: toSantim(m[1]),
@@ -308,7 +308,7 @@ const RULES: Array<{
   // CBE — credited
   {
     channel: "CBE",
-    test: /\bCBE\b[\s\S]*?(?:credited|received)[\s\S]*?ETB\s*([\d,]+(?:\.\d+)?)[\s\S]*?from\s+([A-Za-z0-9 .'-]+?)(?:\.|,|\s+(?:on|Ref))/i,
+    test: /\bCBE\b[\s\S]*?(?:credited|received)[\s\S]*?ETB\s*([\d,]+(?:\.\d+)?)[\s\S]*?from\s+([A-Za-z0-9\u1200-\u137F .'-]+?)(?:\.|,|\s+(?:on|Ref))/i,
     parse: (m) => ({
       type: "in",
       amountSantim: toSantim(m[1]),
@@ -318,7 +318,7 @@ const RULES: Array<{
   // CBE — debited
   {
     channel: "CBE",
-    test: /\bCBE\b[\s\S]*?(?:debited|withdrawn|paid)[\s\S]*?ETB\s*([\d,]+(?:\.\d+)?)(?:[\s\S]*?(?:to|for)\s+([A-Za-z0-9 .'-]+?)(?:\.|,|\s+(?:on|Ref)))?/i,
+    test: /\bCBE\b[\s\S]*?(?:debited|withdrawn|paid)[\s\S]*?ETB\s*([\d,]+(?:\.\d+)?)(?:[\s\S]*?(?:to|for)\s+([A-Za-z0-9\u1200-\u137F .'-]+?)(?:\.|,|\s+(?:on|Ref)))?/i,
     parse: (m) => ({
       type: "out",
       amountSantim: toSantim(m[1]),
@@ -328,7 +328,7 @@ const RULES: Array<{
   // Awash / Dashen / Abyssinia — credit
   {
     channel: "Awash",
-    test: /\b(Awash|Dashen|Abyssinia|Wegagen)\b[\s\S]*?(?:credited|received)[\s\S]*?(?:ETB|Br\.?)\s*([\d,]+(?:\.\d+)?)[\s\S]*?from\s+([A-Za-z0-9 .'-]+?)(?:\.|,|\s+(?:on|Ref))/i,
+    test: /\b(Awash|Dashen|Abyssinia|Wegagen)\b[\s\S]*?(?:credited|received)[\s\S]*?(?:ETB|Br\.?)\s*([\d,]+(?:\.\d+)?)[\s\S]*?from\s+([A-Za-z0-9\u1200-\u137F .'-]+?)(?:\.|,|\s+(?:on|Ref))/i,
     parse: (m) => ({
       channel: m[1],
       type: "in",
@@ -338,7 +338,7 @@ const RULES: Array<{
   },
   {
     channel: "Awash",
-    test: /\b(Awash|Dashen|Abyssinia|Wegagen)\b[\s\S]*?(?:debited|withdrawn|paid)[\s\S]*?(?:ETB|Br\.?)\s*([\d,]+(?:\.\d+)?)(?:[\s\S]*?to\s+([A-Za-z0-9 .'-]+?)(?:\.|,|\s+(?:on|Ref)))?/i,
+    test: /\b(Awash|Dashen|Abyssinia|Wegagen)\b[\s\S]*?(?:debited|withdrawn|paid)[\s\S]*?(?:ETB|Br\.?)\s*([\d,]+(?:\.\d+)?)(?:[\s\S]*?to\s+([A-Za-z0-9\u1200-\u137F .'-]+?)(?:\.|,|\s+(?:on|Ref)))?/i,
     parse: (m) => ({
       channel: m[1],
       type: "out",
@@ -352,7 +352,7 @@ const RULES: Array<{
     // Capture the preposition itself so direction comes from the SAME match,
     // never from a second loose scan of the whole line.
     // Party stops before " on ", " Ref", punctuation, or end of line.
-    test: /(?:ETB|Birr|Br\.?)\s*([\d,]+(?:\.\d+)?)\s*(to|from)\s+([A-Za-z0-9.'-][A-Za-z0-9 .'-]*?)(?=\s+(?:on|Ref|Txn|TrxID)\b|[.,;\n]|$)/i,
+    test: /(?:ETB|Birr|Br\.?)\s*([\d,]+(?:\.\d+)?)\s*(to|from)\s+([A-Za-z0-9\u1200-\u137F.'-][A-Za-z0-9\u1200-\u137F .'-]*?)(?=\s+(?:on|Ref|Txn|TrxID)\b|[.,;\n]|$)/i,
     parse: (m) => ({
       type: m[2].toLowerCase() === "from" ? "in" : "out",
       amountSantim: toSantim(m[1]),
@@ -385,8 +385,9 @@ const RULES: Array<{
       }
       // Try to extract a party name from "to X" or "from X"
       let party = "Unknown";
-      const partyM = raw.match(/\b(?:to|from)\s+([A-Za-z0-9.'-][A-Za-z0-9 .'-]{1,40}?)(?=\s+(?:on|Ref|Txn|TrxID|via)\b|[.,;\n]|$)/i);
+      const partyM = raw.match(/\b(?:to|from)\s+([A-Za-z0-9\u1200-\u137F.'-][A-Za-z0-9\u1200-\u137F .'-]{1,40}?)(?=\s+(?:on|Ref|Txn|TrxID|via)\b|[.,;\n]|$)/i);
       if (partyM) party = partyM[1].trim();
+      else needsReview = true;
       return {
         type,
         amountSantim: toSantim(m[1]),
@@ -474,7 +475,9 @@ export function parseOne(raw: string): ParsedRow {
         // Keep the full original message as the description — truncating it
         // loses reference numbers, dates, and context we need 1 year later.
         note: line,
-        needsReview: partial.needsReview ?? false,
+        needsReview:
+          partial.needsReview ??
+          (!partial.party || partial.party.trim() === "" || partial.party === "Unknown"),
       };
     }
   }

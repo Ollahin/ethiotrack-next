@@ -1,5 +1,6 @@
 import type { Agent, BrainAlert, StatementImport, Transaction } from "../types";
 import { computeAgentStats } from "./stats";
+import { DUPLICATE_WINDOW_MS, duplicateKey } from "../db";
 
 const DAY_MS = 86_400_000;
 
@@ -95,7 +96,7 @@ export function computeAlerts(
 
   const byKey = new Map<string, Transaction[]>();
   for (const t of txns) {
-    const k = `${t.type}|${t.amountSantim}|${(t.partyName ?? "").toLowerCase()}|${t.channel}`;
+    const k = duplicateKey(t);
     byKey.set(k, [...(byKey.get(k) ?? []), t]);
   }
   for (const [, list] of byKey) {
@@ -103,7 +104,7 @@ export function computeAlerts(
     list.sort((a, b) => (a.date < b.date ? -1 : 1));
     for (let i = 1; i < list.length; i++) {
       const dt = new Date(list[i].date).getTime() - new Date(list[i - 1].date).getTime();
-      if (dt <= 10 * 60_000) {
+      if (dt <= DUPLICATE_WINDOW_MS) {
         out.push({
           id: `dup-${list[i - 1].id}-${list[i].id}`,
           severity: "medium",

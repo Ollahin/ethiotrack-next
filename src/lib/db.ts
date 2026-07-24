@@ -13,6 +13,20 @@ import type {
 } from "./types";
 import { makeId } from "./ids";
 
+/**
+ * Canonical dedup fingerprint for a transaction. Shared by:
+ *  - addTransactionsBulk() to skip near-duplicates on insert
+ *  - brain/alerts.ts to flag existing near-duplicates for review
+ * Keep both callers using this exact key so the two policies never drift.
+ * Time proximity is enforced by the caller (default: `DUPLICATE_WINDOW_MS`).
+ */
+export const DUPLICATE_WINDOW_MS = 10 * 60_000;
+export function duplicateKey(
+  t: Pick<Transaction, "type" | "amountSantim" | "partyName" | "channel">,
+): string {
+  return `${t.type}|${t.amountSantim}|${(t.partyName ?? "").toLowerCase()}|${t.channel}`;
+}
+
 // -- schema ------------------------------------------------------------------
 
 class EthioTrackDB extends Dexie {
@@ -475,7 +489,7 @@ export async function addTransactionsBulk(
   const refKey = (channel: string, reference: string) =>
     `${channel}|${reference.trim().toUpperCase()}`;
   for (const t of existing) {
-    const k = `${t.type}|${t.amountSantim}|${t.partyName.toLowerCase()}|${t.channel}`;
+    const k = duplicateKey(t);
     seen.set(k, [...(seen.get(k) ?? []), new Date(t.date).getTime()]);
     if (t.reference && t.reference.trim()) {
       seenRefs.add(refKey(t.channel, t.reference));
@@ -502,14 +516,14 @@ export async function addTransactionsBulk(
       };
       inserted.push(txn);
       seenRefs.add(rk);
-      const k = `${input.type}|${input.amountSantim}|${input.partyName.toLowerCase()}|${input.channel}`;
+      const k = duplicateKey(input);
       seen.set(k, [...(seen.get(k) ?? []), new Date(input.date).getTime()]);
       continue;
     }
-    const k = `${input.type}|${input.amountSantim}|${input.partyName.toLowerCase()}|${input.channel}`;
+    const k = duplicateKey(input);
     const ts = new Date(input.date).getTime();
     const near = (seen.get(k) ?? []).some(
-      (p) => Math.abs(p - ts) <= 10 * 60_000,
+      (p) => Math.abs(p - ts) <= DUPLICATE_WINDOW_MS,
     );
     if (near) {
       skipped++;
