@@ -463,16 +463,49 @@ export async function addTransaction(
 
 export async function addTransactionsBulk(
   inputs: Array<Omit<Transaction, "id" | "createdAt">>,
-): Promise<{ inserted: number; skipped: number; ids: string[] }> {
+): Promise<{
+  inserted: number;
+  skipped: number;
+  ids: string[];
+  skippedRows: Array<{ index: number; input: Omit<Transaction, "id" | "createdAt">; reason: "reference" | "heuristic" }>;
+}> {
   const existing = await db().transactions.toArray();
   const seen = new Map<string, number[]>();
+  const seenRefs = new Set<string>();
+  const refKey = (channel: string, reference: string) =>
+    `${channel}|${reference.trim().toUpperCase()}`;
   for (const t of existing) {
     const k = `${t.type}|${t.amountSantim}|${t.partyName.toLowerCase()}|${t.channel}`;
     seen.set(k, [...(seen.get(k) ?? []), new Date(t.date).getTime()]);
+    if (t.reference && t.reference.trim()) {
+      seenRefs.add(refKey(t.channel, t.reference));
+    }
   }
   const inserted: Transaction[] = [];
+  const skippedRows: Array<{ index: number; input: Omit<Transaction, "id" | "createdAt">; reason: "reference" | "heuristic" }> = [];
   let skipped = 0;
-  for (const input of inputs) {
+  for (let i = 0; i < inputs.length; i++) {
+    const input = inputs[i];
+    // Authoritative: same channel + same reference => duplicate, regardless of amount/party/time.
+    if (input.reference && input.reference.trim()) {
+      const rk = refKey(input.channel, input.reference);
+      if (seenRefs.has(rk)) {
+        skipped++;
+        skippedRows.push({ index: i, input, reason: "reference" });
+        continue;
+      }
+      // A reference is a strong unique signal — skip the heuristic entirely when present.
+      const txn: Transaction = {
+        ...input,
+        id: makeId(),
+        createdAt: new Date().toISOString(),
+      };
+      inserted.push(txn);
+      seenRefs.add(rk);
+      const k = `${input.type}|${input.amountSantim}|${input.partyName.toLowerCase()}|${input.channel}`;
+      seen.set(k, [...(seen.get(k) ?? []), new Date(input.date).getTime()]);
+      continue;
+    }
     const k = `${input.type}|${input.amountSantim}|${input.partyName.toLowerCase()}|${input.channel}`;
     const ts = new Date(input.date).getTime();
     const near = (seen.get(k) ?? []).some(
@@ -480,6 +513,7 @@ export async function addTransactionsBulk(
     );
     if (near) {
       skipped++;
+      skippedRows.push({ index: i, input, reason: "heuristic" });
       continue;
     }
     const txn: Transaction = {
@@ -495,6 +529,7 @@ export async function addTransactionsBulk(
     inserted: inserted.length,
     skipped,
     ids: inserted.map((t) => t.id),
+    skippedRows,
   };
 }
 
@@ -504,6 +539,20 @@ export async function updateTransaction(txn: Transaction): Promise<void> {
 
 export async function deleteTransaction(id: string): Promise<void> {
   await db().transactions.delete(id);
+}
+
+/** Force-insert transactions bypassing duplicate detection. For "not actually a dupe" overrides. */
+export async function forceInsertTransactions(
+  inputs: Array<Omit<Transaction, "id" | "createdAt">>,
+): Promise<string[]> {
+  const now = new Date().toISOString();
+  const txns: Transaction[] = inputs.map((input) => ({
+    ...input,
+    id: makeId(),
+    createdAt: now,
+  }));
+  if (txns.length) await db().transactions.bulkPut(txns);
+  return txns.map((t) => t.id);
 }
 
 // -- master data -------------------------------------------------------------

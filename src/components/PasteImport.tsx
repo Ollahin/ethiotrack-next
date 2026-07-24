@@ -13,6 +13,7 @@ import {
 import { parseMany, type ParsedRow } from "@/lib/parser";
 import {
   addTransactionsBulk,
+  forceInsertTransactions,
   updateTransaction,
   upsertAgent,
   upsertBank,
@@ -107,6 +108,9 @@ export function PasteImport() {
   const [partyActions, setPartyActions] = useState<Record<number, PartyAction>>({});
   const [bankActions, setBankActions] = useState<Record<number, BankAction>>({});
   const [distActions, setDistActions] = useState<Record<number, DistributorAction>>({});
+  const [skippedInfo, setSkippedInfo] = useState<
+    Array<{ input: Omit<Transaction, "id" | "createdAt">; reason: "reference" | "heuristic" }>
+  >([]);
 
   function matchBank(row: ParsedRow): Bank | null {
     if (!row.ok) return null;
@@ -246,6 +250,7 @@ export function PasteImport() {
     }
 
     const res = await addTransactionsBulk(inputs);
+    setSkippedInfo(res.skippedRows.map((s) => ({ input: s.input, reason: s.reason })));
 
     // FIFO settle: for each new 'in' payment linked to an agent, settle oldest credits.
     for (let i = 0; i < inputs.length; i++) {
@@ -271,6 +276,13 @@ export function PasteImport() {
         (extras ? ` · registered ${extras}` : ""),
     );
     setText(""); setRows(null); setPartyActions({}); setBankActions({}); setDistActions({});
+  }
+
+  async function forceImportSkipped() {
+    if (!skippedInfo.length) return;
+    const ids = await forceInsertTransactions(skippedInfo.map((s) => s.input));
+    toast.success(`Force-imported ${ids.length} row(s)`);
+    setSkippedInfo([]);
   }
 
   function encodePartyAction(a: PartyAction): string {
@@ -480,6 +492,59 @@ export function PasteImport() {
             );
           })}
         </ul>
+      )}
+      {skippedInfo.length > 0 && (
+        <div className="rounded-md border border-airtime/40 bg-airtime/5 p-2 space-y-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="text-xs">
+              <div className="font-semibold text-airtime">
+                {skippedInfo.length} row(s) skipped as duplicates
+              </div>
+              <div className="text-ink-soft">
+                Review below — if any aren't actually duplicates, force-import them.
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setSkippedInfo([])}>
+                Dismiss
+              </Button>
+              <Button size="sm" onClick={forceImportSkipped}>
+                Force import {skippedInfo.length}
+              </Button>
+            </div>
+          </div>
+          <ul className="text-[11px] divide-y divide-border rounded border border-border bg-card overflow-hidden">
+            {skippedInfo.map((s, i) => (
+              <li key={i} className="p-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    className={
+                      "font-bold tabular-nums " +
+                      (s.input.type === "in" ? "text-money-in" : "text-money-out")
+                    }
+                  >
+                    {s.input.type === "in" ? "+" : "−"} {formatEtb(s.input.amountSantim)}
+                  </span>
+                  <span className="uppercase font-semibold text-ink-soft">{s.input.channel}</span>
+                  <span>· {s.input.partyName}</span>
+                  {s.input.reference && (
+                    <span className="rounded bg-muted px-1.5 py-0.5 tabular-nums">
+                      ref {s.input.reference}
+                    </span>
+                  )}
+                  <span className="ml-auto text-ink-soft">
+                    {s.reason === "reference" ? "same reference" : "amount/party/time match"}
+                  </span>
+                </div>
+                {s.input.note && (
+                  <div className="text-ink-soft whitespace-pre-wrap break-words pt-1">
+                    {s.input.note}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );
