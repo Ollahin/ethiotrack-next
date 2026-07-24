@@ -127,6 +127,8 @@ export interface Transaction {
   isPersonal?: boolean;
   isSettled?: boolean;
   settledAt?: string;
+  /** Parser flagged this row as low-confidence (ambiguous direction/party). */
+  needsReview?: boolean;
   /** For payments applied to credits: which credit txn ids they settled. */
   settlesTxnIds?: string[];
   source: TxnSource;
