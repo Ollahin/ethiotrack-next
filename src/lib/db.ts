@@ -13,6 +13,20 @@ import type {
 } from "./types";
 import { makeId } from "./ids";
 
+/**
+ * Canonical dedup fingerprint for a transaction. Shared by:
+ *  - addTransactionsBulk() to skip near-duplicates on insert
+ *  - brain/alerts.ts to flag existing near-duplicates for review
+ * Keep both callers using this exact key so the two policies never drift.
+ * Time proximity is enforced by the caller (default: `DUPLICATE_WINDOW_MS`).
+ */
+export const DUPLICATE_WINDOW_MS = 10 * 60_000;
+export function duplicateKey(
+  t: Pick<Transaction, "type" | "amountSantim" | "partyName" | "channel">,
+): string {
+  return `${t.type}|${t.amountSantim}|${(t.partyName ?? "").toLowerCase()}|${t.channel}`;
+}
+
 // -- schema ------------------------------------------------------------------
 
 class EthioTrackDB extends Dexie {
