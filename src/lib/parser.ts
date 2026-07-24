@@ -475,7 +475,9 @@ export function parseOne(raw: string): ParsedRow {
         // Keep the full original message as the description — truncating it
         // loses reference numbers, dates, and context we need 1 year later.
         note: line,
-        needsReview: partial.needsReview ?? false,
+        needsReview:
+          partial.needsReview ??
+          (!partial.party || partial.party.trim() === "" || partial.party === "Unknown"),
       };
     }
   }
