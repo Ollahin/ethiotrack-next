@@ -116,3 +116,38 @@ describe("parseStatementText — Refill History layout (Alami / Yenus / Modern A
     expect(rows.map((r) => r.amountSantim)).toEqual([300_000, 750_000]);
   });
 });
+
+describe("parseStatementText — junk-row guards (regression)", () => {
+  it("strips trailing 'Birr' label from a name line", () => {
+    // OCR often glues the currency label onto the name row.
+    const text = [
+      "Birukeee Birr",
+      "2026-07-22 4:51 PM",
+      "200,000.00 Birr",
+    ].join("\n");
+    const [r] = parseStatementText(text, "alami").filter((x) => x.ok);
+    expect(r.agentName).toBe("Birukeee");
+    expect(r.amountSantim).toBe(20_000_000);
+  });
+
+  it("never treats a 4-digit year rendered as '2,026' as an amount", () => {
+    // Reproduces the bug where the year 2026 was parsed as ETB 2,026.00.
+    const text = [
+      "-07-22 4 51 PM",
+      "2,026.00 Birr",
+    ].join("\n");
+    const rows = parseStatementText(text, "yenus").filter((r) => r.ok);
+    expect(rows).toHaveLength(0);
+  });
+
+  it("rejects a date-fragment / loose-time line as an agent name", () => {
+    const text = [
+      "-07-22 4 51 PM",
+      "2026-07-22 4:51 PM",
+      "20,000 Birr",
+    ].join("\n");
+    const rows = parseStatementText(text, "modern-app").filter((r) => r.ok);
+    // No valid alphabetic name in scope → nothing should commit.
+    expect(rows).toHaveLength(0);
+  });
+});

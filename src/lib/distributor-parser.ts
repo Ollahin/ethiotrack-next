@@ -116,7 +116,13 @@ const AMOUNT_DOTTED = /(-?\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/;   // 20,000.00 or -5
 const AMOUNT_BIRR_RIGHT = /(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*Birr\s*$/i;
 const DATE_DDMMMYYYY = /\b\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}\b/;
 const DATE_ISO = /\b\d{4}-\d{2}-\d{2}\b/;
+// Fragmented ISO date the OCR sometimes leaves behind after chopping the
+// year off ("-07-22", "-07-22 4 51 PM"). Anything that looks like this must
+// never be considered an agent name.
+const DATE_FRAGMENT = /^-?\d{1,4}[-/]\d{1,2}([-/]\d{1,2})?\b/;
 const TIME_AMPM = /\d{1,2}:\d{2}\s*(AM|PM)/i;
+// OCR frequently drops the ":" in a time, so "4:51 PM" arrives as "4 51 PM".
+const TIME_LOOSE = /\b\d{1,2}\s+\d{2}\s*(AM|PM)\b/i;
 const NOISE_RX = /^(transfers|received|sent|refill history|agents|add agent|refill|balance|home|amount|date|name|status|success|successful)\s*$/i;
 // Names on the distributor screenshots are always alphabetic (Latin or Ethiopic
 // script), with spaces / hyphens / apostrophes / dots. Any digit disqualifies
@@ -131,16 +137,46 @@ function cleanLines(text: string): string[] {
     .filter((l) => l.length > 0 && !NOISE_RX.test(l));
 }
 
+/**
+ * Strip currency/label tokens that OCR often glues onto the end of a name
+ * line (e.g. "Birukeee Birr" → "Birukeee"). Called before NAME_RX validation
+ * so a stray label doesn't disqualify an otherwise-valid alphabetic name.
+ */
+function stripNameTrailers(line: string): string {
+  return line.replace(/\s+(Birr|ETB|EVD|Float|Review|Link\s+to\s+agent.*)$/i, "").trim();
+}
+
+/**
+ * Reject "amounts" that are actually a 4-digit year the OCR rendered with a
+ * thousands separator ("2,026" from "2026-07-22"). Real airtime top-ups are
+ * never posted as an exact integer year with no cents.
+ */
+function looksLikeYearAmount(raw: string): boolean {
+  const n = Number(raw.replace(/,/g, ""));
+  return Number.isInteger(n) && n >= 1900 && n <= 2100;
+}
+
 function looksLikeName(line: string): boolean {
   if (!line) return false;
+  const cleaned = stripNameTrailers(line);
+  if (!cleaned) return false;
   // Agent names are alphabetic only — no digits, no time (AM/PM), no dates.
-  if (/\d/.test(line)) return false;
-  if (TIME_AMPM.test(line)) return false;
-  if (!NAME_RX.test(line)) return false;
+  if (/\d/.test(cleaned)) return false;
+  if (TIME_AMPM.test(cleaned) || TIME_LOOSE.test(cleaned)) return false;
+  if (DATE_FRAGMENT.test(cleaned)) return false;
+  if (!NAME_RX.test(cleaned)) return false;
   // Month-name-only lines ("Jul", "July") slip through NAME_RX; reject them
   // when they're the whole line and there's no other word.
-  if (MONTHS_RX.test(line) && line.split(/\s+/).length === 1) return false;
+  if (MONTHS_RX.test(cleaned) && cleaned.split(/\s+/).length === 1) return false;
   return true;
+}
+
+/**
+ * Canonical agent name after label-stripping. Callers should use this so the
+ * name persisted to the DB is "Birukeee", not "Birukeee Birr".
+ */
+function normalizeName(line: string): string {
+  return stripNameTrailers(line);
 }
 
 /** MJ layout — paired sender/date/agent card, right-aligned amount. */
@@ -187,14 +223,14 @@ function parseMj(text: string): StatementRow[] {
       if (!agentName && looksLikeName(ln)) {
         // Guard: don't pick the next sender line as an agent.
         if (/^([A-Za-z0-9._-]{3,})\s*[-–]\s*\1\b/i.test(ln)) break;
-        agentName = ln;
+        agentName = normalizeName(ln);
         j++;
         break;
       }
       j++;
     }
     const raw = lines.slice(i, j).join(" | ");
-    if (!amountStr || !agentName) {
+    if (!amountStr || !agentName || looksLikeYearAmount(amountStr)) {
       out.push({ ok: false, raw, reason: !amountStr ? "no amount" : "no agent", sender });
     } else {
       const santim = toSantim(amountStr);
@@ -225,22 +261,27 @@ function parseRefillHistory(text: string): StatementRow[] {
     // mid-line, so a date fragment can't be misread as an amount.
     const amtM = lines[i].match(AMOUNT_BIRR_RIGHT);
     if (!amtM) continue;
+    // A line that also carries an ISO date or a time is a header/date band,
+    // not an amount row (OCR sometimes glues "2026 Birr" onto a date line).
+    if (DATE_ISO.test(lines[i]) || TIME_AMPM.test(lines[i]) || TIME_LOOSE.test(lines[i])) continue;
+    // "2,026" (the year) is not an airtime amount.
+    if (looksLikeYearAmount(amtM[1])) continue;
     // Walk backward through up to 4 previous lines to find date + name.
     let dateText: string | undefined;
     let agentName: string | undefined;
     for (let k = i - 1; k >= Math.max(0, i - 4); k--) {
       const ln = lines[k];
-      if (!dateText && (DATE_ISO.test(ln) || TIME_AMPM.test(ln) || DATE_DDMMMYYYY.test(ln))) {
+      if (!dateText && (DATE_ISO.test(ln) || TIME_AMPM.test(ln) || TIME_LOOSE.test(ln) || DATE_DDMMMYYYY.test(ln) || DATE_FRAGMENT.test(ln))) {
         dateText = ln;
         continue;
       }
       if (dateText && !agentName && looksLikeName(ln)) {
-        agentName = ln;
+        agentName = normalizeName(ln);
         break;
       }
       // Name may also appear even without a date (some rows OCR the date poorly).
       if (!dateText && !agentName && looksLikeName(ln)) {
-        agentName = ln;
+        agentName = normalizeName(ln);
         break;
       }
     }
@@ -283,8 +324,11 @@ export function parseStatementText(
 ): StatementRow[] {
   const template = APP_TEMPLATES[format];
   if (template) {
-    const rows = template(text);
-    if (rows.length) return rows;
+    // Trust the per-app template: if it decides nothing in the OCR looks like
+    // a valid row, we do NOT fall back to the generic scraper. The generic
+    // scraper is line-oriented and happily turns date fragments into "rows",
+    // which is exactly the junk the templates exist to suppress.
+    return template(text);
   }
   return parseGeneric(text);
 }
