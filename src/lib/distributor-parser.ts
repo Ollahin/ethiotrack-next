@@ -545,25 +545,62 @@ export function parseStatementText(
   text: string,
   format: DistributorStatementFormat = "generic",
 ): StatementRow[] {
-  if (format === "generic" && hasTransfersHeading(text)) {
-    return parseMj(text);
-  }
-  if (format === "generic" && hasInlineRefillRows(text)) {
-    return parseRefillHistory(text);
-  }
-  if (format === "generic" && isLikelyMjTransfers(text)) {
-    return parseMj(text);
-  }
-  if (format === "generic" && isLikelyRefillHistory(text)) {
-    return parseRefillHistory(text);
+  return detectStatementTemplate(text, format).rows;
+}
+
+/** Which layout matched, and the specific rule that triggered the match. */
+export type TemplateMatchKind = "mj" | "refill" | "generic";
+export interface TemplateMatch {
+  /** Human-readable layout label ("MJ transfers", "Refill history", "Generic"). */
+  label: string;
+  /** Machine-readable layout family. */
+  kind: TemplateMatchKind;
+  /** Short reason describing which rule fired. */
+  reason: string;
+  /** Whether the distributor's declared format forced the choice. */
+  forced: boolean;
+  /** 0–1 rough confidence based on the trigger's strength. */
+  confidence: number;
+  rows: StatementRow[];
+}
+
+/**
+ * Same routing as parseStatementText, but also surfaces which template ran
+ * and why — so the UI can show "Matched: MJ transfers · Transfers heading
+ * detected" instead of a silent black box.
+ */
+export function detectStatementTemplate(
+  text: string,
+  format: DistributorStatementFormat = "generic",
+): TemplateMatch {
+  if (format === "generic") {
+    if (hasTransfersHeading(text)) {
+      return { label: "MJ transfers", kind: "mj", reason: 'Detected "Transfers" heading', forced: false, confidence: 0.95, rows: parseMj(text) };
+    }
+    if (hasInlineRefillRows(text)) {
+      return { label: "Refill history", kind: "refill", reason: 'Detected inline "<name> <amount> Birr" row', forced: false, confidence: 0.9, rows: parseRefillHistory(text) };
+    }
+    if (isLikelyMjTransfers(text)) {
+      return { label: "MJ transfers", kind: "mj", reason: "Detected ≥2 MJ card rows (date + right-amount + agent)", forced: false, confidence: 0.8, rows: parseMj(text) };
+    }
+    if (isLikelyRefillHistory(text)) {
+      return { label: "Refill history", kind: "refill", reason: "Detected ≥2 name/date paired rows", forced: false, confidence: 0.75, rows: parseRefillHistory(text) };
+    }
+    return { label: "Generic", kind: "generic", reason: "No layout heuristic matched — using line-scraper fallback", forced: false, confidence: 0.3, rows: parseGeneric(text) };
   }
   const template = APP_TEMPLATES[format];
   if (template) {
-    // Trust the per-app template: if it decides nothing in the OCR looks like
-    // a valid row, we do NOT fall back to the generic scraper. The generic
-    // scraper is line-oriented and happily turns date fragments into "rows",
-    // which is exactly the junk the templates exist to suppress.
-    return template(text);
+    const rows = template(text);
+    const kind: TemplateMatchKind = format === "mj" ? "mj" : "refill";
+    const label = format === "mj" ? "MJ transfers" : "Refill history";
+    return {
+      label,
+      kind,
+      reason: `Forced by distributor format "${format}"`,
+      forced: true,
+      confidence: rows.some((r) => r.ok) ? 0.95 : 0.4,
+      rows,
+    };
   }
-  return parseGeneric(text);
+  return { label: "Generic", kind: "generic", reason: `Unknown format "${format}" — using generic scraper`, forced: true, confidence: 0.3, rows: parseGeneric(text) };
 }
