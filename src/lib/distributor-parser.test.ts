@@ -118,6 +118,44 @@ describe("parseStatementText — Refill History layout (Alami / Yenus / Modern A
 });
 
 describe("parseStatementText — junk-row guards (regression)", () => {
+  it("parses MJ Transfers list where amount and '& Agent' are on separate lines with no date", () => {
+    const text = [
+      "Transfers",
+      "Sent",
+      "barisohaji - barisohaji",
+      "15,000.00",
+      "-",
+      "& Sintayehu",
+      "barisohaji - barisohaji",
+      "10,000.00",
+      "& Jireeeeee",
+      "barisohaji - barisohaji",
+      "5,000.00",
+      "& Baliyyuuu",
+      "barisohaji - barisohaji",
+      "10,000.00",
+      "& Kaleebbbbb",
+      "barisohaji - barisohaji",
+      "25,000.00",
+      "oA Gojeeeee",
+    ].join("\n");
+    const rows = parseStatementText(text, "mj").filter((r) => r.ok);
+    expect(rows.map((r) => r.agentName)).toEqual([
+      "Sintayehu",
+      "Jireeeeee",
+      "Baliyyuuu",
+      "Kaleebbbbb",
+      "Gojeeeee",
+    ]);
+    expect(rows.map((r) => r.amountSantim)).toEqual([
+      1_500_000,
+      1_000_000,
+      500_000,
+      1_000_000,
+      2_500_000,
+    ]);
+  });
+
   it("strips trailing 'Birr' label from a name line", () => {
     // OCR often glues the currency label onto the name row.
     const text = [

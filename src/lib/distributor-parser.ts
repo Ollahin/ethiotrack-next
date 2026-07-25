@@ -148,6 +148,22 @@ function stripNameTrailers(line: string): string {
 }
 
 /**
+ * Strip leading bullet/icon/punctuation noise OCR prepends to agent name
+ * lines in some distributor apps (e.g. "& Sintayehu", "· Abebe", "oA Gojeeeee").
+ * Runs before NAME_RX validation.
+ */
+function stripNameLeaders(line: string): string {
+  // Drop any run of non-letter chars from the start, plus a common OCR
+  // artifact where 1-2 stray latin letters precede the real name
+  // ("oA Gojeeeee" → "Gojeeeee"). Only strip the short prefix when it is
+  // followed by a space and a longer alphabetic token.
+  let out = line.replace(/^[^A-Za-z\u1200-\u137F]+/, "").trim();
+  const m = out.match(/^([A-Za-z]{1,2})\s+([A-Za-z\u1200-\u137F][A-Za-z\u1200-\u137F'.\-]{2,})$/);
+  if (m) out = m[2];
+  return out;
+}
+
+/**
  * Reject "amounts" that are actually a 4-digit year the OCR rendered with a
  * thousands separator ("2,026" from "2026-07-22"). Real airtime top-ups are
  * never posted as an exact integer year with no cents.
@@ -159,7 +175,14 @@ function looksLikeYearAmount(raw: string): boolean {
 
 function looksLikeName(line: string): boolean {
   if (!line) return false;
-  const cleaned = stripNameTrailers(line);
+  // Reject on the ORIGINAL line first: if it carries digits, a time marker,
+  // or a date fragment, no amount of leading/trailing strip can rescue it as
+  // a name. This stops OCR junk like "-07-22 4 51 PM" from being reduced to
+  // "PM" and then passing NAME_RX.
+  if (/\d/.test(line)) return false;
+  if (TIME_AMPM.test(line) || TIME_LOOSE.test(line)) return false;
+  if (DATE_FRAGMENT.test(line)) return false;
+  const cleaned = stripNameTrailers(stripNameLeaders(line));
   if (!cleaned) return false;
   // Agent names are alphabetic only — no digits, no time (AM/PM), no dates.
   if (/\d/.test(cleaned)) return false;
@@ -177,7 +200,7 @@ function looksLikeName(line: string): boolean {
  * name persisted to the DB is "Birukeee", not "Birukeee Birr".
  */
 function normalizeName(line: string): string {
-  return stripNameTrailers(line);
+  return stripNameTrailers(stripNameLeaders(line));
 }
 
 function looksLikeDateOrTime(line: string): boolean {
