@@ -622,10 +622,14 @@ export function parseOcrTransferList(text: string): ParsedRow[] {
 
     const dateLine = lines[dateIdx];
     const dateMatch = dateLine.match(OCR_DATE_RX)!;
-    // Amount is preferably on the same line; else check ±1 line.
+    // Amount is preferably on the same line; else scan ±3 lines around the date.
     let amountMatch = dateLine.match(OCR_AMOUNT_RX);
-    if (!amountMatch && dateIdx + 1 < lines.length) amountMatch = lines[dateIdx + 1].match(OCR_AMOUNT_RX);
-    if (!amountMatch && dateIdx - 1 >= 0) amountMatch = lines[dateIdx - 1].match(OCR_AMOUNT_RX);
+    if (!amountMatch) {
+      for (let d = 1; d <= 3 && !amountMatch; d++) {
+        if (dateIdx + d < lines.length) amountMatch = lines[dateIdx + d].match(OCR_AMOUNT_RX);
+        if (!amountMatch && dateIdx - d >= 0) amountMatch = lines[dateIdx - d].match(OCR_AMOUNT_RX);
+      }
+    }
 
     // Sender is the last non-empty line before the date; agent is the first
     // non-date/amount line after.
@@ -635,7 +639,7 @@ export function parseOcrTransferList(text: string): ParsedRow[] {
 
     let agent: string | undefined;
     let nextIdx = dateIdx + 1;
-    for (let k = dateIdx + 1; k < Math.min(lines.length, dateIdx + 3); k++) {
+    for (let k = dateIdx + 1; k < Math.min(lines.length, dateIdx + 4); k++) {
       const ln = lines[k];
       if (OCR_DATE_RX.test(ln)) break;
       if (/^\d[\d,]*\.\d{2}$/.test(ln)) { nextIdx = k + 1; continue; }
