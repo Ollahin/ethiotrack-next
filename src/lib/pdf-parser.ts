@@ -1,17 +1,8 @@
-// Client-side distributor statement parser.
+// Client-side PDF text extraction. Parsing lives in distributor-parser.ts so
+// PDF-extracted text and OCR'd screenshot text run through the same pipeline.
 
-import type { TxnType } from "./types";
-
-export interface StatementRow {
-  ok: boolean;
-  raw: string;
-  agentName?: string;
-  phone?: string;
-  airtimeType?: Extract<TxnType, "airtime_evd" | "airtime_float">;
-  amountSantim?: number;
-  reference?: string;
-  reason?: string;
-}
+export { parseStatementText, parseGeneric } from "./distributor-parser";
+export type { StatementRow } from "./distributor-parser";
 
 let _pdfjs: typeof import("pdfjs-dist") | null = null;
 async function loadPdfjs() {
@@ -45,55 +36,4 @@ export async function extractPdfText(file: File | ArrayBuffer): Promise<string> 
     parts.push(lines.join("\n"));
   }
   return parts.join("\n");
-}
-
-function toSantim(s: string): number {
-  const n = Number(s.replace(/,/g, "").trim());
-  return Math.round(n * 100);
-}
-
-function parseGenericLine(raw: string): StatementRow {
-  const line = raw.replace(/\s+/g, " ").trim();
-  if (!line) return { ok: false, raw, reason: "empty" };
-  const amtM = line.match(/(?:ETB|Br\.?)?\s*([\d]{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)/);
-  if (!amtM) return { ok: false, raw: line, reason: "no amount" };
-  const evd = /\b(EVD|E-?voucher|voucher)\b/i.test(line);
-  const flt = /\b(float|balance transfer|B2B)\b/i.test(line);
-  const airtimeType: StatementRow["airtimeType"] = flt
-    ? "airtime_float"
-    : evd
-      ? "airtime_evd"
-      : "airtime_evd";
-  const phoneM = line.match(/\b(?:251)?0?9\d{8}\b/);
-  const refM = line.match(/\b(?:Ref|Txn|TrxID|ID)[:# ]*([A-Za-z0-9]{4,})/i);
-  let agentName = line
-    .replace(amtM[0], "")
-    .replace(phoneM?.[0] ?? "", "")
-    .replace(/\b(EVD|E-?voucher|voucher|float|balance transfer|B2B)\b/gi, "")
-    .replace(refM?.[0] ?? "", "")
-    .replace(/\b(ETB|Br\.?)\b/gi, "")
-    .replace(/[|,;:]+/g, " ")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-  if (agentName.length > 60) agentName = agentName.slice(0, 60);
-  if (!agentName || agentName.length < 2) return { ok: false, raw: line, reason: "no name" };
-  return {
-    ok: true,
-    raw: line,
-    agentName,
-    phone: phoneM?.[0],
-    airtimeType,
-    amountSantim: toSantim(amtM[1]),
-    reference: refM?.[1],
-  };
-}
-
-export function parseStatementText(text: string): StatementRow[] {
-  return text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l.length > 8)
-    .filter((l) => /\d[\d,]*(?:\.\d+)?/.test(l))
-    .filter((l) => !/^(agent|name|phone|amount|type|reference|total|page|date)\b/i.test(l))
-    .map(parseGenericLine);
 }

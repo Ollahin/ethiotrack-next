@@ -27,6 +27,7 @@ export type TxnSource =
   | "manual"
   | "paste_parse"
   | "pdf_import"
+  | "screenshot_import"
   | "csv_import";
 
 export interface Agent {
@@ -37,11 +38,30 @@ export interface Agent {
   createdAt: string;
 }
 
+/** Known distributor statement layouts. "generic" = layout-agnostic line scraper. */
+export type DistributorStatementFormat =
+  | "generic"
+  | "mj"
+  | "alami"
+  | "yenus"
+  | "tilanesh"
+  | "modern-app";
+
+export const DISTRIBUTOR_FORMAT_LABEL: Record<DistributorStatementFormat, string> = {
+  generic: "Generic",
+  mj: "MJ",
+  alami: "Alami",
+  yenus: "Yenus",
+  tilanesh: "Tilanesh",
+  "modern-app": "Modern App",
+};
+
 export interface Distributor {
   id: string;
   name: string;
   contact?: string;
-  statementFormat?: string; // e.g. "ethio-evd", "generic"
+  /** Which app/format this distributor's statements come from — drives parser dispatch. */
+  statementFormat?: DistributorStatementFormat;
   /** Which telecom(s) this distributor supplies (Ethio Telecom, Safaricom, or both). */
   telecoms?: Telecom[];
   /** Which airtime form(s) this distributor supplies (EVD, Float, or both). */
@@ -144,6 +164,10 @@ export interface StatementImport {
   totalSantim: number;
   importedAt: string;
   rawText: string;
+  /** Was the source a PDF text extract or a screenshot OCR? */
+  sourceKind?: "pdf" | "image";
+  /** 0..1 — only set for OCR sources. Low values indicate the raw text may be unreliable. */
+  ocrConfidence?: number;
 }
 
 export const CHANNELS = [
