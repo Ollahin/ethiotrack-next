@@ -124,7 +124,21 @@ const DATE_FRAGMENT = /^-?\d{1,4}[-/]\d{1,2}([-/]\d{1,2})?\b/;
 const TIME_AMPM = /\d{1,2}:\d{2}\s*(AM|PM)/i;
 // OCR frequently drops the ":" in a time, so "4:51 PM" arrives as "4 51 PM".
 const TIME_LOOSE = /\b\d{1,2}\s+\d{2}\s*(AM|PM)\b/i;
-const NOISE_RX = /^(transfers|received|sent|refill history|agents|add agent|refill|balance|home|amount|date|name|status|success|successful)\s*$/i;
+const NOISE_RX = /^(transfers|received|sent|refill history|agents|add agent|refill|balance|home|amount|date|name|status|success|successful|pending|failed|completed|details|close|cancel|ok|back|next|previous|filter|search|total|subtotal|today|yesterday|this week|last week|all|history|export|share|print|download|menu|settings|logout|sign out|login|copy|copied)\s*$/i;
+// Lines that contain no letters or digits at all (pure punctuation, icons,
+// dividers, unicode bullets) are always OCR chrome. Reject wholesale.
+const PURE_SYMBOL_RX = /^[^A-Za-z0-9\u1200-\u137F]+$/;
+// A stray single letter/digit surrounded only by punctuation is also noise
+// ("»", "· A", "0", "1.", ":", "•"). Real names and amounts always carry
+// >=2 alphanumerics after cleanup.
+const TOO_SHORT_RX = /^[A-Za-z0-9]$/;
+// Characters OCR routinely hallucinates around real content on transfer
+// screenshots. Stripped from both ends of every line during cleanLines.
+//   • / · / ● / ◦ / ▪ / ■ / ◆ / ★ / ✓ / ✔ / ✕ / ✗   — bullets & status ticks
+//   » / › / ▸ / ▶ / → / ← / ↩ / ⇒                    — arrows
+//   © / ® / ™ / § / ¶ / † / ‡ / ¤ / ¬                — stray glyphs
+//   ~ / ` / ^ / | / \ / _  (and repeated punctuation) — divider artifacts
+const EDGE_NOISE_RX = /^[\s\u00A0\u2000-\u200F\u2028-\u202F•·●◦▪■◆★✓✔✕✗»›▸▶→←↩⇒©®™§¶†‡¤¬~`^|\\_]+|[\s\u00A0\u2000-\u200F\u2028-\u202F•·●◦▪■◆★✓✔✕✗»›▸▶→←↩⇒©®™§¶†‡¤¬~`^|\\_]+$/g;
 // Names on the distributor screenshots are always alphabetic (Latin or Ethiopic
 // script), with spaces / hyphens / apostrophes / dots. Any digit disqualifies
 // the line — that's how we stop dates and amounts leaking into the name slot.
@@ -134,9 +148,20 @@ const REPEATED_SENDER_RX = /^([A-Za-z0-9._-]{3,})\s*[-–]\s*\1\b/i;
 
 function cleanLines(text: string): string[] {
   return text
+    // Strip zero-width / bidi / narrow-nbsp characters before line splitting
+    // so they never leak into names or amounts.
+    .replace(/[\u200B-\u200F\u2028-\u202F\uFEFF]/g, "")
+    // Normalize non-breaking spaces to plain spaces.
+    .replace(/[\u00A0\u2007\u202F]/g, " ")
     .split(/\r?\n/)
-    .map((l) => l.replace(/\s+/g, " ").trim())
-    .filter((l) => l.length > 0 && !NOISE_RX.test(l));
+    .map((l) => l.replace(EDGE_NOISE_RX, "").replace(/\s+/g, " ").trim())
+    .filter((l) => {
+      if (!l) return false;
+      if (NOISE_RX.test(l)) return false;
+      if (PURE_SYMBOL_RX.test(l)) return false;
+      if (TOO_SHORT_RX.test(l)) return false;
+      return true;
+    });
 }
 
 /**
@@ -145,7 +170,12 @@ function cleanLines(text: string): string[] {
  * so a stray label doesn't disqualify an otherwise-valid alphabetic name.
  */
 function stripNameTrailers(line: string): string {
-  return line.replace(/\s+(Birr|ETB|EVD|Float|Review|Link\s+to\s+agent.*)$/i, "").trim();
+  return line
+    // Trailing status/label tokens the OCR glues onto a name.
+    .replace(/\s+(Birr|ETB|EVD|Float|Review|Success(ful)?|Pending|Failed|Completed|Link\s+to\s+agent.*)$/i, "")
+    // Trailing bullets/arrows/ticks/punctuation OCR sprays after the name.
+    .replace(/[\s\u00A0•·●◦▪■◆★✓✔✕✗»›▸▶→←⇒&*+\-–—_=|\\/`'"“”‘’(){}\[\].,:;!?@#$%^~<>]+$/, "")
+    .trim();
 }
 
 /**
@@ -158,7 +188,12 @@ function stripNameLeaders(line: string): string {
   // artifact where 1-2 stray latin letters precede the real name
   // ("oA Gojeeeee" → "Gojeeeee"). Only strip the short prefix when it is
   // followed by a space and a longer alphabetic token.
-  let out = line.replace(/^[^A-Za-z\u1200-\u137F]+/, "").trim();
+  let out = line
+    // Explicit stray leaders OCR emits on transfer cards: bullets, arrows,
+    // status ticks, ampersand, single/double quotes, pipes, backticks.
+    .replace(/^[\s\u00A0•·●◦▪■◆★✓✔✕✗»›▸▶→←⇒&*+\-–—_=|\\/`'"“”‘’(){}\[\].,:;!?@#$%^~<>]+/, "")
+    .replace(/^[^A-Za-z\u1200-\u137F]+/, "")
+    .trim();
   const m = out.match(/^([A-Za-z]{1,2})\s+([A-Za-z\u1200-\u137F][A-Za-z\u1200-\u137F'.\-]{2,})$/);
   if (m) out = m[2];
   return out;
