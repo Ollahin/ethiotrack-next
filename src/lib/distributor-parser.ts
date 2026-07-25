@@ -109,11 +109,20 @@ export function parseGeneric(text: string): StatementRow[] {
 // declared `forms`.
 // ---------------------------------------------------------------------------
 
+// Amount tokens the OCR renders in the right column. We deliberately require
+// the token to be right-anchored on its line (or on its own line) so that we
+// never mistake an in-line date fragment (`5 Jul 2025`) for an amount.
 const AMOUNT_DOTTED = /(-?\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/;   // 20,000.00 or -50,000.00
-const AMOUNT_BIRR = /(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*Birr/i;
+const AMOUNT_BIRR_RIGHT = /(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*Birr\s*$/i;
 const DATE_DDMMMYYYY = /\b\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}\b/;
 const DATE_ISO = /\b\d{4}-\d{2}-\d{2}\b/;
-const NOISE_RX = /^(transfers|received|sent|refill history|agents|add agent|refill|balance|home)\s*$/i;
+const TIME_AMPM = /\d{1,2}:\d{2}\s*(AM|PM)/i;
+const NOISE_RX = /^(transfers|received|sent|refill history|agents|add agent|refill|balance|home|amount|date|name|status|success|successful)\s*$/i;
+// Names on the distributor screenshots are always alphabetic (Latin or Ethiopic
+// script), with spaces / hyphens / apostrophes / dots. Any digit disqualifies
+// the line — that's how we stop dates and amounts leaking into the name slot.
+const NAME_RX = /^[A-Za-z\u1200-\u137F][A-Za-z\u1200-\u137F\s'.\-]{1,58}$/;
+const MONTHS_RX = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i;
 
 function cleanLines(text: string): string[] {
   return text
@@ -124,12 +133,14 @@ function cleanLines(text: string): string[] {
 
 function looksLikeName(line: string): boolean {
   if (!line) return false;
-  if (DATE_DDMMMYYYY.test(line) || DATE_ISO.test(line)) return false;
-  if (AMOUNT_DOTTED.test(line) && !/[A-Za-z\u1200-\u137F]{3,}/.test(line)) return false;
-  if (AMOUNT_BIRR.test(line)) return false;
-  if (/\d{2}:\d{2}/.test(line)) return false;
-  if (line.length < 2 || line.length > 60) return false;
-  return /[A-Za-z\u1200-\u137F]/.test(line);
+  // Agent names are alphabetic only — no digits, no time (AM/PM), no dates.
+  if (/\d/.test(line)) return false;
+  if (TIME_AMPM.test(line)) return false;
+  if (!NAME_RX.test(line)) return false;
+  // Month-name-only lines ("Jul", "July") slip through NAME_RX; reject them
+  // when they're the whole line and there's no other word.
+  if (MONTHS_RX.test(line) && line.split(/\s+/).length === 1) return false;
+  return true;
 }
 
 /** MJ layout — paired sender/date/agent card, right-aligned amount. */
@@ -166,8 +177,12 @@ function parseMj(text: string): StatementRow[] {
         }
       }
       if (!amountStr) {
-        const am = ln.match(new RegExp("^" + AMOUNT_DOTTED.source + "$"));
-        if (am) { amountStr = am[1]; j++; continue; }
+        // Right-side amount only: whole-line number, or trailing number.
+        const am = ln.match(new RegExp("^" + AMOUNT_DOTTED.source + "$"))
+          ?? ln.match(new RegExp(AMOUNT_DOTTED.source + "\\s*$"));
+        if (am && !DATE_DDMMMYYYY.test(ln) && !DATE_ISO.test(ln)) {
+          amountStr = am[1]; j++; continue;
+        }
       }
       if (!agentName && looksLikeName(ln)) {
         // Guard: don't pick the next sender line as an agent.
@@ -206,14 +221,16 @@ function parseRefillHistory(text: string): StatementRow[] {
   const lines = cleanLines(text);
   const out: StatementRow[] = [];
   for (let i = 0; i < lines.length; i++) {
-    const amtM = lines[i].match(AMOUNT_BIRR);
+    // Amounts must be right-aligned "<number> Birr" at end of line — never
+    // mid-line, so a date fragment can't be misread as an amount.
+    const amtM = lines[i].match(AMOUNT_BIRR_RIGHT);
     if (!amtM) continue;
     // Walk backward through up to 4 previous lines to find date + name.
     let dateText: string | undefined;
     let agentName: string | undefined;
     for (let k = i - 1; k >= Math.max(0, i - 4); k--) {
       const ln = lines[k];
-      if (!dateText && (DATE_ISO.test(ln) || /\d{1,2}:\d{2}\s*(AM|PM)/i.test(ln))) {
+      if (!dateText && (DATE_ISO.test(ln) || TIME_AMPM.test(ln) || DATE_DDMMMYYYY.test(ln))) {
         dateText = ln;
         continue;
       }
@@ -222,7 +239,7 @@ function parseRefillHistory(text: string): StatementRow[] {
         break;
       }
       // Name may also appear even without a date (some rows OCR the date poorly).
-      if (!dateText && !agentName && looksLikeName(ln) && !AMOUNT_BIRR.test(ln)) {
+      if (!dateText && !agentName && looksLikeName(ln)) {
         agentName = ln;
         break;
       }
