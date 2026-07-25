@@ -584,25 +584,26 @@ function isOcrChromeLine(line: string): boolean {
 
 export function looksLikeOcrTransferList(text: string): boolean {
   const lines = text.split(/\r?\n/);
-  let dateAmountLines = 0;
-  let dateOnlyLines = 0;
-  let amountOnlyLines = 0;
+  let dateCount = 0;
+  let amountCount = 0;
   for (const l of lines) {
-    const hasDate = OCR_DATE_RX.test(l);
-    const hasAmount = OCR_AMOUNT_RX.test(l);
-    if (hasDate && hasAmount) dateAmountLines++;
-    else if (hasDate) dateOnlyLines++;
-    else if (hasAmount) amountOnlyLines++;
+    if (OCR_DATE_RX.test(l)) dateCount++;
+    if (OCR_AMOUNT_RX.test(l)) amountCount++;
   }
-  if (dateAmountLines >= 2) return true;
-  // Fallback: split date/amount across adjacent lines.
-  return dateOnlyLines >= 2 && amountOnlyLines >= 2;
+  const hasKeyword = /\b(transfers?|sent)\b/i.test(text);
+  return hasKeyword && dateCount >= 2 && amountCount >= 2;
 }
+
+/** Signed-amount matcher for the strict per-line check. */
+const OCR_STRICT_AMOUNT_RX = /^-?(\d{1,3}(?:,\d{3})*(?:\.\d{2}))$/;
+/** Agent-name matcher: 3–40 letters/spaces, starts+ends with a letter. */
+const OCR_AGENT_NAME_RX = /^[A-Za-z][A-Za-z\s]{1,38}[A-Za-z]$/;
+const OCR_SENDER_HINT_RX = /bariso|haji/i;
 
 /**
  * Parse a mobile banking app "Sent" transfers screenshot (OCR text) into
- * outbound transactions. Silently skips incomplete blocks; never emits
- * ParsedFail rows.
+ * outbound transactions. Extracts every (date, amount, agent) triplet
+ * found within a ±4-line window of each date anchor.
  */
 export function parseOcrTransferList(text: string): ParsedRow[] {
   const lines = text
@@ -610,60 +611,90 @@ export function parseOcrTransferList(text: string): ParsedRow[] {
     .map((l) => l.replace(/\s+/g, " ").trim())
     .filter((l) => l && !isOcrChromeLine(l));
 
-  const rows: ParsedRow[] = [];
-  let i = 0;
-  while (i < lines.length) {
-    // Locate the next date-bearing line.
-    let dateIdx = -1;
-    for (let k = i; k < lines.length; k++) {
-      if (OCR_DATE_RX.test(lines[k])) { dateIdx = k; break; }
-    }
-    if (dateIdx === -1) break;
+  const rows: ParsedOk[] = [];
 
+  for (let dateIdx = 0; dateIdx < lines.length; dateIdx++) {
     const dateLine = lines[dateIdx];
-    const dateMatch = dateLine.match(OCR_DATE_RX)!;
-    // Amount is preferably on the same line; else scan ±3 lines around the date.
-    let amountMatch = dateLine.match(OCR_AMOUNT_RX);
-    if (!amountMatch) {
-      for (let d = 1; d <= 3 && !amountMatch; d++) {
-        if (dateIdx + d < lines.length) amountMatch = lines[dateIdx + d].match(OCR_AMOUNT_RX);
-        if (!amountMatch && dateIdx - d >= 0) amountMatch = lines[dateIdx - d].match(OCR_AMOUNT_RX);
+    const dateMatch = dateLine.match(OCR_DATE_RX);
+    if (!dateMatch) continue;
+
+    // Amount: prefer same line, else scan ±4 lines.
+    let amountRaw: string | undefined;
+    let amountNegative = false;
+    const tryAmount = (s: string): string | undefined => {
+      // Same-line amounts may have surrounding text; scan tokens.
+      const tokens = s.split(/\s+/);
+      for (const t of tokens) {
+        const m = t.match(OCR_STRICT_AMOUNT_RX);
+        if (m) {
+          amountNegative = t.startsWith("-");
+          return m[1];
+        }
+      }
+      return undefined;
+    };
+    amountRaw = tryAmount(dateLine);
+    for (let d = 1; d <= 4 && !amountRaw; d++) {
+      if (dateIdx + d < lines.length) amountRaw = tryAmount(lines[dateIdx + d]);
+      if (!amountRaw && dateIdx - d >= 0) amountRaw = tryAmount(lines[dateIdx - d]);
+    }
+    if (!amountRaw) continue;
+
+    // Nearest sender line above the date (contains bariso/haji).
+    let sender: string | undefined;
+    for (let k = dateIdx - 1; k >= 0; k--) {
+      if (OCR_SENDER_HINT_RX.test(lines[k])) { sender = lines[k]; break; }
+    }
+
+    // Agent: alphabetic name within ±4 lines, not the sender.
+    let agent: string | undefined;
+    const isAgentCandidate = (s: string): boolean => {
+      if (!OCR_AGENT_NAME_RX.test(s)) return false;
+      if (OCR_SENDER_HINT_RX.test(s)) return false;
+      if (OCR_DATE_RX.test(s)) return false;
+      if (OCR_STRICT_AMOUNT_RX.test(s)) return false;
+      return true;
+    };
+    for (let d = 1; d <= 4 && !agent; d++) {
+      if (dateIdx + d < lines.length && isAgentCandidate(lines[dateIdx + d])) {
+        agent = lines[dateIdx + d];
+        break;
+      }
+      if (dateIdx - d >= 0 && isAgentCandidate(lines[dateIdx - d])) {
+        agent = lines[dateIdx - d];
+        break;
       }
     }
+    if (!agent) continue;
 
-    // Sender is the last non-empty line before the date; agent is the first
-    // non-date/amount line after.
-    const sender = dateIdx - 1 >= 0 && !OCR_DATE_RX.test(lines[dateIdx - 1]) && !/^\d[\d,]*\.\d{2}$/.test(lines[dateIdx - 1])
-      ? lines[dateIdx - 1]
-      : undefined;
+    const dateIso = parseDate(`ON ${dateMatch[0]}`) ?? new Date().toISOString();
+    const suspicious =
+      agent.trim().length < 3 || /\d/.test(agent);
+    const windowLines = [sender, dateLine, agent].filter(Boolean) as string[];
 
-    let agent: string | undefined;
-    let nextIdx = dateIdx + 1;
-    for (let k = dateIdx + 1; k < Math.min(lines.length, dateIdx + 4); k++) {
-      const ln = lines[k];
-      if (OCR_DATE_RX.test(ln)) break;
-      if (/^\d[\d,]*\.\d{2}$/.test(ln)) { nextIdx = k + 1; continue; }
-      // Must be alphabetic-ish (letters + spaces), not pure numeric.
-      if (/[A-Za-z\u1200-\u137F]/.test(ln)) { agent = ln; nextIdx = k + 1; break; }
-    }
-
-    if (amountMatch && agent) {
-      const dateIso = parseDate(`ON ${dateMatch[0]}`) ?? new Date().toISOString();
-      const blockLines = [sender, dateLine, agent].filter(Boolean) as string[];
-      rows.push({
-        ok: true,
-        raw: blockLines.join("\n"),
-        type: "out",
-        amountSantim: toSantim(amountMatch[1]),
-        party: agent,
-        channel: "Other",
-        date: dateIso,
-        note: `Sent to ${agent}${sender ? ` via ${sender}` : ""}`,
-        needsReview: false,
-        template: "ocr.sent.transfer",
-      });
-    }
-    i = Math.max(nextIdx, dateIdx + 1);
+    rows.push({
+      ok: true,
+      raw: windowLines.join("\n"),
+      type: "out",
+      amountSantim: toSantim(amountRaw),
+      party: agent,
+      channel: "Other",
+      date: dateIso,
+      note: `Transfer to ${agent}${sender ? ` via ${sender}` : ""}`,
+      needsReview: amountNegative || suspicious,
+      template: "ocr.sent.transfer",
+    });
   }
-  return rows;
+
+  // Deduplicate: same party + amount + same calendar day.
+  const seen = new Set<string>();
+  const out: ParsedRow[] = [];
+  for (const r of rows) {
+    const day = (r.date ?? "").slice(0, 10);
+    const key = `${r.party}|${r.amountSantim}|${day}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(r);
+  }
+  return out;
 }
