@@ -204,6 +204,30 @@ describe("parseStatementText — junk-row guards (regression)", () => {
     ]);
   });
 
+  it("parses transfer screenshot rows with OCR list-number prefixes", () => {
+    const text = [
+      "2236 Me @@ Qf 8 al 56%m",
+      "@ Transfers",
+      "Sent",
+      "2 barisohaji - barisohaji",
+      "50,000.00",
+      "2 Biruke",
+      "2 barisohaji - barisohaji",
+      "5,000.00",
+      "2 Jireeeeee",
+      "2 barisohaji - barisohaji",
+      "20,000.00",
+      "5 AbdiBalee",
+    ].join("\n");
+
+    const rows = parseStatementText(text, "generic").filter((r) => r.ok);
+    expect(rows).toHaveLength(3);
+    expect(rows.map((r) => r.agentName)).toEqual(["Biruke", "Jireeeeee", "AbdiBalee"]);
+    expect(rows.map((r) => r.amountSantim)).toEqual([5_000_000, 500_000, 2_000_000]);
+    expect(rows.every((r) => r.sender === "barisohaji")).toBe(true);
+    expect(rows.every((r) => r.needsReview)).toBe(true);
+  });
+
   it("strips trailing 'Birr' label from a name line", () => {
     // OCR often glues the currency label onto the name row.
     const text = [

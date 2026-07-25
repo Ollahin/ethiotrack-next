@@ -239,6 +239,16 @@ function normalizeName(line: string): string {
   return stripNameTrailers(stripNameLeaders(line));
 }
 
+/**
+ * MJ transfer screenshots often OCR the left list index as a leading digit on
+ * the sender / recipient line ("2 barisohaji - barisohaji", "5 AbdiBale").
+ * Strip only that explicit ordinal shape, and only before alphabetic content,
+ * so amounts/dates stay untouched.
+ */
+function stripTransferOrdinal(line: string): string {
+  return line.replace(/^\d{1,2}\s+(?=[A-Za-z\u1200-\u137F])/, "").trim();
+}
+
 function looksLikeDateOrTime(line: string): boolean {
   return DATE_ISO.test(line) || TIME_AMPM.test(line) || TIME_LOOSE.test(line) || DATE_DDMMMYYYY.test(line) || DATE_FRAGMENT.test(line);
 }
@@ -257,7 +267,7 @@ function looksLikeMjDateAmountLine(line: string): boolean {
 
 function findMjAgentAfter(lines: string[], dateAmountIndex: number): { agentName: string; index: number } | null {
   for (let k = dateAmountIndex + 1; k <= Math.min(lines.length - 1, dateAmountIndex + 3); k++) {
-    const line = lines[k];
+    const line = stripTransferOrdinal(lines[k]);
     if (looksLikeMjDateAmountLine(line) || REPEATED_SENDER_RX.test(line)) break;
     if (looksLikeName(line)) return { agentName: normalizeName(line), index: k };
   }
@@ -266,7 +276,7 @@ function findMjAgentAfter(lines: string[], dateAmountIndex: number): { agentName
 
 function findMjSenderBefore(lines: string[], dateAmountIndex: number): string | undefined {
   for (let k = dateAmountIndex - 1; k >= Math.max(0, dateAmountIndex - 4); k--) {
-    const line = lines[k];
+    const line = stripTransferOrdinal(lines[k]);
     if (looksLikeDateOrTime(line) || parseRightAmount(line)) continue;
     if (/^(received\s+sent|sent|received)$/i.test(line)) continue;
     const repeated = line.match(REPEATED_SENDER_RX);
@@ -357,7 +367,7 @@ function parseMj(text: string): StatementRow[] {
   let i = 0;
   while (i < lines.length) {
     if (consumed.has(i)) { i++; continue; }
-    const line = lines[i];
+    const line = stripTransferOrdinal(lines[i]);
     // Sender lines look like "barisohaji - barisohaji" (repeated handle).
     const senderM = line.match(REPEATED_SENDER_RX);
     if (!senderM) { i++; continue; }
@@ -371,7 +381,7 @@ function parseMj(text: string): StatementRow[] {
     let j = i + 1;
     const windowEnd = Math.min(lines.length, i + 6);
     while (j < windowEnd) {
-      const ln = lines[j];
+      const ln = stripTransferOrdinal(lines[j]);
       if (!dateText) {
         const dm = ln.match(DATE_DDMMMYYYY);
         if (dm) {
