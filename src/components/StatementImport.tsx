@@ -48,10 +48,10 @@ export function StatementImport() {
       setOcrConfidence(confidence);
       setRawText(text);
       setFileName(file.name);
-      const parsed = parseStatementText(text, activeFormat);
+      const parsed = parseStatementText(text, activeFormat).filter((row) => row.ok);
       setRows(parsed.map((row) => ({
         row,
-        agent: row.ok ? matchAgent(row.agentName, agents) ?? matchAgent(row.phone, agents) : null,
+        agent: matchAgent(row.agentName, agents) ?? matchAgent(row.phone, agents),
       })));
       if (confidence !== null && confidence < OCR_LOW_CONFIDENCE) {
         toast.warning("Low OCR confidence — check the extracted text below before committing.");
@@ -213,37 +213,33 @@ export function StatementImport() {
             <div className="text-xs mt-0.5">Total: <span className="font-semibold">{formatEtb(total)}</span></div>
           </div>
           <ul className="text-sm divide-y divide-border rounded-md border border-border max-h-80 overflow-y-auto">
-            {rows.map(({ row, agent, overrideAgentId }, i) => (
+            {okRows.map(({ row, agent, overrideAgentId }, i) => (
               <li key={i} className="p-2">
-                {row.ok ? (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium">{row.agentName}</span>
-                    <span className="text-xs text-ink-soft">{row.phone ?? ""}</span>
-                    {row.needsReview && (
-                      <span className="text-[10px] uppercase font-semibold px-1 py-0.5 rounded bg-money-out/10 text-money-out">Review</span>
-                    )}
-                    <span className="ml-auto font-bold tabular-nums text-airtime">
-                      {formatEtb(row.amountSantim!)}
-                    </span>
-                    <span className="text-[10px] uppercase font-semibold text-ink-soft">
-                      {row.airtimeType === "airtime_evd" ? "EVD" : "FLOAT"}
-                    </span>
-                    {agent ? (
-                      <span className="w-full text-xs text-money-in">→ {agent.name}</span>
-                    ) : (
-                      <Select value={overrideAgentId ?? ""} onValueChange={(v) =>
-                        setRows((s) => s.map((x, j) => j === i ? { ...x, overrideAgentId: v } : x))
-                      }>
-                        <SelectTrigger className="w-full h-7 text-xs mt-1"><SelectValue placeholder="Link to agent…" /></SelectTrigger>
-                        <SelectContent>
-                          {agents.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-xs text-ink-soft">Skipped: {row.raw}</div>
-                )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium">{row.agentName}</span>
+                  <span className="text-xs text-ink-soft">{row.phone ?? ""}</span>
+                  {row.needsReview && (
+                    <span className="text-[10px] uppercase font-semibold px-1 py-0.5 rounded bg-money-out/10 text-money-out">Review</span>
+                  )}
+                  <span className="ml-auto font-bold tabular-nums text-airtime">
+                    {formatEtb(row.amountSantim!)}
+                  </span>
+                  <span className="text-[10px] uppercase font-semibold text-ink-soft">
+                    {row.airtimeType === "airtime_evd" ? "EVD" : "FLOAT"}
+                  </span>
+                  {agent ? (
+                    <span className="w-full text-xs text-money-in">→ {agent.name}</span>
+                  ) : (
+                    <Select value={overrideAgentId ?? ""} onValueChange={(v) =>
+                      setRows((s) => s.map((x, j) => j === i ? { ...x, overrideAgentId: v } : x))
+                    }>
+                      <SelectTrigger className="w-full h-7 text-xs mt-1"><SelectValue placeholder="Link to agent…" /></SelectTrigger>
+                      <SelectContent>
+                        {agents.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
