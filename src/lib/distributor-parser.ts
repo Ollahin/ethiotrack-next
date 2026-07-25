@@ -175,6 +175,13 @@ function looksLikeYearAmount(raw: string): boolean {
 
 function looksLikeName(line: string): boolean {
   if (!line) return false;
+  // Reject on the ORIGINAL line first: if it carries digits, a time marker,
+  // or a date fragment, no amount of leading/trailing strip can rescue it as
+  // a name. This stops OCR junk like "-07-22 4 51 PM" from being reduced to
+  // "PM" and then passing NAME_RX.
+  if (/\d/.test(line)) return false;
+  if (TIME_AMPM.test(line) || TIME_LOOSE.test(line)) return false;
+  if (DATE_FRAGMENT.test(line)) return false;
   const cleaned = stripNameTrailers(stripNameLeaders(line));
   if (!cleaned) return false;
   // Agent names are alphabetic only — no digits, no time (AM/PM), no dates.
