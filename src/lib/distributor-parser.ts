@@ -193,6 +193,22 @@ function parseInlineNameAmount(line: string): { agentName: string; amountStr: st
   return { agentName: candidateName, amountStr: match[2] };
 }
 
+function isLikelyRefillHistory(text: string): boolean {
+  const lines = cleanLines(text);
+  let pairedRows = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const inline = parseInlineNameAmount(lines[i]);
+    if (!inline) continue;
+    const next = lines[i + 1];
+    const prev = lines[i - 1];
+    if ((next && looksLikeDateOrTime(next)) || (prev && looksLikeDateOrTime(prev))) {
+      pairedRows++;
+    }
+  }
+  const hasRefillHeading = lines.some((line) => /refill\s+history/i.test(line));
+  return pairedRows >= 2 || (hasRefillHeading && pairedRows >= 1);
+}
+
 /** MJ layout — paired sender/date/agent card, right-aligned amount. */
 function parseMj(text: string): StatementRow[] {
   const lines = cleanLines(text);
@@ -372,6 +388,9 @@ export function parseStatementText(
   text: string,
   format: DistributorStatementFormat = "generic",
 ): StatementRow[] {
+  if (format === "generic" && isLikelyRefillHistory(text)) {
+    return parseRefillHistory(text);
+  }
   const template = APP_TEMPLATES[format];
   if (template) {
     // Trust the per-app template: if it decides nothing in the OCR looks like
