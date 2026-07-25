@@ -137,7 +137,6 @@ describe("parseStatementText — junk-row guards (regression)", () => {
       "2,026.00 Birr",
     ].join("\n");
     const rows = parseStatementText(text, "yenus").filter((r) => r.ok);
-    const genericRows = parseStatementText(text, "generic").filter((r) => r.ok);
     expect(rows).toHaveLength(0);
   });
 
@@ -179,6 +178,7 @@ describe("parseStatementText — junk-row guards (regression)", () => {
     ].join("\n");
 
     const rows = parseStatementText(text, "yenus").filter((r) => r.ok);
+    const genericRows = parseStatementText(text, "generic").filter((r) => r.ok);
 
     expect(rows).toHaveLength(9);
     expect(rows.map((r) => r.agentName)).toEqual([
