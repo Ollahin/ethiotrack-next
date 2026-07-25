@@ -324,8 +324,11 @@ export function parseStatementText(
 ): StatementRow[] {
   const template = APP_TEMPLATES[format];
   if (template) {
-    const rows = template(text);
-    if (rows.length) return rows;
+    // Trust the per-app template: if it decides nothing in the OCR looks like
+    // a valid row, we do NOT fall back to the generic scraper. The generic
+    // scraper is line-oriented and happily turns date fragments into "rows",
+    // which is exactly the junk the templates exist to suppress.
+    return template(text);
   }
   return parseGeneric(text);
 }
