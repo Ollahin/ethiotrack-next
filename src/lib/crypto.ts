@@ -1,6 +1,13 @@
 // Simple local PIN gate. Stores a PBKDF2 verifier + salt in Dexie meta.
-// The derived key is kept in-memory only. v1 does not field-encrypt data,
-// but the gate blocks casual access to the UI.
+// The derived key is kept in-memory only.
+//
+// SECURITY MODEL — read before removing/relaxing this:
+// v1 is a UI lock, NOT field-level encryption. IndexedDB rows are stored
+// in the clear, so anyone with direct filesystem/DevTools access to the
+// browser profile can read every transaction regardless of the PIN.
+// Acceptable ONLY for single-user devices the operator physically controls.
+// If this ever ships to shared/kiosk devices, we must derive an AES key
+// from the PIN and encrypt txn fields at rest before persist.
 
 import { metaGet, metaSet } from "./db";
 
