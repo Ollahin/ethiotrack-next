@@ -354,4 +354,49 @@ describe("parseStatementText — junk-row guards (regression)", () => {
     expect(rows[0].amountSantim).toBe(202_600);
     expect(rows[0].dateText).toBe("2026-07-22 4:51 PM");
   });
+
+  it("strips OCR chrome (bullets, arrows, ticks, NBSP, zero-width) from MJ cards", () => {
+    const text = [
+      "•",                                 // bullet-only chrome line
+     "» barisohaji - barisohaji",         // arrow leader
+      "\u200B 5 Jul 2025           20,000.00", // zero-width + date+amount
+      "✓ Birukeee ✓",                     // status ticks around the name
+      "———",                              // divider noise
+    ].join("\n");
+
+    const rows = parseStatementText(text, "mj").filter((r) => r.ok);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].agentName).toBe("Birukeee");
+    expect(rows[0].amountSantim).toBe(2_000_000);
+    expect(rows[0].sender).toBe("barisohaji");
+  });
+
+  it("drops UI chrome labels (Success, Details, Close) from refill screenshots", () => {
+    const text = [
+      "Refill History",
+      "Success",
+      "Mulugeta 500 Birr",
+      "2026-07-22 4:51 PM",
+      "Details",
+      "Close",
+    ].join("\n");
+
+    const rows = parseStatementText(text, "generic").filter((r) => r.ok);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].agentName).toBe("Mulugeta");
+    expect(rows[0].amountSantim).toBe(50_000);
+  });
+
+  it("normalizes non-breaking spaces inside amounts and names", () => {
+    const text = [
+      "Refill History",
+      "Mulu\u00A0geta 1,500 Birr",
+      "2026-07-22 4:51 PM",
+    ].join("\n");
+
+    const rows = parseStatementText(text, "generic").filter((r) => r.ok);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].agentName).toBe("Mulu geta");
+    expect(rows[0].amountSantim).toBe(150_000);
+  });
 });
