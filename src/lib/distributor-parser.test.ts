@@ -150,4 +150,68 @@ describe("parseStatementText — junk-row guards (regression)", () => {
     // No valid alphabetic name in scope → nothing should commit.
     expect(rows).toHaveLength(0);
   });
+
+  it("parses refill screenshot lists only from inline agent-amount rows", () => {
+    const text = [
+      "2237 MO LICH lal] GL",
+      "« Refill History",
+      "Birukeee 200,000 Birr",
+      "2026-07-22 4:51 PM",
+      "Tsegaaa 20,000 Birr",
+      "2026-07-22 1:05 PM",
+      "Tsegaaa 20,000 Birr",
+      "2026-07-22 12:19 PM",
+      "Birukeee 30,000 Birr",
+      "2026-07-22 10:51 AM",
+      "Birukeee 30,000 Birr",
+      "2026-07-22 7:51 AM",
+      "Zeddd 21,620 Birr",
+      "2026-07-22 6:44 AM",
+      "Enginer Abdi 75,675 Birr",
+      "2026-07-22 6:42 AM",
+      "Birukeee 200,000 Birr",
+      "2026-07-21 4:59 PM",
+      "Birukeee 1,600 Birr",
+      "2026-07-20 4:38 PM",
+      "i= + $ x)",
+      "Agents Add Agent Refill Refill History",
+    ].join("\n");
+
+    const rows = parseStatementText(text, "yenus").filter((r) => r.ok);
+
+    expect(rows).toHaveLength(9);
+    expect(rows.map((r) => r.agentName)).toEqual([
+      "Birukeee",
+      "Tsegaaa",
+      "Tsegaaa",
+      "Birukeee",
+      "Birukeee",
+      "Zeddd",
+      "Enginer Abdi",
+      "Birukeee",
+      "Birukeee",
+    ]);
+    expect(rows.map((r) => r.amountSantim)).toEqual([
+      20_000_000,
+      2_000_000,
+      2_000_000,
+      3_000_000,
+      3_000_000,
+      2_162_000,
+      7_567_500,
+      20_000_000,
+      160_000,
+    ]);
+    expect(rows.map((r) => r.dateText)).toEqual([
+      "2026-07-22 4:51 PM",
+      "2026-07-22 1:05 PM",
+      "2026-07-22 12:19 PM",
+      "2026-07-22 10:51 AM",
+      "2026-07-22 7:51 AM",
+      "2026-07-22 6:44 AM",
+      "2026-07-22 6:42 AM",
+      "2026-07-21 4:59 PM",
+      "2026-07-20 4:38 PM",
+    ]);
+  });
 });
