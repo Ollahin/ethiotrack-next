@@ -113,8 +113,8 @@ export function parseGeneric(text: string): StatementRow[] {
 // the token to be right-anchored on its line (or on its own line) so that we
 // never mistake an in-line date fragment (`5 Jul 2025`) for an amount.
 const AMOUNT_DOTTED = /(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{2})?)/;   // 20,000.00, 15000.00, or -50,000.00
-const AMOUNT_BIRR_RIGHT = /(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*Birr\s*$/i;
-const INLINE_NAME_AMOUNT_BIRR_RIGHT = /^(.+?)\s+(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*Birr\s*$/i;
+const AMOUNT_BIRR_RIGHT = /(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)\s*Birr\s*$/i;
+const INLINE_NAME_AMOUNT_BIRR_RIGHT = /^(.+?)\s+(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)\s*Birr\s*$/i;
 const DATE_DDMMMYYYY = /\b\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}\b/;
 const DATE_ISO = /\b\d{4}-\d{2}-\d{2}\b/;
 // Fragmented ISO date the OCR sometimes leaves behind after chopping the
@@ -483,6 +483,9 @@ export function parseStatementText(
   text: string,
   format: DistributorStatementFormat = "generic",
 ): StatementRow[] {
+  if (format === "generic" && isLikelyMjTransfers(text)) {
+    return parseMj(text);
+  }
   if (format === "generic" && isLikelyRefillHistory(text)) {
     return parseRefillHistory(text);
   }
