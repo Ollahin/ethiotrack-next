@@ -26,7 +26,6 @@ export const AIRTIME_FORM_LABEL: Record<AirtimeForm, string> = {
 export type TxnSource =
   | "manual"
   | "paste_parse"
-  | "sms_listener"
   | "pdf_import"
   | "csv_import";
 
