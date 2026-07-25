@@ -531,13 +531,128 @@ export function parseMany(text: string): ParsedRow[] {
     if (whole.ok && okBlocks <= 1 && parsedBlocks.some((r) => !r.ok)) {
       return [whole];
     }
+    if (okBlocks === 0 && looksLikeOcrTransferList(text)) {
+      return parseOcrTransferList(text);
+    }
     return parsedBlocks;
   }
   // Single-block input: parse line-by-line, dropping obvious boilerplate.
-  return text
+  const singleRows = text
     .split(/\n+/)
     .map((r) => r.trim())
     .filter(Boolean)
     .filter((l) => !isBoilerplateBlock(l))
     .map(parseOne);
+  const anyOk = singleRows.some((r) => r.ok);
+  if (!anyOk && looksLikeOcrTransferList(text)) {
+    return parseOcrTransferList(text);
+  }
+  return singleRows;
+}
+
+// ---------------------------------------------------------------------------
+// OCR "Sent transfers" list parser — mobile banking-app screenshots.
+//
+// Repeating 3-line blocks:
+//   <sender>              e.g. "barisohaji - barisohaji"
+//   <date> <amount>       e.g. "23 Jul 2026 50,000.00"
+//   <agent/recipient>     e.g. "Biruke"
+// Some OCR engines split date and amount onto adjacent lines — we look ±1
+// line to recover the amount.
+// ---------------------------------------------------------------------------
+
+const OCR_DATE_RX = /\b(\d{1,2})\s+([A-Za-z]{3,4})\s+(\d{4})\b/;
+const OCR_AMOUNT_RX = /\b(\d{1,3}(?:,\d{3})*\.\d{2})\b/;
+const OCR_CHROME_RX =
+  /^(transfers?|received|sent|home|history|balance|menu|back|close|cancel|ok|search|filter|details?|success(?:ful)?|pending|failed|completed|all|today|yesterday|amount|date|name|status|\d{1,2}:\d{2}(?:\s*(?:AM|PM))?|\d{1,3}%|[▲▼◀▶●○■□◆★☆]+)$/i;
+
+function isOcrChromeLine(line: string): boolean {
+  const t = line.trim();
+  if (!t) return true;
+  if (OCR_CHROME_RX.test(t)) return true;
+  // Pure symbol/icon lines (no letters or digits at all).
+  if (!/[A-Za-z0-9\u1200-\u137F]/.test(t)) return true;
+  return false;
+}
+
+function looksLikeOcrTransferList(text: string): boolean {
+  const lines = text.split(/\r?\n/);
+  let dateAmountLines = 0;
+  let dateOnlyLines = 0;
+  let amountOnlyLines = 0;
+  for (const l of lines) {
+    const hasDate = OCR_DATE_RX.test(l);
+    const hasAmount = OCR_AMOUNT_RX.test(l);
+    if (hasDate && hasAmount) dateAmountLines++;
+    else if (hasDate) dateOnlyLines++;
+    else if (hasAmount) amountOnlyLines++;
+  }
+  if (dateAmountLines >= 2) return true;
+  // Fallback: split date/amount across adjacent lines.
+  return dateOnlyLines >= 2 && amountOnlyLines >= 2;
+}
+
+/**
+ * Parse a mobile banking app "Sent" transfers screenshot (OCR text) into
+ * outbound transactions. Silently skips incomplete blocks; never emits
+ * ParsedFail rows.
+ */
+export function parseOcrTransferList(text: string): ParsedRow[] {
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.replace(/\s+/g, " ").trim())
+    .filter((l) => l && !isOcrChromeLine(l));
+
+  const rows: ParsedRow[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    // Locate the next date-bearing line.
+    let dateIdx = -1;
+    for (let k = i; k < lines.length; k++) {
+      if (OCR_DATE_RX.test(lines[k])) { dateIdx = k; break; }
+    }
+    if (dateIdx === -1) break;
+
+    const dateLine = lines[dateIdx];
+    const dateMatch = dateLine.match(OCR_DATE_RX)!;
+    // Amount is preferably on the same line; else check ±1 line.
+    let amountMatch = dateLine.match(OCR_AMOUNT_RX);
+    if (!amountMatch && dateIdx + 1 < lines.length) amountMatch = lines[dateIdx + 1].match(OCR_AMOUNT_RX);
+    if (!amountMatch && dateIdx - 1 >= 0) amountMatch = lines[dateIdx - 1].match(OCR_AMOUNT_RX);
+
+    // Sender is the last non-empty line before the date; agent is the first
+    // non-date/amount line after.
+    const sender = dateIdx - 1 >= 0 && !OCR_DATE_RX.test(lines[dateIdx - 1]) && !/^\d[\d,]*\.\d{2}$/.test(lines[dateIdx - 1])
+      ? lines[dateIdx - 1]
+      : undefined;
+
+    let agent: string | undefined;
+    let nextIdx = dateIdx + 1;
+    for (let k = dateIdx + 1; k < Math.min(lines.length, dateIdx + 3); k++) {
+      const ln = lines[k];
+      if (OCR_DATE_RX.test(ln)) break;
+      if (/^\d[\d,]*\.\d{2}$/.test(ln)) { nextIdx = k + 1; continue; }
+      // Must be alphabetic-ish (letters + spaces), not pure numeric.
+      if (/[A-Za-z\u1200-\u137F]/.test(ln)) { agent = ln; nextIdx = k + 1; break; }
+    }
+
+    if (amountMatch && agent) {
+      const dateIso = parseDate(`ON ${dateMatch[0]}`) ?? new Date().toISOString();
+      const blockLines = [sender, dateLine, agent].filter(Boolean) as string[];
+      rows.push({
+        ok: true,
+        raw: blockLines.join("\n"),
+        type: "out",
+        amountSantim: toSantim(amountMatch[1]),
+        party: agent,
+        channel: "Other",
+        date: dateIso,
+        note: `Sent to ${agent}${sender ? ` via ${sender}` : ""}`,
+        needsReview: false,
+        template: "ocr.sent.transfer",
+      });
+    }
+    i = Math.max(nextIdx, dateIdx + 1);
+  }
+  return rows;
 }
