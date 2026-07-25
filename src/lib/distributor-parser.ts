@@ -114,6 +114,7 @@ export function parseGeneric(text: string): StatementRow[] {
 // never mistake an in-line date fragment (`5 Jul 2025`) for an amount.
 const AMOUNT_DOTTED = /(-?\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/;   // 20,000.00 or -50,000.00
 const AMOUNT_BIRR_RIGHT = /(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*Birr\s*$/i;
+const INLINE_NAME_AMOUNT_BIRR_RIGHT = /^(.+?)\s+(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*Birr\s*$/i;
 const DATE_DDMMMYYYY = /\b\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}\b/;
 const DATE_ISO = /\b\d{4}-\d{2}-\d{2}\b/;
 // Fragmented ISO date the OCR sometimes leaves behind after chopping the
@@ -177,6 +178,19 @@ function looksLikeName(line: string): boolean {
  */
 function normalizeName(line: string): string {
   return stripNameTrailers(line);
+}
+
+function looksLikeDateOrTime(line: string): boolean {
+  return DATE_ISO.test(line) || TIME_AMPM.test(line) || TIME_LOOSE.test(line) || DATE_DDMMMYYYY.test(line) || DATE_FRAGMENT.test(line);
+}
+
+function parseInlineNameAmount(line: string): { agentName: string; amountStr: string } | null {
+  const match = line.match(INLINE_NAME_AMOUNT_BIRR_RIGHT);
+  if (!match) return null;
+  const candidateName = normalizeName(match[1]);
+  if (!looksLikeName(candidateName)) return null;
+  if (looksLikeYearAmount(match[2])) return null;
+  return { agentName: candidateName, amountStr: match[2] };
 }
 
 /** MJ layout — paired sender/date/agent card, right-aligned amount. */
@@ -257,6 +271,42 @@ function parseRefillHistory(text: string): StatementRow[] {
   const lines = cleanLines(text);
   const out: StatementRow[] = [];
   for (let i = 0; i < lines.length; i++) {
+    // Screenshot-list shape:
+    //   <AGENT NAME> <AMOUNT> Birr
+    //   <YYYY-MM-DD H:MM AM/PM>
+    // In this layout the ONLY data row is the name+right-anchored amount line;
+    // the following date/time line is metadata and must never become a row.
+    const inline = parseInlineNameAmount(lines[i]);
+    if (inline) {
+      let dateText: string | undefined;
+      for (let k = i + 1; k <= Math.min(lines.length - 1, i + 2); k++) {
+        if (looksLikeDateOrTime(lines[k])) {
+          dateText = lines[k];
+          break;
+        }
+      }
+      if (!dateText) {
+        for (let k = i - 1; k >= Math.max(0, i - 2); k--) {
+          if (looksLikeDateOrTime(lines[k])) {
+            dateText = lines[k];
+            break;
+          }
+        }
+      }
+      const santim = toSantim(inline.amountStr);
+      out.push({
+        ok: true,
+        raw: dateText ? `${lines[i]} | ${dateText}` : lines[i],
+        agentName: inline.agentName,
+        dateText,
+        airtimeType: "airtime_evd",
+        amountSantim: Math.abs(santim),
+        isReversal: santim < 0,
+        needsReview: santim < 0 || !dateText,
+      });
+      continue;
+    }
+
     // Amounts must be right-aligned "<number> Birr" at end of line — never
     // mid-line, so a date fragment can't be misread as an amount.
     const amtM = lines[i].match(AMOUNT_BIRR_RIGHT);
@@ -271,7 +321,7 @@ function parseRefillHistory(text: string): StatementRow[] {
     let agentName: string | undefined;
     for (let k = i - 1; k >= Math.max(0, i - 4); k--) {
       const ln = lines[k];
-      if (!dateText && (DATE_ISO.test(ln) || TIME_AMPM.test(ln) || TIME_LOOSE.test(ln) || DATE_DDMMMYYYY.test(ln) || DATE_FRAGMENT.test(ln))) {
+      if (!dateText && looksLikeDateOrTime(ln)) {
         dateText = ln;
         continue;
       }
