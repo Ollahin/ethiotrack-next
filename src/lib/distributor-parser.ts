@@ -112,7 +112,7 @@ export function parseGeneric(text: string): StatementRow[] {
 // Amount tokens the OCR renders in the right column. We deliberately require
 // the token to be right-anchored on its line (or on its own line) so that we
 // never mistake an in-line date fragment (`5 Jul 2025`) for an amount.
-const AMOUNT_DOTTED = /(-?\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/;   // 20,000.00 or -50,000.00
+const AMOUNT_DOTTED = /(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{2})?)/;   // 20,000.00, 15000.00, or -50,000.00
 const AMOUNT_BIRR_RIGHT = /(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*Birr\s*$/i;
 const INLINE_NAME_AMOUNT_BIRR_RIGHT = /^(.+?)\s+(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*Birr\s*$/i;
 const DATE_DDMMMYYYY = /\b\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}\b/;
@@ -130,6 +130,7 @@ const NOISE_RX = /^(transfers|received|sent|refill history|agents|add agent|refi
 // the line — that's how we stop dates and amounts leaking into the name slot.
 const NAME_RX = /^[A-Za-z\u1200-\u137F][A-Za-z\u1200-\u137F\s'.\-]{1,58}$/;
 const MONTHS_RX = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i;
+const REPEATED_SENDER_RX = /^([A-Za-z0-9._-]{3,})\s*[-–]\s*\1\b/i;
 
 function cleanLines(text: string): string[] {
   return text
@@ -207,6 +208,35 @@ function looksLikeDateOrTime(line: string): boolean {
   return DATE_ISO.test(line) || TIME_AMPM.test(line) || TIME_LOOSE.test(line) || DATE_DDMMMYYYY.test(line) || DATE_FRAGMENT.test(line);
 }
 
+function parseRightAmount(line: string): string | undefined {
+  const match = line.match(new RegExp(AMOUNT_DOTTED.source + "\\s*$"));
+  return match?.[1];
+}
+
+function looksLikeMjDateAmountLine(line: string): boolean {
+  const amountStr = parseRightAmount(line);
+  return Boolean(amountStr && DATE_DDMMMYYYY.test(line) && !looksLikeYearAmount(amountStr));
+}
+
+function findMjAgentAfter(lines: string[], dateAmountIndex: number): { agentName: string; index: number } | null {
+  for (let k = dateAmountIndex + 1; k <= Math.min(lines.length - 1, dateAmountIndex + 3); k++) {
+    const line = lines[k];
+    if (looksLikeMjDateAmountLine(line) || REPEATED_SENDER_RX.test(line)) break;
+    if (looksLikeName(line)) return { agentName: normalizeName(line), index: k };
+  }
+  return null;
+}
+
+function findMjSenderBefore(lines: string[], dateAmountIndex: number): string | undefined {
+  for (let k = dateAmountIndex - 1; k >= Math.max(0, dateAmountIndex - 4); k--) {
+    const line = lines[k];
+    if (looksLikeDateOrTime(line) || parseRightAmount(line)) continue;
+    if (/^(received\s+sent|sent|received)$/i.test(line)) continue;
+    return line;
+  }
+  return undefined;
+}
+
 function parseInlineNameAmount(line: string): { agentName: string; amountStr: string } | null {
   const match = line.match(INLINE_NAME_AMOUNT_BIRR_RIGHT);
   if (!match) return null;
@@ -232,23 +262,65 @@ function isLikelyRefillHistory(text: string): boolean {
   return pairedRows >= 2 || (hasRefillHeading && pairedRows >= 1);
 }
 
+function isLikelyMjTransfers(text: string): boolean {
+  const lines = cleanLines(text);
+  const hasTransfersHeading = lines.some((line) => /\btransfers?\b/i.test(line));
+  let cardRows = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (looksLikeMjDateAmountLine(lines[i]) && findMjAgentAfter(lines, i)) cardRows++;
+  }
+  return cardRows >= 2 || (hasTransfersHeading && cardRows >= 1);
+}
+
 /** MJ layout — paired sender/date/agent card, right-aligned amount. */
 function parseMj(text: string): StatementRow[] {
   const lines = cleanLines(text);
+  const dateCardRows: StatementRow[] = [];
+  const consumed = new Set<number>();
+
+  // Primary MJ screenshot shape from the user's red annotations:
+  //   <SUBDISTRIBUTOR NAME>
+  //   <DATE>                                  <RIGHT-END AMOUNT>
+  //   <AGENT NAME>
+  // Do not require the sender to be a repeated handle; it can be any OCR text.
+  for (let i = 0; i < lines.length; i++) {
+    if (!looksLikeMjDateAmountLine(lines[i])) continue;
+    const amountStr = parseRightAmount(lines[i]);
+    const dateMatch = lines[i].match(DATE_DDMMMYYYY);
+    const agent = findMjAgentAfter(lines, i);
+    if (!amountStr || !dateMatch || !agent) continue;
+    const santim = toSantim(amountStr);
+    const sender = findMjSenderBefore(lines, i);
+    dateCardRows.push({
+      ok: true,
+      raw: [sender, lines[i], lines[agent.index]].filter(Boolean).join(" | "),
+      sender,
+      dateText: dateMatch[0],
+      agentName: agent.agentName,
+      airtimeType: "airtime_evd",
+      amountSantim: Math.abs(santim),
+      isReversal: santim < 0,
+      needsReview: santim < 0,
+    });
+    consumed.add(i);
+    consumed.add(agent.index);
+  }
+  if (dateCardRows.length > 0) return dateCardRows;
+
   const out: StatementRow[] = [];
   let i = 0;
   while (i < lines.length) {
+    if (consumed.has(i)) { i++; continue; }
     const line = lines[i];
     // Sender lines look like "barisohaji - barisohaji" (repeated handle).
-    const senderM = line.match(/^([A-Za-z0-9._-]{3,})\s*[-–]\s*\1\b/i);
+    const senderM = line.match(REPEATED_SENDER_RX);
     if (!senderM) { i++; continue; }
     const sender = senderM[1];
     // Amount can be on the same line (right-aligned) or on the next 1-2 lines.
     let amountStr: string | undefined;
     let dateText: string | undefined;
     let agentName: string | undefined;
-    const tailAmt = line.match(new RegExp(AMOUNT_DOTTED.source + "\\s*$"));
-    if (tailAmt) amountStr = tailAmt[1];
+    amountStr = parseRightAmount(line);
     // Scan the next few lines for missing pieces + agent name.
     let j = i + 1;
     const windowEnd = Math.min(lines.length, i + 6);
@@ -259,23 +331,23 @@ function parseMj(text: string): StatementRow[] {
         if (dm) {
           dateText = dm[0];
           // Amount often shares this line, right-aligned.
-          const am = ln.match(new RegExp(AMOUNT_DOTTED.source + "\\s*$"));
-          if (am && !amountStr) amountStr = am[1];
+          const am = parseRightAmount(ln);
+          if (am && !amountStr) amountStr = am;
           j++;
           continue;
         }
       }
       if (!amountStr) {
         // Right-side amount only: whole-line number, or trailing number.
-        const am = ln.match(new RegExp("^" + AMOUNT_DOTTED.source + "$"))
-          ?? ln.match(new RegExp(AMOUNT_DOTTED.source + "\\s*$"));
+        const wholeAmount = ln.match(new RegExp("^" + AMOUNT_DOTTED.source + "$"));
+        const am = wholeAmount?.[1] ?? parseRightAmount(ln);
         if (am && !DATE_DDMMMYYYY.test(ln) && !DATE_ISO.test(ln)) {
-          amountStr = am[1]; j++; continue;
+          amountStr = am; j++; continue;
         }
       }
       if (!agentName && looksLikeName(ln)) {
         // Guard: don't pick the next sender line as an agent.
-        if (/^([A-Za-z0-9._-]{3,})\s*[-–]\s*\1\b/i.test(ln)) break;
+        if (REPEATED_SENDER_RX.test(ln)) break;
         agentName = normalizeName(ln);
         j++;
         break;
