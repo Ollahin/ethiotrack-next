@@ -1,4 +1,5 @@
 import type { TxnType } from "./types";
+import { looksLikeDistributorRefillOcr, parseDistributorRefillOcr } from "./ocr-parser";
 
 // SMS "airtime" mentions are represented as EVD credits by default in v2.
 type ParserTxnType = Extract<TxnType, "in" | "out" | "airtime_evd">;
@@ -517,6 +518,12 @@ function isBoilerplateBlock(s: string): boolean {
 }
 
 export function parseMany(text: string): ParsedRow[] {
+  // Distributor Refill History screenshots ("<Agent> <amount> Birr" lines)
+  // must never fall through the SMS templates — the SMS RULES misread the
+  // date line as a party and produce nonsense rows. Detect and handle first.
+  if (looksLikeDistributorRefillOcr(text)) {
+    return parseDistributorRefillOcr(text);
+  }
   const rawBlocks = text
     .split(/\n\s*\n+/)
     .map((b) => b.trim())
