@@ -215,7 +215,7 @@ function parseRightAmount(line: string): string | undefined {
 
 function looksLikeMjDateAmountLine(line: string): boolean {
   const amountStr = parseRightAmount(line);
-  return Boolean(amountStr && DATE_DDMMMYYYY.test(line) && !looksLikeYearAmount(amountStr));
+  return Boolean(amountStr && DATE_DDMMMYYYY.test(line));
 }
 
 function findMjAgentAfter(lines: string[], dateAmountIndex: number): { agentName: string; index: number } | null {
@@ -248,7 +248,6 @@ function parseInlineNameAmount(line: string): { agentName: string; amountStr: st
   if (!match) return null;
   const candidateName = normalizeName(match[1]);
   if (!looksLikeName(candidateName)) return null;
-  if (looksLikeYearAmount(match[2])) return null;
   return { agentName: candidateName, amountStr: match[2] };
 }
 
@@ -386,7 +385,7 @@ function parseMj(text: string): StatementRow[] {
 /** Alami / Yenus / Modern App "Refill History" — flat row triplets. */
 function parseRefillHistory(text: string): StatementRow[] {
   const lines = cleanLines(text);
-  const out: StatementRow[] = [];
+  const inlineRows: StatementRow[] = [];
   for (let i = 0; i < lines.length; i++) {
     // Screenshot-list shape:
     //   <AGENT NAME> <AMOUNT> Birr
@@ -411,7 +410,7 @@ function parseRefillHistory(text: string): StatementRow[] {
         }
       }
       const santim = toSantim(inline.amountStr);
-      out.push({
+      inlineRows.push({
         ok: true,
         raw: dateText ? `${lines[i]} | ${dateText}` : lines[i],
         agentName: inline.agentName,
@@ -421,8 +420,16 @@ function parseRefillHistory(text: string): StatementRow[] {
         isReversal: santim < 0,
         needsReview: santim < 0 || !dateText,
       });
-      continue;
     }
+  }
+
+  // If the screenshot is the compact Refill list, the inline name+amount line
+  // is the only real data row. Standalone dates, years, totals, and footer text
+  // must not be interpreted as additional triplet rows.
+  if (inlineRows.length > 0) return inlineRows;
+
+  const out: StatementRow[] = [];
+  for (let i = 0; i < lines.length; i++) {
 
     // Amounts must be right-aligned "<number> Birr" at end of line — never
     // mid-line, so a date fragment can't be misread as an amount.
@@ -431,8 +438,6 @@ function parseRefillHistory(text: string): StatementRow[] {
     // A line that also carries an ISO date or a time is a header/date band,
     // not an amount row (OCR sometimes glues "2026 Birr" onto a date line).
     if (DATE_ISO.test(lines[i]) || TIME_AMPM.test(lines[i]) || TIME_LOOSE.test(lines[i])) continue;
-    // "2,026" (the year) is not an airtime amount.
-    if (looksLikeYearAmount(amtM[1])) continue;
     // Walk backward through up to 4 previous lines to find date + name.
     let dateText: string | undefined;
     let agentName: string | undefined;
