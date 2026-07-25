@@ -118,6 +118,54 @@ describe("parseStatementText — Refill History layout (Alami / Yenus / Modern A
 });
 
 describe("parseStatementText — junk-row guards (regression)", () => {
+  it("parses MJ Transfers card layout: sender / date+amount / agent (screenshot sample)", () => {
+    // Mirrors the OCR of the user's Transfers screenshot: each row is a
+    // three-line card where the middle line carries the date on the left and
+    // the amount right-aligned, and the third line is the agent name only.
+    const text = [
+      "Transfers",
+      "Received Sent",
+      "barisohaji - barisohaji",
+      "25 Jul 2026                          20,000.00",
+      "Bokiii",
+      "barisohaji - barisohaji",
+      "25 Jul 2026                          10,000.00",
+      "Dammeeeecard",
+      "barisohaji - barisohaji",
+      "24 Jul 2026                         257,300.00",
+      "Abduyyeee",
+      "barisohaji - barisohaji",
+      "24 Jul 2026                          50,000.00",
+      "Nasreddddinnncarddd",
+      "barisohaji - barisohaji",
+      "24 Jul 2026                          21,620.00",
+      "Zeddd",
+    ].join("\n");
+    const rows = parseStatementText(text, "mj").filter((r) => r.ok);
+    expect(rows.map((r) => r.agentName)).toEqual([
+      "Bokiii",
+      "Dammeeeecard",
+      "Abduyyeee",
+      "Nasreddddinnncarddd",
+      "Zeddd",
+    ]);
+    expect(rows.map((r) => r.amountSantim)).toEqual([
+      2_000_000,
+      1_000_000,
+      25_730_000,
+      5_000_000,
+      2_162_000,
+    ]);
+    expect(rows.map((r) => r.dateText)).toEqual([
+      "25 Jul 2026",
+      "25 Jul 2026",
+      "24 Jul 2026",
+      "24 Jul 2026",
+      "24 Jul 2026",
+    ]);
+    expect(rows.every((r) => r.sender === "barisohaji")).toBe(true);
+  });
+
   it("parses MJ Transfers list where amount and '& Agent' are on separate lines with no date", () => {
     const text = [
       "Transfers",
