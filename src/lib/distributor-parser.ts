@@ -223,14 +223,14 @@ function parseMj(text: string): StatementRow[] {
       if (!agentName && looksLikeName(ln)) {
         // Guard: don't pick the next sender line as an agent.
         if (/^([A-Za-z0-9._-]{3,})\s*[-–]\s*\1\b/i.test(ln)) break;
-        agentName = ln;
+        agentName = normalizeName(ln);
         j++;
         break;
       }
       j++;
     }
     const raw = lines.slice(i, j).join(" | ");
-    if (!amountStr || !agentName) {
+    if (!amountStr || !agentName || looksLikeYearAmount(amountStr)) {
       out.push({ ok: false, raw, reason: !amountStr ? "no amount" : "no agent", sender });
     } else {
       const santim = toSantim(amountStr);
@@ -261,22 +261,27 @@ function parseRefillHistory(text: string): StatementRow[] {
     // mid-line, so a date fragment can't be misread as an amount.
     const amtM = lines[i].match(AMOUNT_BIRR_RIGHT);
     if (!amtM) continue;
+    // A line that also carries an ISO date or a time is a header/date band,
+    // not an amount row (OCR sometimes glues "2026 Birr" onto a date line).
+    if (DATE_ISO.test(lines[i]) || TIME_AMPM.test(lines[i]) || TIME_LOOSE.test(lines[i])) continue;
+    // "2,026" (the year) is not an airtime amount.
+    if (looksLikeYearAmount(amtM[1])) continue;
     // Walk backward through up to 4 previous lines to find date + name.
     let dateText: string | undefined;
     let agentName: string | undefined;
     for (let k = i - 1; k >= Math.max(0, i - 4); k--) {
       const ln = lines[k];
-      if (!dateText && (DATE_ISO.test(ln) || TIME_AMPM.test(ln) || DATE_DDMMMYYYY.test(ln))) {
+      if (!dateText && (DATE_ISO.test(ln) || TIME_AMPM.test(ln) || TIME_LOOSE.test(ln) || DATE_DDMMMYYYY.test(ln) || DATE_FRAGMENT.test(ln))) {
         dateText = ln;
         continue;
       }
       if (dateText && !agentName && looksLikeName(ln)) {
-        agentName = ln;
+        agentName = normalizeName(ln);
         break;
       }
       // Name may also appear even without a date (some rows OCR the date poorly).
       if (!dateText && !agentName && looksLikeName(ln)) {
-        agentName = ln;
+        agentName = normalizeName(ln);
         break;
       }
     }
