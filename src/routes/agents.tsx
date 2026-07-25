@@ -38,6 +38,16 @@ function AgentsPage() {
       .sort((x, y) => y.stats.openCreditSantim - x.stats.openCreditSantim),
   [agents, txns]);
 
+  const totals = useMemo(() => {
+    let airtimeOut = 0, cashIn = 0, open = 0;
+    for (const { stats } of rows) {
+      airtimeOut += stats.totalOutSantim;
+      cashIn += stats.totalInSantim;
+      open += stats.openCreditSantim;
+    }
+    return { airtimeOut, cashIn, open };
+  }, [rows]);
+
   const focused = selected ? agents.find((a) => a.id === selected) : null;
 
   return (
@@ -49,6 +59,25 @@ function AgentsPage() {
         </div>
         <AgentDialog trigger={<Button><UserPlus className="h-4 w-4 mr-1" /> New agent</Button>} />
       </div>
+
+      {rows.length > 0 && (
+        <div className="grid grid-cols-3 gap-2 rounded-xl border border-border bg-card p-3 text-xs">
+          <div>
+            <div className="text-ink-soft">Airtime sent</div>
+            <div className="font-bold tabular-nums text-airtime">{formatEtb(totals.airtimeOut)}</div>
+          </div>
+          <div>
+            <div className="text-ink-soft">Cash received</div>
+            <div className="font-bold tabular-nums text-money-in">{formatEtb(totals.cashIn)}</div>
+          </div>
+          <div>
+            <div className="text-ink-soft">Open (leak signal)</div>
+            <div className={"font-bold tabular-nums " + (totals.open > 0 ? "text-money-out" : "text-ink-soft")}>
+              {formatEtb(totals.open)}
+            </div>
+          </div>
+        </div>
+      )}
 
       {rows.length === 0 && (
         <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-ink-soft">
