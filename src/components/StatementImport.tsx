@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { extractPdfText } from "@/lib/pdf-parser";
 import { extractImageText, OCR_LOW_CONFIDENCE } from "@/lib/ocr";
 import { parseStatementText, type StatementRow } from "@/lib/distributor-parser";
-import { addTransactionsBulk, recordStatementImport, useAgents, useDistributors } from "@/lib/db";
+import { addTransactionsBulk, recordStatementImport, upsertAgent, useAgents, useDistributors } from "@/lib/db";
 import { matchAgent } from "@/lib/brain/fuzzy";
 import { formatEtb } from "@/lib/format";
 import type { Agent, Transaction, DistributorStatementFormat } from "@/lib/types";
@@ -79,8 +79,31 @@ export function StatementImport() {
       sourceKind: sourceKind ?? undefined,
       ocrConfidence: ocrConfidence ?? undefined,
     });
-    const inputs: Array<Omit<Transaction, "id" | "createdAt">> = okRows.map(({ row, agent, overrideAgentId }) => {
-      const linkedId = overrideAgentId || agent?.id;
+    // Auto-register any agent name that OCR discovered but the user hasn't
+    // linked yet — mirrors the auto-register-bank behaviour on paste import.
+    // Only names that pass the strict alphabetic guard are eligible.
+    const NAME_OK = /^[A-Za-z\u1200-\u137F][A-Za-z\u1200-\u137F\s'.\-]{1,58}$/;
+    const created: Record<string, string> = {}; // normalized name -> agent id
+    const resolvedIds = new Map<number, string | undefined>();
+    let autoCreated = 0;
+    for (let i = 0; i < okRows.length; i++) {
+      const { row, agent, overrideAgentId } = okRows[i];
+      let id = overrideAgentId || agent?.id;
+      if (!id && row.agentName && NAME_OK.test(row.agentName)) {
+        const key = row.agentName.trim().toLowerCase();
+        if (created[key]) {
+          id = created[key];
+        } else {
+          const rec = await upsertAgent({ name: row.agentName.trim() });
+          created[key] = rec.id;
+          id = rec.id;
+          autoCreated++;
+        }
+      }
+      resolvedIds.set(i, id);
+    }
+    const inputs: Array<Omit<Transaction, "id" | "createdAt">> = okRows.map(({ row }, i) => {
+      const linkedId = resolvedIds.get(i);
       return {
         type: row.airtimeType!,
         amountSantim: row.amountSantim!,
@@ -102,7 +125,11 @@ export function StatementImport() {
       };
     });
     const res = await addTransactionsBulk(inputs);
-    toast.success(`Imported ${res.inserted} rows${res.skipped ? `, skipped ${res.skipped}` : ""}`);
+    toast.success(
+      `Imported ${res.inserted} rows` +
+        (res.skipped ? `, skipped ${res.skipped}` : "") +
+        (autoCreated ? ` · added ${autoCreated} new agent${autoCreated === 1 ? "" : "s"}` : ""),
+    );
     setRows([]); setRawText(""); setFileName(""); setSourceKind(null); setOcrConfidence(null);
   }
 
