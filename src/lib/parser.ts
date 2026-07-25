@@ -3,17 +3,20 @@ import type { TxnType } from "./types";
 // SMS "airtime" mentions are represented as EVD credits by default in v2.
 type ParserTxnType = Extract<TxnType, "in" | "out" | "airtime_evd">;
 
-export interface ParsedRow {
-  ok: boolean;
+/**
+ * Successful parse. Discriminated by `ok: true` so `type` and `amountSantim`
+ * are guaranteed present — no more `row.type!` non-null assertions at call sites.
+ */
+export interface ParsedOk {
+  ok: true;
   raw: string;
-  type?: ParserTxnType;
-  amountSantim?: number;
+  type: ParserTxnType;
+  amountSantim: number;
   party?: string;
   channel?: string;
   reference?: string;
   date?: string;
   note?: string;
-  reason?: string;
   /** Parsed enough to import, but direction/party is a best-guess. */
   needsReview?: boolean;
   /** Last 4 chars of the account/wallet involved (e.g. "4599", "8755", "1086"). */
@@ -29,6 +32,17 @@ export interface ParsedRow {
   /** Which named template matched — for debugging & UI badges. */
   template?: string;
 }
+
+export interface ParsedFail {
+  ok: false;
+  raw: string;
+  reason: string;
+}
+
+export type ParsedRow = ParsedOk | ParsedFail;
+
+/** Partial template output — must produce `type` and `amountSantim` to succeed. */
+type TemplateFields = Partial<Omit<ParsedOk, "ok" | "raw">>;
 
 function toSantim(s: string): number {
   const clean = s.replace(/,/g, "").trim();
@@ -77,7 +91,7 @@ function parseDate(raw: string): string | undefined {
 }
 
 /** High-precision templates for known Ethiopian bank/wallet SMS. */
-function matchTemplates(raw: string): Partial<ParsedRow> | null {
+function matchTemplates(raw: string): TemplateFields | null {
   // -------- CBE --------
   let m = raw.match(/Account\s+([\d*]+)\s+has been credited by\s+(.+?)\s+with ETB\s*([\d,]+(?:\.\d+)?)\.?\s*Your Current Balance is ETB\s*([\d,]+(?:\.\d+)?)/i);
   if (m) return {
@@ -273,7 +287,7 @@ function matchTemplates(raw: string): Partial<ParsedRow> | null {
 const RULES: Array<{
   channel: string;
   test: RegExp;
-  parse: (m: RegExpMatchArray, raw: string) => Partial<ParsedRow>;
+  parse: (m: RegExpMatchArray, raw: string) => TemplateFields;
 }> = [
   // Telebirr — credited / received
   {
@@ -440,7 +454,7 @@ export function parseOne(raw: string): ParsedRow {
   const line = normalizeSms(raw);
   if (!line) return { ok: false, raw, reason: "empty" };
   const tpl = matchTemplates(line);
-  if (tpl) {
+  if (tpl && tpl.type !== undefined && tpl.amountSantim !== undefined) {
     return {
       ok: true,
       raw: line,
@@ -448,12 +462,15 @@ export function parseOne(raw: string): ParsedRow {
       note: line,
       needsReview: false,
       ...tpl,
+      type: tpl.type,
+      amountSantim: tpl.amountSantim,
     };
   }
   for (const rule of RULES) {
     const m = line.match(rule.test);
     if (m) {
       const partial = rule.parse(m, line);
+      if (partial.type === undefined || partial.amountSantim === undefined) continue;
       const refM = line.match(REF_RX);
       // Prefer a keyword-detected channel over the rule's own default.
       // "Other" is the generic fallback and should be replaced whenever a
@@ -484,13 +501,30 @@ export function parseOne(raw: string): ParsedRow {
   return { ok: false, raw: line, reason: "no rule matched" };
 }
 
+/**
+ * Boilerplate lines/blocks that surround real SMS content (greetings,
+ * signoffs, sender footers). Filtered out before parsing so batch-pastes
+ * don't show a wall of "couldn't parse" rows for "Dear X," / "Thank you…".
+ */
+const BOILERPLATE_RX =
+  /^(dear\s|hi\s|hello\s|thank you|thanks for|regards|sincerely|ethio\s*telecom|safaricom(?:\s+ethiopia)?\s*$|--\s*$)/i;
+
+function isBoilerplateBlock(s: string): boolean {
+  const t = s.trim();
+  if (!t) return true;
+  if (t.length < 20 && !/\d/.test(t)) return true;
+  return BOILERPLATE_RX.test(t);
+}
+
 export function parseMany(text: string): ParsedRow[] {
-  // Split on blank lines OR on newline if each line looks like a full alert
-  const blocks = text
+  const rawBlocks = text
     .split(/\n\s*\n+/)
     .map((b) => b.trim())
     .filter(Boolean);
-  if (blocks.length > 1) {
+  if (rawBlocks.length > 1) {
+    const blocks = rawBlocks.filter((b) => !isBoilerplateBlock(b));
+    if (blocks.length === 0) return [];
+    if (blocks.length === 1) return [parseOne(blocks[0])];
     const parsedBlocks = blocks.map(parseOne);
     const okBlocks = parsedBlocks.filter((r) => r.ok).length;
     const whole = parseOne(text);
@@ -499,9 +533,11 @@ export function parseMany(text: string): ParsedRow[] {
     }
     return parsedBlocks;
   }
-  const blockRows = text.split(/\n+/);
-  return blockRows
+  // Single-block input: parse line-by-line, dropping obvious boilerplate.
+  return text
+    .split(/\n+/)
     .map((r) => r.trim())
     .filter(Boolean)
+    .filter((l) => !isBoilerplateBlock(l))
     .map(parseOne);
 }

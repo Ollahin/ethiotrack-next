@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { parseMany, type ParsedRow } from "@/lib/parser";
+import { parseMany, type ParsedOk, type ParsedRow } from "@/lib/parser";
 import {
   addTransactionsBulk,
   forceInsertTransactions,
@@ -41,11 +41,11 @@ type DistributorAction =
   | { kind: "none" }
   | { kind: "link"; id: string };
 
-function isAirtimeRow(t: ParsedRow["type"]): boolean {
+function isAirtimeRow(t: ParsedOk["type"]): boolean {
   return t === "airtime_evd" || (t as string) === "airtime_float";
 }
 
-function airtimeFormOf(t: ParsedRow["type"]): AirtimeForm | undefined {
+function airtimeFormOf(t: ParsedOk["type"]): AirtimeForm | undefined {
   if (t === "airtime_evd") return "evd";
   if ((t as string) === "airtime_float") return "float";
   return undefined;
@@ -145,7 +145,7 @@ export function PasteImport() {
     const override = partyActions[i];
     if (override) return override;
     if (e.agent) return { kind: "link", partyType: "agent", id: e.agent.id };
-    if (e.row.party && !isGenericParty(e.row.party)) return { kind: "new-agent" };
+    if (e.row.ok && e.row.party && !isGenericParty(e.row.party)) return { kind: "new-agent" };
     return { kind: "none" };
   }
 
@@ -155,7 +155,7 @@ export function PasteImport() {
     // Already linked to an existing bank — nothing to do.
     if (e.bank) return { kind: "skip" };
     // Only auto-register when we actually know which channel it belongs to.
-    if (e.row.channel && e.row.channel !== "Other") return { kind: "auto" };
+    if (e.row.ok && e.row.channel && e.row.channel !== "Other") return { kind: "auto" };
     return { kind: "skip" };
   }
 
@@ -233,8 +233,8 @@ export function PasteImport() {
       }
 
       inputs.push({
-        type: row.type!,
-        amountSantim: row.amountSantim!,
+        type: row.type,
+        amountSantim: row.amountSantim,
         partyName: row.party ?? "Unknown",
         partyId,
         partyType,
@@ -329,10 +329,10 @@ export function PasteImport() {
             const pAction = partyActionFor(i, e);
             const bAction = bankActionFor(i, e);
             const dAction = distActionFor(i, e);
-            const suggestedBank = !bank && row.channel && row.channel !== "Other"
+            const suggestedBank = row.ok && !bank && row.channel && row.channel !== "Other"
               ? suggestBankName(row.channel, row.accountTail)
               : null;
-            const partyIsReal = row.party && !isGenericParty(row.party);
+            const partyIsReal = row.ok && row.party && !isGenericParty(row.party);
             const airtime = row.ok && isAirtimeRow(row.type);
             const airtimeForm = airtime ? airtimeFormOf(row.type) : undefined;
             const distributorChoices = airtime
@@ -350,7 +350,7 @@ export function PasteImport() {
                 <div className="space-y-1">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <span className={"font-bold tabular-nums " + (row.type === "in" ? "text-money-in" : "text-money-out")}>
-                      {row.type === "in" ? "+" : "−"} {formatEtb(row.amountSantim!)}
+                      {row.type === "in" ? "+" : "−"} {formatEtb(row.amountSantim)}
                     </span>
                     <span className="flex items-center gap-1 text-xs">
                       <span className="uppercase font-semibold text-ink-soft">{row.channel}</span>
