@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { extractPdfText } from "@/lib/pdf-parser";
 import { extractImageText, OCR_LOW_CONFIDENCE } from "@/lib/ocr";
-import { parseStatementText, type StatementRow } from "@/lib/distributor-parser";
+import { detectStatementTemplate, type StatementRow, type TemplateMatch } from "@/lib/distributor-parser";
 import { addTransactionsBulk, recordStatementImport, upsertAgent, useAgents, useDistributors } from "@/lib/db";
 import { matchAgent } from "@/lib/brain/fuzzy";
 import { formatEtb } from "@/lib/format";
@@ -26,6 +26,7 @@ export function StatementImport() {
   const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
+  const [match, setMatch] = useState<TemplateMatch | null>(null);
 
   const selectedDistributor = distributors.find((d) => d.id === distributorId);
   const activeFormat: DistributorStatementFormat = selectedDistributor?.statementFormat ?? "generic";
@@ -48,7 +49,9 @@ export function StatementImport() {
       setOcrConfidence(confidence);
       setRawText(text);
       setFileName(file.name);
-      const parsed = parseStatementText(text, activeFormat).filter((row) => row.ok);
+      const detected = detectStatementTemplate(text, activeFormat);
+      setMatch(detected);
+      const parsed = detected.rows.filter((row) => row.ok);
       setRows(parsed.map((row) => ({
         row,
         agent: matchAgent(row.agentName, agents) ?? matchAgent(row.phone, agents),
@@ -130,7 +133,7 @@ export function StatementImport() {
         (res.skipped ? `, skipped ${res.skipped}` : "") +
         (autoCreated ? ` · added ${autoCreated} new agent${autoCreated === 1 ? "" : "s"}` : ""),
     );
-    setRows([]); setRawText(""); setFileName(""); setSourceKind(null); setOcrConfidence(null);
+    setRows([]); setRawText(""); setFileName(""); setSourceKind(null); setOcrConfidence(null); setMatch(null);
   }
 
   const confidencePct = ocrConfidence !== null ? Math.round(ocrConfidence * 100) : null;
@@ -175,6 +178,20 @@ export function StatementImport() {
           onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFile(f); }}
         />
       </label>
+
+      {match && (
+        <div className="rounded-md border border-border bg-muted/30 p-2 text-xs flex items-center gap-2 flex-wrap">
+          <span className="font-semibold">Matched:</span>
+          <span className={`px-1.5 py-0.5 rounded font-semibold ${match.kind === "generic" ? "bg-money-out/10 text-money-out" : "bg-money-in/10 text-money-in"}`}>
+            {match.label}
+          </span>
+          {match.forced && (
+            <span className="text-[10px] uppercase font-semibold text-ink-soft px-1 py-0.5 rounded bg-muted">forced</span>
+          )}
+          <span className="text-ink-soft">· {match.reason}</span>
+          <span className="ml-auto tabular-nums font-semibold">{Math.round(match.confidence * 100)}%</span>
+        </div>
+      )}
 
       {rawText && (
         <div className="rounded-md border border-border">
