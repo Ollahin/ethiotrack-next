@@ -582,7 +582,7 @@ function isOcrChromeLine(line: string): boolean {
   return false;
 }
 
-function looksLikeOcrTransferList(text: string): boolean {
+export function looksLikeOcrTransferList(text: string): boolean {
   const lines = text.split(/\r?\n/);
   let dateAmountLines = 0;
   let dateOnlyLines = 0;
