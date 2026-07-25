@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PasteImport } from "@/components/PasteImport";
-import { PdfImport } from "@/components/PdfImport";
+import { StatementImport } from "@/components/StatementImport";
 import { TransactionForm } from "@/components/TransactionForm";
 
 export const Route = createFileRoute("/capture")({
@@ -24,7 +24,7 @@ function CapturePage() {
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <PasteImport />
-        <PdfImport />
+        <StatementImport />
       </div>
       <TransactionForm />
     </div>
