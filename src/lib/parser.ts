@@ -160,42 +160,248 @@ const RULES: Array<{
 
 const REF_RX = /\b(?:Ref|Transaction ID|Txn|TrxID)[:# ]*([A-Za-z0-9]{4,})/i;
 
-export function parseOne(raw: string): ParsedRow {
-  const line = raw.trim();
-  if (!line) return { ok: false, raw, reason: "empty" };
-  for (const rule of RULES) {
-    const m = line.match(rule.test);
-    if (m) {
-      const partial = rule.parse(m, line);
-      const refM = line.match(REF_RX);
-      return {
-        ok: true,
-        raw: line,
-        channel: partial.channel ?? rule.channel,
-        type: partial.type,
-        amountSantim: partial.amountSantim,
-        party: partial.party,
-        reference: refM?.[1],
-        date: pickDate(),
-        // Keep the full original message as the description — truncating it
-        // loses reference numbers, dates, and context we need 1 year later.
-        note: line,
-        needsReview: partial.needsReview ?? false,
-      };
-    }
-  }
-  return { ok: false, raw: line, reason: "no rule matched" };
-}
-
 export function parseMany(text: string): ParsedRow[] {
-  // Split on blank lines OR on newline if each line looks like a full alert
-  const blocks = text
+  // ─────────────────────────────────────────────────────────────────────────
+  // SELF-CONTAINED OCR PARSER — Distributor "Refill History" screenshots
+  // Handles: date→agent→amount, agent→amount→date, trailing garbage,
+  //          leading garbage on amounts, mangled dates, negative amounts.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const t = text.toLowerCase();
+  const hasBirr = /\bBirr\b/i.test(text);
+  const dateMatches = text.match(/\d{4}-\d{2}-\d{2}/g);
+  const hasMultipleDates = dateMatches ? dateMatches.length >= 2 : false;
+  const hasSmsKeywords = /\b(credited|debited|your current balance|transaction number|account has been|transfer id)\b/i.test(text);
+
+  // Only run this parser for distributor refill OCR (not SMS)
+  if (hasBirr && hasMultipleDates && !hasSmsKeywords && text.length > 80) {
+    const results = parseRefillOcrInternal(text);
+    if (results.length > 0) return results;
+  }
+
+  // ── FALLBACK: existing SMS / bank transfer logic (unchanged) ──
+  const rawBlocks = text
     .split(/\n\s*\n+/)
     .map((b) => b.trim())
     .filter(Boolean);
-  const blockRows = blocks.length > 1 ? blocks : text.split(/\n+/);
-  return blockRows
+  if (rawBlocks.length > 1) {
+    const blocks = rawBlocks.filter((b) => !isBoilerplateBlock(b));
+    if (blocks.length === 0) return [];
+    if (blocks.length === 1) return [parseOne(blocks[0])];
+    const parsedBlocks = blocks.map(parseOne);
+    const okBlocks = parsedBlocks.filter((r) => r.ok).length;
+    const whole = parseOne(text);
+    if (whole.ok && okBlocks <= 1 && parsedBlocks.some((r) => !r.ok)) {
+      return [whole];
+    }
+    if (okBlocks === 0 && looksLikeOcrTransferList(text)) {
+      return parseOcrTransferList(text);
+    }
+    return parsedBlocks;
+  }
+  const singleRows = text
+    .split(/\n+/)
     .map((r) => r.trim())
     .filter(Boolean)
+    .filter((l) => !isBoilerplateBlock(l))
     .map(parseOne);
+  const anyOk = singleRows.some((r) => r.ok);
+  if (!anyOk && looksLikeOcrTransferList(text)) {
+    return parseOcrTransferList(text);
+  }
+  return singleRows;
+}
+
+// ── Internal OCR parser (lives inside parser.ts, no imports needed) ───────
+
+function parseRefillOcrInternal(text: string): ParsedRow[] {
+  // 1. Clean lines
+  const lines = text
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .filter((l) => !/^[=–—\-]+$/.test(l))
+    .filter((l) => !/^→\s*/.test(l))
+    .filter((l) => !/^\d{1,2}%$/.test(l))
+    .filter((l) => !/^\d{1,2}:\d{2}$/.test(l))
+    .filter((l) => !/^4G$|^5G$|^LTE$/i.test(l))
+    .filter((l) => !/\b(Refill History|Agents|Add Agent|Refill|Sent|Received|Transfers)\b/i.test(l))
+    .filter((l) => l !== "Birr" && l !== "ETB" && l !== "EVD")
+    .filter((l) => !/^Link to agent/i.test(l))
+    .filter((l) => !/^Review$/i.test(l));
+
+  // 2. Extract dates with line indices
+  interface DateAnchor { line: string; idx: number; date: Date }
+  const dates: DateAnchor[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const d = parseDateLine(lines[i]);
+    if (d) dates.push({ line: lines[i], idx: i, date: d });
+  }
+  if (dates.length === 0) return [];
+
+  // 3. Extract amounts with line indices
+  interface AmountAnchor { line: string; idx: number; amount: number; isNegative: boolean }
+  const amounts: AmountAnchor[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const a = parseAmountLine(lines[i]);
+    if (a) amounts.push({ line: lines[i], idx: i, amount: a.amount, isNegative: a.isNegative });
+  }
+
+  // 4. Extract agent candidates with line indices
+  interface AgentAnchor { line: string; idx: number; name: string }
+  const agents: AgentAnchor[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const name = extractAgentName(lines[i]);
+    if (name) agents.push({ line: lines[i], idx: i, name });
+  }
+
+  // 5. For each date, find nearest amount and agent within ±4 lines
+  const out: ParsedOk[] = [];
+  const usedAmounts = new Set<number>();
+  const usedAgents = new Set<number>();
+
+  for (const d of dates) {
+    // Find nearest unused amount
+    let bestAmount: AmountAnchor | null = null;
+    let bestAmountDist = Infinity;
+    for (const a of amounts) {
+      if (usedAmounts.has(a.idx)) continue;
+      const dist = Math.abs(a.idx - d.idx);
+      if (dist <= 4 && dist < bestAmountDist) {
+        bestAmountDist = dist;
+        bestAmount = a;
+      }
+    }
+    if (!bestAmount) continue;
+
+    // Find nearest unused agent (preferably on the opposite side of the date from the amount)
+    let bestAgent: AgentAnchor | null = null;
+    let bestAgentDist = Infinity;
+    for (const ag of agents) {
+      if (usedAgents.has(ag.idx)) continue;
+      const dist = Math.abs(ag.idx - d.idx);
+      if (dist <= 4 && dist < bestAgentDist) {
+        // Prefer agent that is NOT on the same side as amount relative to date
+        const amountSide = bestAmount.idx > d.idx ? 1 : -1;
+        const agentSide = ag.idx > d.idx ? 1 : -1;
+        // If agent is on opposite side, boost it (smaller effective distance)
+        const effectiveDist = amountSide !== agentSide ? dist * 0.5 : dist;
+        if (effectiveDist < bestAgentDist) {
+          bestAgentDist = effectiveDist;
+          bestAgent = ag;
+        }
+      }
+    }
+    if (!bestAgent) continue;
+
+    // Validate: agent and amount must be within 3 lines of each other
+    if (Math.abs(bestAgent.idx - bestAmount.idx) > 3) continue;
+
+    // Build raw context
+    const minIdx = Math.min(d.idx, bestAgent.idx, bestAmount.idx);
+    const maxIdx = Math.max(d.idx, bestAgent.idx, bestAmount.idx);
+    const raw = lines.slice(Math.max(0, minIdx - 1), Math.min(lines.length, maxIdx + 2)).join("\n");
+
+    usedAmounts.add(bestAmount.idx);
+    usedAgents.add(bestAgent.idx);
+
+    out.push({
+      ok: true,
+      type: "airtime_evd",
+      amountSantim: bestAmount.amount,
+      party: bestAgent.name,
+      channel: "Other",
+      date: d.date.toISOString(),
+      note: `EVD refill to ${bestAgent.name} — ${d.date.toLocaleString("en-GB")}`,
+      template: "ocr.distributor.refill",
+      needsReview: bestAmount.isNegative || bestAmount.amount < 1_000_00,
+      raw,
+    });
+  }
+
+  // Deduplicate by (party + amount + day)
+  const seen = new Set<string>();
+  return out.filter((r) => {
+    const day = r.date.slice(0, 10);
+    const key = `${r.party}|${r.amountSantim}|${day}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function parseDateLine(line: string): Date | null {
+  // YYYY-MM-DD H:MM AM/PM
+  const m1 = line.match(/\b(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})\s*(AM|PM)\b/i);
+  if (m1) {
+    let h = parseInt(m1[4], 10);
+    const ampm = m1[6].toUpperCase();
+    if (ampm === "PM" && h !== 12) h += 12;
+    if (ampm === "AM" && h === 12) h = 0;
+    const d = new Date(parseInt(m1[1], 10), parseInt(m1[2], 10) - 1, parseInt(m1[3], 10), h, parseInt(m1[5], 10));
+    if (!isNaN(d.getTime())) return d;
+  }
+  // YYYY-MM-DDH:MM AM/PM (no space — mangled OCR)
+  const m1b = line.match(/\b(\d{4})-(\d{2})-(\d{2})(\d{1,2}):(\d{2})\s*(AM|PM)\b/i);
+  if (m1b) {
+    let h = parseInt(m1b[4], 10);
+    const ampm = m1b[6].toUpperCase();
+    if (ampm === "PM" && h !== 12) h += 12;
+    if (ampm === "AM" && h === 12) h = 0;
+    const d = new Date(parseInt(m1b[1], 10), parseInt(m1b[2], 10) - 1, parseInt(m1b[3], 10), h, parseInt(m1b[5], 10));
+    if (!isNaN(d.getTime())) return d;
+  }
+  // DD MMM YYYY
+  const MONTHS: Record<string, number> = {
+    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+    jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11,
+  };
+  const m2 = line.match(/\b(\d{1,2})\s+([A-Za-z]{3,4})\s+(\d{4})\b/);
+  if (m2) {
+    const mo = MONTHS[m2[2].toLowerCase()];
+    if (mo !== undefined) {
+      const d = new Date(parseInt(m2[3], 10), mo, parseInt(m2[1], 10));
+      if (!isNaN(d.getTime())) return d;
+    }
+  }
+  return null;
+}
+
+function parseAmountLine(line: string): { amount: number; isNegative: boolean } | null {
+  // Find number with optional negative sign, optional "Birr" or "ETB"
+  // Also handles leading garbage like "9 50,000 Birr"
+  const m = line.match(/(-?)\D*(\d{1,3}(?:,\d{3})*(?:\.\d{2}))\s*(?:Birr|ETB)?/i);
+  if (!m) return null;
+
+  const raw = m[2];
+  const clean = raw.replace(/,/g, "");
+  const n = parseFloat(clean);
+  if (isNaN(n) || n <= 0) return null;
+  if (n >= 2000 && n <= 2100 && raw.endsWith(".00")) return null; // year garbage
+
+  return { amount: Math.round(n * 100), isNegative: m[1] === "-" };
+}
+
+function extractAgentName(line: string): string | null {
+  let clean = line.trim();
+  if (clean.length < 2 || clean.length > 40) return null;
+
+  // Strip trailing garbage (non-letters)
+  clean = clean.replace(/[^A-Za-z\s]+$/, "").trim();
+  if (clean.length < 2) return null;
+
+  // Must have at least 2 letters
+  if ((clean.match(/[A-Za-z]/g) || []).length < 2) return null;
+
+  // Reject known non-agents
+  if (/\bbariso/i.test(clean)) return null;
+  if (/\bhaji\b/i.test(clean)) return null;
+  if (/\b(Refill|Agents|Add Agent|Review|Link|Sent|Received|Transfers|Birr|ETB|EVD)\b/i.test(clean)) return null;
+  if (/^\d+$/.test(clean)) return null;
+  if (/^\d{1,2}:\d{2}/.test(clean)) return null;
+
+  // Allow letters, spaces, limited punctuation
+  if (!/^[A-Za-z\s.'\-]+$/.test(clean)) return null;
+
+  return clean;
 }
