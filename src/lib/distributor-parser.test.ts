@@ -302,4 +302,56 @@ describe("parseStatementText — junk-row guards (regression)", () => {
     ]);
     expect(genericRows).toEqual(rows);
   });
+
+  it("parses annotated MJ cards as subdistributor / date-right-amount / agent only", () => {
+    const text = [
+      "236m e@® Nl 8 al 56%",
+      "@ Transfers",
+      "Received Sent",
+      "barisohaji - barisohaji",
+      "25 Jul 2026                          20,000.00",
+      "Bokiii",
+      "random footer",
+      "barisohaji - barisohaji",
+      "25 Jul 2026                          10,000.00",
+      "Dammeeeecard",
+      "barisohaji - barisohaji",
+      "24 Jul 2026                         257,300.00",
+      "Abduyyeee",
+    ].join("\n");
+
+    const rows = parseStatementText(text, "generic").filter((r) => r.ok);
+    expect(rows).toHaveLength(3);
+    expect(rows.map((r) => r.sender)).toEqual(["barisohaji", "barisohaji", "barisohaji"]);
+    expect(rows.map((r) => r.dateText)).toEqual(["25 Jul 2026", "25 Jul 2026", "24 Jul 2026"]);
+    expect(rows.map((r) => r.agentName)).toEqual(["Bokiii", "Dammeeeecard", "Abduyyeee"]);
+    expect(rows.map((r) => r.amountSantim)).toEqual([2_000_000, 1_000_000, 25_730_000]);
+  });
+
+  it("does not guess rows from a Transfers screenshot when no MJ card is complete", () => {
+    const text = [
+      "@ Transfers",
+      "Sent",
+      "barisohaji - barisohaji",
+      "2026-07-22 4:51 PM",
+      "2,026.00",
+      "Agents Add Agent Refill",
+    ].join("\n");
+
+    expect(parseStatementText(text, "generic").filter((r) => r.ok)).toHaveLength(0);
+  });
+
+  it("keeps legitimate 2,026 Birr refill rows when the agent is on the same line", () => {
+    const text = [
+      "Refill History",
+      "Mulugeta 2,026 Birr",
+      "2026-07-22 4:51 PM",
+    ].join("\n");
+
+    const rows = parseStatementText(text, "generic").filter((r) => r.ok);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].agentName).toBe("Mulugeta");
+    expect(rows[0].amountSantim).toBe(202_600);
+    expect(rows[0].dateText).toBe("2026-07-22 4:51 PM");
+  });
 });
