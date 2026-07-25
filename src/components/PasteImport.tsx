@@ -10,7 +10,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { parseMany, type ParsedOk, type ParsedRow } from "@/lib/parser";
+import {
+  parseMany,
+  looksLikeOcrTransferList,
+  parseOcrTransferList,
+  type ParsedOk,
+  type ParsedRow,
+} from "@/lib/parser";
+import {
+  looksLikeDistributorRefillOcr,
+  parseDistributorRefillOcr,
+} from "@/lib/ocr-parser";
 import {
   addTransactionsBulk,
   forceInsertTransactions,
@@ -316,6 +326,22 @@ export function PasteImport() {
       />
       <div className="flex gap-2">
         <Button onClick={detect} variant="secondary">Detect</Button>
+        <Button
+          onClick={() => {
+            // eslint-disable-next-line no-console
+            console.log("looksLikeDistributor:", looksLikeDistributorRefillOcr(text));
+            // eslint-disable-next-line no-console
+            console.log("distributorParse:", parseDistributorRefillOcr(text));
+            // eslint-disable-next-line no-console
+            console.log("looksLikeTransfer:", looksLikeOcrTransferList(text));
+            // eslint-disable-next-line no-console
+            console.log("transferParse:", parseOcrTransferList(text));
+          }}
+          variant="outline"
+          type="button"
+        >
+          Debug OCR
+        </Button>
         {enriched.length > 0 && (
           <Button onClick={importAll} className="ml-auto">
             Import {enriched.filter((e) => e.row.ok).length}
