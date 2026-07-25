@@ -209,6 +209,8 @@ function looksLikeDateOrTime(line: string): boolean {
 }
 
 function parseRightAmount(line: string): string | undefined {
+  const dateOnly = line.match(DATE_DDMMMYYYY);
+  if (dateOnly && line.trim().endsWith(dateOnly[0])) return undefined;
   const match = line.match(new RegExp(AMOUNT_DOTTED.source + "\\s*$"));
   return match?.[1];
 }
@@ -265,6 +267,10 @@ function isLikelyRefillHistory(text: string): boolean {
   }
   const hasRefillHeading = lines.some((line) => /refill\s+history/i.test(line));
   return pairedRows >= 2 || (hasRefillHeading && pairedRows >= 1);
+}
+
+function hasInlineRefillRows(text: string): boolean {
+  return cleanLines(text).some((line) => Boolean(parseInlineNameAmount(line)));
 }
 
 function isLikelyMjTransfers(text: string): boolean {
@@ -496,6 +502,9 @@ export function parseStatementText(
 ): StatementRow[] {
   if (format === "generic" && hasTransfersHeading(text)) {
     return parseMj(text);
+  }
+  if (format === "generic" && hasInlineRefillRows(text)) {
+    return parseRefillHistory(text);
   }
   if (format === "generic" && isLikelyMjTransfers(text)) {
     return parseMj(text);
