@@ -1,193 +1,233 @@
-// Distributor "Refill History" OCR parser.
-//
-// Screenshots from distributor apps (Alami, Yenus, Modern App, MJ Refill)
-// render each refill as an inline "<Agent Name> <amount> Birr" line
-// followed by a date/time line on the next row:
-//
-//   Birukeee 200,000 Birr
-//   2026-07-22 4:51 PM
-//   Tsegaaa 20,000 Birr
-//   2026-07-22 1:05 PM
-//
-// This parser targets ONLY that shape. It never guesses from loose amounts
-// or free-standing dates — a row is emitted only when the inline
-// "<name> <amount> Birr" anchor is present.
+// src/lib/ocr-parser.ts
+// BULLETPROOF parser for distributor "Refill History" and bank "Transfers" OCR.
+// Handles: inline agent+amount, separated lines, mangled OCR, negative amounts.
 
-import type { ParsedRow } from "./parser";
+import type { ParsedOk, ParsedRow } from "./parser";
 
-// "<name> <amount> Birr" — inline anchor (name and amount on same line).
-const INLINE_NAME_AMOUNT_BIRR_RX =
-  /^([A-Za-z\u1200-\u137F][A-Za-z\u1200-\u137F .'\-]{0,60}?)\s+(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)\s+Birr\b/i;
-
-// Pure amount on its own line: "1,500" or "1,500.00" or "500.75".
-const PURE_AMOUNT_RX = /^(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)$/;
-
-// Date on its own line (YYYY-MM-DD, optional HH:MM AM/PM).
-const DATE_LINE_RX =
-  /^(\d{4}-\d{2}-\d{2})(?:\s+(\d{1,2}):(\d{2})\s*(AM|PM)?)?$/i;
-
-// Agent-name line: letters + spaces only, 2–40 chars.
-const NAME_LINE_RX = /^[A-Za-z\u1200-\u137F][A-Za-z\u1200-\u137F ]{1,39}$/;
-
-// Explicit UI/noise labels to drop.
-const NOISE_RX =
-  /^(review|link to agent\.{0,3}|evd|etb|birr|4g|5g|lte|wifi|refill(?:\s+history)?|transfers?|received|sent|home|history|balance|menu|back|close|cancel|ok|search|filter|details?|success(?:ful)?|pending|failed|completed|all|today|yesterday|amount|date|name|status|agents?|add\s+agent)$/i;
-
-function normalize(line: string): string {
-  return line
-    .replace(/[\u00A0\u1680\u180E\u2000-\u200D\u202F\u205F\u2060\u3000\uFEFF]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function isNoise(line: string): boolean {
-  if (!line) return true;
-  if (NOISE_RX.test(line)) return true;
-  if (/^\d{1,2}:\d{2}$/.test(line)) return true; // status-bar clock
-  if (/^\d{1,3}%$/.test(line)) return true; // battery
-  if (!/[A-Za-z0-9\u1200-\u137F]/.test(line)) return true; // symbols only
-  return false;
-}
-
-function isYearGarbage(amount: string): boolean {
-  // Reject "2,026.00" (OCR of the year 2026 rendered with commas + decimals).
-  if (!/\.00$/.test(amount)) return false;
-  const n = Number(amount.replace(/,/g, ""));
-  return Number.isFinite(n) && n >= 2000 && n <= 2100;
-}
-
-function toSantim(s: string): number {
-  const n = Number(s.replace(/,/g, ""));
+// ── Re-export santim helper ────────────────────────────────────────────────
+export function toSantim(s: string): number {
+  const clean = s.replace(/,/g, "").trim();
+  const n = Number(clean);
   return Math.round(n * 100);
 }
 
-function toIsoDate(dateStr: string, hh?: string, mm?: string, ampm?: string): string {
-  if (!hh || !mm) return new Date(`${dateStr}T00:00:00Z`).toISOString();
-  let h = Number(hh) % 12;
-  if ((ampm ?? "").toUpperCase() === "PM") h += 12;
-  const hs = String(h).padStart(2, "0");
-  return new Date(`${dateStr}T${hs}:${mm}:00Z`).toISOString();
+// ── Date parsing ───────────────────────────────────────────────────────────
+function parseDateLine(line: string): Date | null {
+  // YYYY-MM-DD H:MM AM/PM
+  const m1 = line.match(/\b(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})\s*(AM|PM)\b/i);
+  if (m1) {
+    let h = parseInt(m1[4], 10);
+    const ampm = m1[6].toUpperCase();
+    if (ampm === "PM" && h !== 12) h += 12;
+    if (ampm === "AM" && h === 12) h = 0;
+    const d = new Date(parseInt(m1[1], 10), parseInt(m1[2], 10) - 1, parseInt(m1[3], 10), h, parseInt(m1[5], 10));
+    if (!isNaN(d.getTime())) return d;
+  }
+  // YYYY-MM-DDH:MM AM/PM (no space between date and time — mangled OCR)
+  const m1b = line.match(/\b(\d{4})-(\d{2})-(\d{2})(\d{1,2}):(\d{2})\s*(AM|PM)\b/i);
+  if (m1b) {
+    let h = parseInt(m1b[4], 10);
+    const ampm = m1b[6].toUpperCase();
+    if (ampm === "PM" && h !== 12) h += 12;
+    if (ampm === "AM" && h === 12) h = 0;
+    const d = new Date(parseInt(m1b[1], 10), parseInt(m1b[2], 10) - 1, parseInt(m1b[3], 10), h, parseInt(m1b[5], 10));
+    if (!isNaN(d.getTime())) return d;
+  }
+  // DD MMM YYYY
+  const MONTHS: Record<string, number> = {
+    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+    jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11,
+  };
+  const m2 = line.match(/\b(\d{1,2})\s+([A-Za-z]{3,4})\s+(\d{4})\b/);
+  if (m2) {
+    const mo = MONTHS[m2[2].toLowerCase()];
+    if (mo !== undefined) {
+      const d = new Date(parseInt(m2[3], 10), mo, parseInt(m2[1], 10));
+      if (!isNaN(d.getTime())) return d;
+    }
+  }
+  return null;
 }
 
-/**
- * Heuristic gate: does this text look like a distributor Refill History
- * screenshot? Lenient: text mentions Birr/ETB AND has ≥2 amount-like numbers
- * AND ≥2 date-like patterns. SMS batches are excluded via strong SMS markers.
- */
-export function looksLikeDistributorRefillOcr(text: string): boolean {
-  // Never intercept clearly-SMS payloads.
-  if (/\b(transaction number|your\s+tele[- ]?birr\s+account|E[- ]?Money\s+Account|has been credited|has been debited|Available Balance|Transfer ID|Ref:\s*[A-Z0-9]|from\s+Commercial\s+Bank)\b/i.test(text)) {
-    return false;
-  }
-  const hasCurrency = /\b(Birr|ETB)\b/i.test(text);
-  if (!hasCurrency) return false;
-  let amounts = 0;
-  let dates = 0;
-  for (const raw of text.split(/\r?\n/)) {
-    const line = normalize(raw);
-    if (!line) continue;
-    if (/\b\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?\b/.test(line) || /^\d+(?:\.\d{1,2})?$/.test(line)) amounts++;
-    if (/\b\d{4}-\d{2}-\d{2}\b/.test(line)) dates++;
-  }
-  return amounts >= 2 && dates >= 2;
+// ── Amount parsing ─────────────────────────────────────────────────────────
+function parseAmountLine(line: string): { amount: number; isNegative: boolean; raw: string } | null {
+  // Match amount with optional negative sign, optional "Birr" or "ETB"
+  const m = line.match(/(-?)(\d{1,3}(?:,\d{3})*(?:\.\d{2}))\s*(?:Birr|ETB)?/i);
+  if (!m) return null;
+
+  const raw = m[2];
+  const clean = raw.replace(/,/g, "");
+  const n = parseFloat(clean);
+  if (isNaN(n) || n <= 0) return null;
+
+  // Reject obvious years masquerading as amounts
+  if (n >= 2000 && n <= 2100 && raw.endsWith(".00")) return null;
+
+  return {
+    amount: Math.round(n * 100),
+    isNegative: m[1] === "-",
+    raw,
+  };
 }
 
-/**
- * Parse a distributor Refill History screenshot (OCR text) into airtime EVD
- * credits. Handles two layouts:
- *   1) Inline:   "<name> <amount> Birr"  +  "<date>"
- *   2) Split:    "<name>" / "<amount>" / "<date>" (in any order, within 5 lines)
- * Silently skips incomplete groups — never emits ParsedFail rows.
- */
+// ── Agent name validation ──────────────────────────────────────────────────
+function stripTrailingGarbage(s: string): string {
+  // Remove trailing punctuation and OCR artifacts
+  return s.replace(/[.,"'\-\s]+$/g, "").trim();
+}
+
+function isAgentName(line: string): boolean {
+  let clean = stripTrailingGarbage(line);
+  if (clean.length < 2 || clean.length > 40) return false;
+  // Must contain at least 2 letters
+  if ((clean.match(/[A-Za-z]/g) || []).length < 2) return false;
+  // Reject sender names, UI labels, pure numbers
+  if (/\bbariso/i.test(clean)) return false;
+  if (/\bhaji\b/i.test(clean)) return false;
+  if (/\b(Refill History|Agents|Add Agent|Refill|Review|Link to agent|EVD|Sent|Received|Transfers|Birr|ETB)\b/i.test(clean)) return false;
+  if (/^\d+$/.test(clean)) return false;
+  if (/^\d{1,2}%$/.test(clean)) return false;
+  if (/^\d{1,2}:\d{2}/.test(clean)) return false;
+  if (/^4G$|^5G$|^LTE$/i.test(clean)) return false;
+  // Allow letters, spaces, and limited punctuation
+  return /^[A-Za-z\s.'\-]+$/.test(clean);
+}
+
+// ── Noise removal ──────────────────────────────────────────────────────────
+function cleanLines(text: string): string[] {
+  return text
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .filter((l) => !/^[=–—\-]+$/.test(l))
+    .filter((l) => !/^→\s*/.test(l))
+    .filter((l) => !/^\d{1,2}%$/.test(l))
+    .filter((l) => !/^\d{1,2}:\d{2}$/.test(l))
+    .filter((l) => !/^4G$|^5G$|^LTE$/i.test(l))
+    .filter((l) => !/\b(Refill History|Agents|Add Agent|Refill|Sent|Received|Transfers)\b/i.test(l))
+    .filter((l) => l !== "Birr" && l !== "ETB");
+}
+
+// ── Core extraction: find all transactions by anchoring on dates ───────────
+function extractByDateAnchors(lines: string[], type: "airtime_evd" | "out", template: string): ParsedOk[] {
+  const results: ParsedOk[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const date = parseDateLine(lines[i]);
+    if (!date) continue;
+
+    // Look backward up to 6 lines for amount and agent
+    let bestAmount: { amount: number; isNegative: boolean; raw: string } | null = null;
+    let bestAmountIdx = -1;
+    let bestAgent: string | null = null;
+    let bestAgentIdx = -1;
+
+    const scanStart = Math.max(0, i - 6);
+
+    // First pass: find the nearest amount before this date
+    for (let j = i - 1; j >= scanStart; j--) {
+      const amt = parseAmountLine(lines[j]);
+      if (amt) {
+        bestAmount = amt;
+        bestAmountIdx = j;
+        break;
+      }
+    }
+
+    if (!bestAmount) continue;
+
+    // Second pass: find the nearest agent before the amount
+    for (let j = bestAmountIdx - 1; j >= scanStart; j--) {
+      if (isAgentName(lines[j])) {
+        bestAgent = stripTrailingGarbage(lines[j]);
+        bestAgentIdx = j;
+        break;
+      }
+    }
+
+    // If no agent found before amount, check if agent is ON the same line as amount
+    if (!bestAgent) {
+      const sameLine = lines[bestAmountIdx];
+      // Remove the amount part and see if remainder is an agent name
+      const withoutAmount = sameLine.replace(/(-?)(\d{1,3}(?:,\d{3})*(?:\.\d{2}))\s*(?:Birr|ETB)?/i, "").trim();
+      const stripped = stripTrailingGarbage(withoutAmount);
+      if (stripped && isAgentName(stripped)) {
+        bestAgent = stripped;
+        bestAgentIdx = bestAmountIdx;
+      }
+    }
+
+    // If still no agent, check the line immediately AFTER the date (some OCR puts agent below)
+    if (!bestAgent && i + 1 < lines.length) {
+      const next = stripTrailingGarbage(lines[i + 1]);
+      if (next && isAgentName(next)) {
+        bestAgent = next;
+        bestAgentIdx = i + 1;
+      }
+    }
+
+    if (!bestAgent) continue;
+
+    // Build raw context
+    const contextStart = Math.max(0, bestAgentIdx - 1);
+    const contextEnd = Math.min(lines.length, i + 2);
+    const raw = lines.slice(contextStart, contextEnd).join("\n");
+
+    results.push({
+      ok: true,
+      type,
+      amountSantim: bestAmount.amount,
+      party: bestAgent,
+      channel: "Other",
+      date: date.toISOString(),
+      note: `${type === "airtime_evd" ? "EVD refill" : "Transfer"} to ${bestAgent} — ${date.toLocaleString("en-GB")}`,
+      template,
+      needsReview: bestAmount.isNegative || bestAmount.amount < 1_000_00,
+      raw,
+    });
+  }
+
+  // Deduplicate: same party + same amount + same day
+  const seen = new Set<string>();
+  return results.filter((r) => {
+    const day = r.date.slice(0, 10);
+    const key = `${r.party}|${r.amountSantim}|${day}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+// ── Public API: Distributor Refill ─────────────────────────────────────────
 export function parseDistributorRefillOcr(text: string): ParsedRow[] {
-  const lines = text
-    .split(/\r?\n/)
-    .map(normalize)
-    .filter((l) => l && !isNoise(l));
+  const lines = cleanLines(text);
+  return extractByDateAnchors(lines, "airtime_evd", "ocr.distributor.refill");
+}
 
-  const rows: ParsedRow[] = [];
-  const consumed = new Set<number>();
+export function looksLikeDistributorRefillOcr(text: string): boolean {
+  const t = text.toLowerCase();
+  const hasBirr = /\bbirr\b/i.test(text);
+  const dateMatches = text.match(/\d{4}-\d{2}-\d{2}/g);
+  const hasMultipleDates = dateMatches ? dateMatches.length >= 2 : false;
+  const hasSmsKeywords = /\b(credited|debited|your current balance|transaction number|account has been|transfer id)\b/i.test(text);
+  return hasBirr && hasMultipleDates && !hasSmsKeywords && text.length > 80;
+}
 
-  // Pass 1 — inline "<name> <amount> Birr" lines (preferred, unambiguous).
-  for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(INLINE_NAME_AMOUNT_BIRR_RX);
-    if (!m) continue;
-    const name = m[1].trim();
-    if (isYearGarbage(m[2])) continue;
-    const amountSantim = toSantim(m[2]);
-    if (!name || !Number.isFinite(amountSantim) || amountSantim <= 0) continue;
+// ── Public API: Bank Transfer (Sent tab) ───────────────────────────────────
+export function parseBankTransferOcr(text: string): ParsedRow[] {
+  const lines = cleanLines(text);
+  // For bank transfers, we also need to reject "barisohaji" lines as agents
+  // but we still use the same date-anchor approach
+  const results = extractByDateAnchors(lines, "out", "ocr.bank.transfer");
+  // Additional filter: ensure we don't have barisohaji as party
+  return results.filter((r) => !/bariso/i.test(r.party));
+}
 
-    let dateIso = new Date().toISOString();
-    let dateText: string | undefined;
-    const next = lines[i + 1];
-    if (next) {
-      const dm = next.match(DATE_LINE_RX);
-      if (dm) {
-        dateIso = toIsoDate(dm[1], dm[2], dm[3], dm[4]);
-        dateText = next;
-        consumed.add(i + 1);
-      }
-    }
-    consumed.add(i);
-    rows.push({
-      ok: true,
-      raw: dateText ? `${lines[i]}\n${dateText}` : lines[i],
-      type: "airtime_evd",
-      amountSantim,
-      party: name,
-      channel: "Distributor",
-      date: dateIso,
-      note: `Refill · ${name}${dateText ? ` · ${dateText}` : ""}`,
-      needsReview: false,
-      template: "ocr.distributor.refill",
-    });
-  }
-
-  // Pass 2 — separated-line layout: for each amount-only line, scan ±2
-  // lines for a date and a name. Emit only when all three are present.
-  for (let i = 0; i < lines.length; i++) {
-    if (consumed.has(i)) continue;
-    const am = lines[i].match(PURE_AMOUNT_RX);
-    if (!am) continue;
-    if (isYearGarbage(am[1])) continue;
-    const amountSantim = toSantim(am[1]);
-    if (!Number.isFinite(amountSantim) || amountSantim <= 0) continue;
-
-    let dateIdx = -1;
-    let nameIdx = -1;
-    for (let k = Math.max(0, i - 2); k <= Math.min(lines.length - 1, i + 2); k++) {
-      if (k === i || consumed.has(k)) continue;
-      if (dateIdx === -1) {
-        const dm = lines[k].match(DATE_LINE_RX);
-        if (dm) { dateIdx = k; continue; }
-      }
-      if (nameIdx === -1 && NAME_LINE_RX.test(lines[k])) {
-        nameIdx = k;
-      }
-    }
-    if (dateIdx === -1 || nameIdx === -1) continue;
-
-    const dm = lines[dateIdx].match(DATE_LINE_RX)!;
-    const name = lines[nameIdx].trim();
-    const dateIso = toIsoDate(dm[1], dm[2], dm[3], dm[4]);
-
-    consumed.add(i);
-    consumed.add(dateIdx);
-    consumed.add(nameIdx);
-
-    rows.push({
-      ok: true,
-      raw: [lines[nameIdx], lines[i], lines[dateIdx]].join("\n"),
-      type: "airtime_evd",
-      amountSantim,
-      party: name,
-      channel: "Distributor",
-      date: dateIso,
-      note: `Refill · ${name} · ${lines[dateIdx]}`,
-      needsReview: false,
-      template: "ocr.distributor.refill",
-    });
-  }
-
-  return rows;
+export function looksLikeBankTransferOcr(text: string): boolean {
+  const t = text.toLowerCase();
+  const hasTransfers = /\btransfers\b/i.test(text) || /\bsent\b/i.test(text);
+  const dateMatches = text.match(/\d{1,2}\s+[A-Za-z]{3,4}\s+\d{4}/g);
+  const hasMultipleDates = dateMatches ? dateMatches.length >= 2 : false;
+  const hasAmounts = (text.match(/\d{1,3}(?:,\d{3})*(?:\.\d{2})/g) || []).length >= 2;
+  return hasTransfers && hasMultipleDates && hasAmounts && text.length > 100;
 }
