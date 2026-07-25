@@ -8,9 +8,14 @@ import { Trash2, Plus } from "lucide-react";
 import {
   AIRTIME_FORM_LABEL,
   TELECOM_LABEL,
+  DISTRIBUTOR_FORMAT_LABEL,
   type AirtimeForm,
   type Telecom,
+  type DistributorStatementFormat,
 } from "@/lib/types";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/distributors")({
@@ -31,6 +36,7 @@ function DistPage() {
   const [contact, setContact] = useState("");
   const [telecoms, setTelecoms] = useState<Telecom[]>(["ethiotelecom"]);
   const [forms, setForms] = useState<AirtimeForm[]>(["evd"]);
+  const [statementFormat, setStatementFormat] = useState<DistributorStatementFormat>("generic");
 
   function toggle<T>(arr: T[], v: T): T[] {
     return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
@@ -71,13 +77,26 @@ function DistPage() {
             </div>
           </div>
         </div>
+        <div>
+          <Label>Statement format</Label>
+          <Select value={statementFormat} onValueChange={(v) => setStatementFormat(v as DistributorStatementFormat)}>
+            <SelectTrigger className="w-full h-9 text-sm mt-1"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {(Object.keys(DISTRIBUTOR_FORMAT_LABEL) as DistributorStatementFormat[]).map((f) => (
+                <SelectItem key={f} value={f}>{DISTRIBUTOR_FORMAT_LABEL[f]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="text-[11px] text-ink-soft mt-1">Drives which parser is used for imported statements/screenshots.</div>
+        </div>
         <Button onClick={async () => {
           if (!name.trim()) return toast.error("Name required");
           if (!telecoms.length) return toast.error("Pick at least one telecom");
           if (!forms.length) return toast.error("Pick at least one airtime form");
-          await upsertDistributor({ name, contact, telecoms, forms });
+          await upsertDistributor({ name, contact, telecoms, forms, statementFormat });
           setName(""); setContact("");
           setTelecoms(["ethiotelecom"]); setForms(["evd"]);
+          setStatementFormat("generic");
           toast.success("Added");
         }}><Plus className="h-4 w-4 mr-1" /> Add distributor</Button>
       </div>
@@ -93,8 +112,27 @@ function DistPage() {
                 {(d.forms ?? []).map((f) => (
                   <span key={f} className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-ink-soft">{AIRTIME_FORM_LABEL[f]}</span>
                 ))}
+                <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-airtime/10 text-airtime">
+                  {DISTRIBUTOR_FORMAT_LABEL[d.statementFormat ?? "generic"]}
+                </span>
               </div>
               {d.contact && <div className="text-xs text-ink-soft">{d.contact}</div>}
+              <div className="mt-2">
+                <Select
+                  value={d.statementFormat ?? "generic"}
+                  onValueChange={async (v) => {
+                    await upsertDistributor({ ...d, statementFormat: v as DistributorStatementFormat });
+                    toast.success("Format updated");
+                  }}
+                >
+                  <SelectTrigger className="w-40 h-7 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(DISTRIBUTOR_FORMAT_LABEL) as DistributorStatementFormat[]).map((f) => (
+                      <SelectItem key={f} value={f}>{DISTRIBUTOR_FORMAT_LABEL[f]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <Button variant="ghost" size="icon" onClick={async () => { await deleteDistributor(d.id); toast.success("Deleted"); }}>
               <Trash2 className="h-4 w-4 text-money-out" />
