@@ -232,9 +232,15 @@ function findMjSenderBefore(lines: string[], dateAmountIndex: number): string | 
     const line = lines[k];
     if (looksLikeDateOrTime(line) || parseRightAmount(line)) continue;
     if (/^(received\s+sent|sent|received)$/i.test(line)) continue;
+    const repeated = line.match(REPEATED_SENDER_RX);
+    if (repeated) return repeated[1];
     return line;
   }
   return undefined;
+}
+
+function hasTransfersHeading(text: string): boolean {
+  return cleanLines(text).some((line) => /\btransfers?\b/i.test(line));
 }
 
 function parseInlineNameAmount(line: string): { agentName: string; amountStr: string } | null {
@@ -264,12 +270,12 @@ function isLikelyRefillHistory(text: string): boolean {
 
 function isLikelyMjTransfers(text: string): boolean {
   const lines = cleanLines(text);
-  const hasTransfersHeading = lines.some((line) => /\btransfers?\b/i.test(line));
+  const hasHeading = hasTransfersHeading(text);
   let cardRows = 0;
   for (let i = 0; i < lines.length; i++) {
     if (looksLikeMjDateAmountLine(lines[i]) && findMjAgentAfter(lines, i)) cardRows++;
   }
-  return cardRows >= 2 || (hasTransfersHeading && cardRows >= 1);
+  return cardRows >= 2 || (hasHeading && cardRows >= 1);
 }
 
 /** MJ layout — paired sender/date/agent card, right-aligned amount. */
@@ -483,6 +489,9 @@ export function parseStatementText(
   text: string,
   format: DistributorStatementFormat = "generic",
 ): StatementRow[] {
+  if (format === "generic" && hasTransfersHeading(text)) {
+    return parseMj(text);
+  }
   if (format === "generic" && isLikelyMjTransfers(text)) {
     return parseMj(text);
   }
