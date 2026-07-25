@@ -1,5 +1,10 @@
 import type { TxnType } from "./types";
-import { looksLikeDistributorRefillOcr, parseDistributorRefillOcr } from "./ocr-parser";
+import {
+  looksLikeDistributorRefillOcr,
+  parseDistributorRefillOcr,
+  looksLikeBankTransferOcr,
+  parseBankTransferOcr,
+} from "./ocr-parser";
 
 // SMS "airtime" mentions are represented as EVD credits by default in v2.
 type ParserTxnType = Extract<TxnType, "in" | "out" | "airtime_evd">;
@@ -518,12 +523,19 @@ function isBoilerplateBlock(s: string): boolean {
 }
 
 export function parseMany(text: string): ParsedRow[] {
-  // Distributor Refill History screenshots ("<Agent> <amount> Birr" lines)
-  // must never fall through the SMS templates — the SMS RULES misread the
-  // date line as a party and produce nonsense rows. Detect and handle first.
+  // ── Gate 1: Distributor "Refill History" OCR ──
+  // Must run before SMS templates — SMS RULES misread date lines as parties.
   if (looksLikeDistributorRefillOcr(text)) {
-    return parseDistributorRefillOcr(text);
+    const results = parseDistributorRefillOcr(text);
+    if (results.length > 0) return results;
   }
+
+  // ── Gate 2: Bank "Transfers" / "Sent" tab OCR ──
+  if (looksLikeBankTransferOcr(text)) {
+    const results = parseBankTransferOcr(text);
+    if (results.length > 0) return results;
+  }
+
   const rawBlocks = text
     .split(/\n\s*\n+/)
     .map((b) => b.trim())
@@ -556,7 +568,6 @@ export function parseMany(text: string): ParsedRow[] {
   }
   return singleRows;
 }
-
 // ---------------------------------------------------------------------------
 // OCR "Sent transfers" list parser — mobile banking-app screenshots.
 //
