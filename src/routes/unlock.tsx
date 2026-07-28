@@ -45,10 +45,13 @@ function UnlockPage() {
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [lockout, setLockout] = useState<LockoutStatus | null>(null);
 
-  const lockoutKind = mode === "unlock" ? "user" : (mode === "renew" ? "master" : null);
+  const lockoutKind = mode === "unlock" ? "user" : mode === "renew" ? "master" : null;
 
   useEffect(() => {
-    if (!lockoutKind) { setLockout(null); return; }
+    if (!lockoutKind) {
+      setLockout(null);
+      return;
+    }
     let alive = true;
     const refresh = async () => {
       const s = await getLockoutStatus(lockoutKind);
@@ -57,7 +60,11 @@ function UnlockPage() {
     refresh();
     const unsub = subscribeLockout(refresh);
     const t = setInterval(refresh, 1000);
-    return () => { alive = false; unsub(); clearInterval(t); };
+    return () => {
+      alive = false;
+      unsub();
+      clearInterval(t);
+    };
   }, [lockoutKind]);
 
   async function resolveMode(): Promise<Mode> {
@@ -77,7 +84,10 @@ function UnlockPage() {
   useEffect(() => {
     (async () => {
       const next = await resolveMode();
-      if (next === "unlock" && isUnlocked()) { nav({ to: "/" }); return; }
+      if (next === "unlock" && isUnlocked()) {
+        nav({ to: "/" });
+        return;
+      }
       setMode(next);
     })();
   }, [nav]);
@@ -91,7 +101,8 @@ function UnlockPage() {
         if (pin !== confirm) return toast.error("Master PINs don't match");
         await setupMasterPin(pin);
         toast.success("Master PIN set — license active for 30 days");
-        setPinInput(""); setConfirm("");
+        setPinInput("");
+        setConfirm("");
         setMode(await resolveMode());
       } else if (mode === "renew") {
         try {
@@ -120,7 +131,9 @@ function UnlockPage() {
           toast.error(err instanceof Error ? err.message : "Locked");
         }
       }
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (mode === "loading") return null;
@@ -134,7 +147,7 @@ function UnlockPage() {
       confirm: true,
       note: "The master PIN is stored only on this device. Keep it private — anyone with it can extend the license.",
     },
-    "renew": {
+    renew: {
       icon: <Timer className="h-6 w-6" />,
       title: "License expired",
       sub: expiresAt
@@ -152,7 +165,7 @@ function UnlockPage() {
       confirm: true,
       note: "Separate from the master PIN. Losing it does not destroy data in v1.",
     },
-    "unlock": {
+    unlock: {
       icon: <Lock className="h-6 w-6" />,
       title: "Enter your PIN",
       sub: expiresAt
@@ -180,9 +193,11 @@ function UnlockPage() {
           <p className="text-sm text-white/60 mt-1">{copy.sub}</p>
         </div>
         <Input
-          type="password" autoFocus
+          type="password"
+          autoFocus
           placeholder={mode === "setup-master" || mode === "renew" ? "Master PIN" : "PIN"}
-          value={pin} onChange={(e) => setPinInput(e.target.value)}
+          value={pin}
+          onChange={(e) => setPinInput(e.target.value)}
           className="bg-white/5 border-white/10 text-white text-center text-lg tracking-widest"
         />
         {mode !== "setup-master" && mode !== "renew" && (
@@ -192,7 +207,8 @@ function UnlockPage() {
           <Input
             type="password"
             placeholder="Confirm PIN"
-            value={confirm} onChange={(e) => setConfirm(e.target.value)}
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
             className="bg-white/5 border-white/10 text-white text-center text-lg tracking-widest"
           />
         )}
@@ -207,13 +223,12 @@ function UnlockPage() {
           />
         )}
         <Button type="submit" disabled={busy || !!lockout?.locked} className="w-full">
-          {lockout?.locked
-            ? `Locked · ${Math.ceil(lockout.msRemaining / 1000)}s`
-            : copy.cta}
+          {lockout?.locked ? `Locked · ${Math.ceil(lockout.msRemaining / 1000)}s` : copy.cta}
         </Button>
         {lockout && !lockout.locked && lockout.failures > 0 && (
           <p className="text-[11px] text-amber-300/80 text-center">
-            {lockout.attemptsLeft} attempt{lockout.attemptsLeft === 1 ? "" : "s"} left before temporary lockout.
+            {lockout.attemptsLeft} attempt{lockout.attemptsLeft === 1 ? "" : "s"} left before
+            temporary lockout.
           </p>
         )}
         {lockout?.locked && (

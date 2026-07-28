@@ -25,7 +25,9 @@ function ExportsPage() {
       <Card title="Download" desc="Everything stays on this device. Export regularly.">
         <div className="flex flex-wrap gap-2">
           <Button onClick={downloadJsonBackup}>Download JSON backup</Button>
-          <Button variant="secondary" onClick={downloadCsv}>Download CSV</Button>
+          <Button variant="secondary" onClick={downloadCsv}>
+            Download CSV
+          </Button>
         </div>
       </Card>
 
@@ -47,13 +49,23 @@ function ExportsPage() {
             if (fileRef.current) fileRef.current.value = "";
           }}
         />
-        <Button variant="outline" onClick={() => fileRef.current?.click()}>Restore from JSON</Button>
+        <Button variant="outline" onClick={() => fileRef.current?.click()}>
+          Restore from JSON
+        </Button>
       </Card>
     </div>
   );
 }
 
-function Card({ title, desc, children }: { title: string; desc: string; children: React.ReactNode }) {
+function Card({
+  title,
+  desc,
+  children,
+}: {
+  title: string;
+  desc: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
       <div className="font-semibold">{title}</div>

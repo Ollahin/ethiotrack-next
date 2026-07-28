@@ -18,9 +18,16 @@ export const Route = createFileRoute("/reconcile")({
   head: () => ({
     meta: [
       { title: "Reconcile week · EthioTrack" },
-      { name: "description", content: "Compare opening balances, entered transactions and closing balances per bank and distributor." },
+      {
+        name: "description",
+        content:
+          "Compare opening balances, entered transactions and closing balances per bank and distributor.",
+      },
       { property: "og:title", content: "Weekly reconciliation · EthioTrack" },
-      { property: "og:description", content: "Spot cash and airtime variances before closing the week." },
+      {
+        property: "og:description",
+        content: "Spot cash and airtime variances before closing the week.",
+      },
     ],
   }),
   component: ReconcilePage,
@@ -97,9 +104,16 @@ function ReconcilePage() {
   // Cash reconciliation (untied to any bank / distributor).
   const cashOpening = opening?.cashOnHandSantim ?? 0;
   const cash = useMemo(() => {
-    let inSum = 0, outSum = 0;
+    let inSum = 0,
+      outSum = 0;
     for (const t of weekTxns) {
-      if (t.bankId || t.channel === "cash" || (!t.bankId && !t.distributorId && (t.type === "in" || t.type === "out" || t.type === "expense"))) {
+      if (
+        t.bankId ||
+        t.channel === "cash" ||
+        (!t.bankId &&
+          !t.distributorId &&
+          (t.type === "in" || t.type === "out" || t.type === "expense"))
+      ) {
         if (t.channel !== "cash") continue;
         if (t.type === "in") inSum += t.amountSantim;
         else if (t.type === "out" || t.type === "expense") outSum += t.amountSantim;
@@ -119,7 +133,9 @@ function ReconcilePage() {
 
   const bankRows: BankRow[] = useMemo(() => {
     return banks.map((bank) => {
-      let inSum = 0, outSum = 0, count = 0;
+      let inSum = 0,
+        outSum = 0,
+        count = 0;
       for (const t of weekTxns) {
         if (t.bankId !== bank.id) continue;
         count++;
@@ -146,7 +162,9 @@ function ReconcilePage() {
 
   const distRows: DistRow[] = useMemo(() => {
     return distributors.map((dist) => {
-      let evdSold = 0, fltSold = 0, count = 0;
+      let evdSold = 0,
+        fltSold = 0,
+        count = 0;
       for (const t of weekTxns) {
         if (t.distributorId !== dist.id) continue;
         count++;
@@ -163,11 +181,16 @@ function ReconcilePage() {
       const fltActual = parseOptional(fltActualInput);
       return {
         dist,
-        evdOpen, fltOpen,
-        evdSold, fltSold,
-        evdExpected, fltExpected,
-        evdActualInput, fltActualInput,
-        evdActual, fltActual,
+        evdOpen,
+        fltOpen,
+        evdSold,
+        fltSold,
+        evdExpected,
+        fltExpected,
+        evdActualInput,
+        fltActualInput,
+        evdActual,
+        fltActual,
         evdVariance: evdActual === null ? null : evdActual - evdExpected,
         fltVariance: fltActual === null ? null : fltActual - fltExpected,
         count,
@@ -181,10 +204,12 @@ function ReconcilePage() {
     const outTotal = cash.outSum + bankRows.reduce((s, r) => s + r.outSum, 0);
     const expectedTotal = openingTotal + inTotal - outTotal;
     const actualTotal =
-      (cash.actual ?? cash.expected) +
-      bankRows.reduce((s, r) => s + (r.actual ?? r.expected), 0);
+      (cash.actual ?? cash.expected) + bankRows.reduce((s, r) => s + (r.actual ?? r.expected), 0);
     return {
-      openingTotal, inTotal, outTotal, expectedTotal,
+      openingTotal,
+      inTotal,
+      outTotal,
+      expectedTotal,
       actualTotal,
       variance: actualTotal - expectedTotal,
     };
@@ -200,7 +225,8 @@ function ReconcilePage() {
         <div>
           <h1 className="text-xl md:text-2xl font-bold">Weekly reconciliation</h1>
           <p className="text-sm text-ink-soft">
-            Week of {weekStart} → {weekEnd}. Enter what you actually count on hand to spot variances.
+            Week of {weekStart} → {weekEnd}. Enter what you actually count on hand to spot
+            variances.
           </p>
         </div>
         <Link
@@ -214,7 +240,10 @@ function ReconcilePage() {
       {!opening && (
         <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-ink-soft">
           This week has no opening balance yet.{" "}
-          <Link to="/" className="text-primary font-semibold underline">Open the week</Link> from the dashboard first.
+          <Link to="/" className="text-primary font-semibold underline">
+            Open the week
+          </Link>{" "}
+          from the dashboard first.
         </div>
       )}
 
@@ -245,9 +274,15 @@ function ReconcilePage() {
                   </div>
                 </td>
                 <td className="px-2 py-2 text-right tabular-nums">{formatEtb(cash.opening)}</td>
-                <td className="px-2 py-2 text-right tabular-nums text-money-in">+{formatEtb(cash.inSum)}</td>
-                <td className="px-2 py-2 text-right tabular-nums text-money-out">−{formatEtb(cash.outSum)}</td>
-                <td className="px-2 py-2 text-right tabular-nums font-semibold">{formatEtb(cash.expected)}</td>
+                <td className="px-2 py-2 text-right tabular-nums text-money-in">
+                  +{formatEtb(cash.inSum)}
+                </td>
+                <td className="px-2 py-2 text-right tabular-nums text-money-out">
+                  −{formatEtb(cash.outSum)}
+                </td>
+                <td className="px-2 py-2 text-right tabular-nums font-semibold">
+                  {formatEtb(cash.expected)}
+                </td>
                 <td className="px-2 py-2 text-right">
                   <Input
                     inputMode="decimal"
@@ -258,8 +293,15 @@ function ReconcilePage() {
                     aria-label="Actual cash on hand"
                   />
                 </td>
-                <td className={"px-4 py-2 text-right tabular-nums font-semibold " + varianceClass(cash.variance)}>
-                  {cash.variance === null ? "—" : (cash.variance >= 0 ? "+" : "−") + formatEtb(Math.abs(cash.variance))}
+                <td
+                  className={
+                    "px-4 py-2 text-right tabular-nums font-semibold " +
+                    varianceClass(cash.variance)
+                  }
+                >
+                  {cash.variance === null
+                    ? "—"
+                    : (cash.variance >= 0 ? "+" : "−") + formatEtb(Math.abs(cash.variance))}
                 </td>
               </tr>
               {bankRows.length === 0 ? (
@@ -273,24 +315,41 @@ function ReconcilePage() {
                   <tr key={r.bank.id} className="border-b border-border/40 last:border-0">
                     <td className="px-4 py-2">
                       <div className="font-semibold truncate">{r.bank.name}</div>
-                      <div className="text-[10px] text-ink-soft">{r.bank.channel} · {r.count} txn{r.count === 1 ? "" : "s"}</div>
+                      <div className="text-[10px] text-ink-soft">
+                        {r.bank.channel} · {r.count} txn{r.count === 1 ? "" : "s"}
+                      </div>
                     </td>
                     <td className="px-2 py-2 text-right tabular-nums">{formatEtb(r.opening)}</td>
-                    <td className="px-2 py-2 text-right tabular-nums text-money-in">+{formatEtb(r.inSum)}</td>
-                    <td className="px-2 py-2 text-right tabular-nums text-money-out">−{formatEtb(r.outSum)}</td>
-                    <td className="px-2 py-2 text-right tabular-nums font-semibold">{formatEtb(r.expected)}</td>
+                    <td className="px-2 py-2 text-right tabular-nums text-money-in">
+                      +{formatEtb(r.inSum)}
+                    </td>
+                    <td className="px-2 py-2 text-right tabular-nums text-money-out">
+                      −{formatEtb(r.outSum)}
+                    </td>
+                    <td className="px-2 py-2 text-right tabular-nums font-semibold">
+                      {formatEtb(r.expected)}
+                    </td>
                     <td className="px-2 py-2 text-right">
                       <Input
                         inputMode="decimal"
                         placeholder="0.00"
                         value={r.actualInput}
-                        onChange={(e) => setBankActuals((s) => ({ ...s, [r.bank.id]: e.target.value }))}
+                        onChange={(e) =>
+                          setBankActuals((s) => ({ ...s, [r.bank.id]: e.target.value }))
+                        }
                         className="h-8 text-right w-28 ml-auto"
                         aria-label={`Actual balance ${r.bank.name}`}
                       />
                     </td>
-                    <td className={"px-4 py-2 text-right tabular-nums font-semibold " + varianceClass(r.variance)}>
-                      {r.variance === null ? "—" : (r.variance >= 0 ? "+" : "−") + formatEtb(Math.abs(r.variance))}
+                    <td
+                      className={
+                        "px-4 py-2 text-right tabular-nums font-semibold " +
+                        varianceClass(r.variance)
+                      }
+                    >
+                      {r.variance === null
+                        ? "—"
+                        : (r.variance >= 0 ? "+" : "−") + formatEtb(Math.abs(r.variance))}
                     </td>
                   </tr>
                 ))
@@ -299,12 +358,26 @@ function ReconcilePage() {
             <tfoot className="bg-muted/40 text-xs">
               <tr>
                 <td className="px-4 py-2 font-semibold">Totals</td>
-                <td className="px-2 py-2 text-right tabular-nums font-semibold">{formatEtb(grand.openingTotal)}</td>
-                <td className="px-2 py-2 text-right tabular-nums text-money-in font-semibold">+{formatEtb(grand.inTotal)}</td>
-                <td className="px-2 py-2 text-right tabular-nums text-money-out font-semibold">−{formatEtb(grand.outTotal)}</td>
-                <td className="px-2 py-2 text-right tabular-nums font-bold">{formatEtb(grand.expectedTotal)}</td>
-                <td className="px-2 py-2 text-right tabular-nums font-bold">{formatEtb(grand.actualTotal)}</td>
-                <td className={"px-4 py-2 text-right tabular-nums font-bold " + varianceClass(grand.variance)}>
+                <td className="px-2 py-2 text-right tabular-nums font-semibold">
+                  {formatEtb(grand.openingTotal)}
+                </td>
+                <td className="px-2 py-2 text-right tabular-nums text-money-in font-semibold">
+                  +{formatEtb(grand.inTotal)}
+                </td>
+                <td className="px-2 py-2 text-right tabular-nums text-money-out font-semibold">
+                  −{formatEtb(grand.outTotal)}
+                </td>
+                <td className="px-2 py-2 text-right tabular-nums font-bold">
+                  {formatEtb(grand.expectedTotal)}
+                </td>
+                <td className="px-2 py-2 text-right tabular-nums font-bold">
+                  {formatEtb(grand.actualTotal)}
+                </td>
+                <td
+                  className={
+                    "px-4 py-2 text-right tabular-nums font-bold " + varianceClass(grand.variance)
+                  }
+                >
                   {(grand.variance >= 0 ? "+" : "−") + formatEtb(Math.abs(grand.variance))}
                 </td>
               </tr>
@@ -343,43 +416,67 @@ function ReconcilePage() {
                     <tr className="border-b border-border/30">
                       <td className="px-4 py-2" rowSpan={2}>
                         <div className="font-semibold truncate">{r.dist.name}</div>
-                        <div className="text-[10px] text-ink-soft">{r.count} txn{r.count === 1 ? "" : "s"}</div>
+                        <div className="text-[10px] text-ink-soft">
+                          {r.count} txn{r.count === 1 ? "" : "s"}
+                        </div>
                       </td>
                       <td className="px-2 py-2 text-right font-semibold text-airtime">EVD</td>
                       <td className="px-2 py-2 text-right tabular-nums">{formatEtb(r.evdOpen)}</td>
                       <td className="px-2 py-2 text-right tabular-nums">−{formatEtb(r.evdSold)}</td>
-                      <td className="px-2 py-2 text-right tabular-nums font-semibold">{formatEtb(r.evdExpected)}</td>
+                      <td className="px-2 py-2 text-right tabular-nums font-semibold">
+                        {formatEtb(r.evdExpected)}
+                      </td>
                       <td className="px-2 py-2 text-right">
                         <Input
                           inputMode="decimal"
                           placeholder="0.00"
                           value={r.evdActualInput}
-                          onChange={(e) => setEvdActuals((s) => ({ ...s, [r.dist.id]: e.target.value }))}
+                          onChange={(e) =>
+                            setEvdActuals((s) => ({ ...s, [r.dist.id]: e.target.value }))
+                          }
                           className="h-8 text-right w-24 ml-auto"
                           aria-label={`Actual EVD stock ${r.dist.name}`}
                         />
                       </td>
-                      <td className={"px-4 py-2 text-right tabular-nums font-semibold " + varianceClass(r.evdVariance)}>
-                        {r.evdVariance === null ? "—" : (r.evdVariance >= 0 ? "+" : "−") + formatEtb(Math.abs(r.evdVariance))}
+                      <td
+                        className={
+                          "px-4 py-2 text-right tabular-nums font-semibold " +
+                          varianceClass(r.evdVariance)
+                        }
+                      >
+                        {r.evdVariance === null
+                          ? "—"
+                          : (r.evdVariance >= 0 ? "+" : "−") + formatEtb(Math.abs(r.evdVariance))}
                       </td>
                     </tr>
                     <tr className="border-b border-border/60 last:border-0">
                       <td className="px-2 py-2 text-right font-semibold text-credit">Float</td>
                       <td className="px-2 py-2 text-right tabular-nums">{formatEtb(r.fltOpen)}</td>
                       <td className="px-2 py-2 text-right tabular-nums">−{formatEtb(r.fltSold)}</td>
-                      <td className="px-2 py-2 text-right tabular-nums font-semibold">{formatEtb(r.fltExpected)}</td>
+                      <td className="px-2 py-2 text-right tabular-nums font-semibold">
+                        {formatEtb(r.fltExpected)}
+                      </td>
                       <td className="px-2 py-2 text-right">
                         <Input
                           inputMode="decimal"
                           placeholder="0.00"
                           value={r.fltActualInput}
-                          onChange={(e) => setFltActuals((s) => ({ ...s, [r.dist.id]: e.target.value }))}
+                          onChange={(e) =>
+                            setFltActuals((s) => ({ ...s, [r.dist.id]: e.target.value }))
+                          }
                           className="h-8 text-right w-24 ml-auto"
                           aria-label={`Actual float stock ${r.dist.name}`}
                         />
                       </td>
-                      <td className={"px-4 py-2 text-right tabular-nums font-semibold " + varianceClass(r.fltVariance)}>
-                        {r.fltVariance === null ? "—" : (r.fltVariance >= 0 ? "+" : "−") + formatEtb(Math.abs(r.fltVariance))}
+                      <td
+                        className={
+                          "px-4 py-2 text-right tabular-nums font-semibold " +
+                          varianceClass(r.fltVariance)
+                        }
+                      >
+                        {r.fltVariance === null
+                          ? "—"
+                          : (r.fltVariance >= 0 ? "+" : "−") + formatEtb(Math.abs(r.fltVariance))}
                       </td>
                     </tr>
                   </Fragment>
@@ -391,8 +488,12 @@ function ReconcilePage() {
       </section>
 
       <p className="text-[11px] text-ink-soft">
-        Actual counts entered here are not saved — this is a live worksheet. Persist final closing figures from the{" "}
-        <Link to="/close" className="underline">Close week</Link> screen.
+        Actual counts entered here are not saved — this is a live worksheet. Persist final closing
+        figures from the{" "}
+        <Link to="/close" className="underline">
+          Close week
+        </Link>{" "}
+        screen.
       </p>
     </div>
   );

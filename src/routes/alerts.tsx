@@ -10,7 +10,10 @@ export const Route = createFileRoute("/alerts")({
       { title: "Alerts · EthioTrack" },
       { name: "description", content: "Brain-generated risk, anomaly and hygiene alerts." },
       { property: "og:title", content: "Brain Alerts · EthioTrack" },
-      { property: "og:description", content: "Overdue credits, distribution anomalies, missing imports." },
+      {
+        property: "og:description",
+        content: "Overdue credits, distribution anomalies, missing imports.",
+      },
     ],
   }),
   component: AlertsPage,
@@ -34,7 +37,9 @@ function AlertsPage() {
         <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
           <ShieldAlert className="h-5 w-5 text-airtime" /> Brain Alerts
         </h1>
-        <p className="text-sm text-ink-soft">Overdue credits, distribution anomalies, missing imports.</p>
+        <p className="text-sm text-ink-soft">
+          Overdue credits, distribution anomalies, missing imports.
+        </p>
       </div>
       {alerts.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-ink-soft">

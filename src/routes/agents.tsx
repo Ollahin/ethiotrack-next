@@ -4,10 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  deleteAgent, deleteTransaction, updateTransaction, upsertAgent, useAgents, useTransactions,
+  deleteAgent,
+  deleteTransaction,
+  updateTransaction,
+  upsertAgent,
+  useAgents,
+  useTransactions,
 } from "@/lib/db";
 import { computeAgentStats } from "@/lib/brain/stats";
 import { openCreditsFor, planFifoSettlement } from "@/lib/brain/credits";
@@ -20,9 +30,15 @@ export const Route = createFileRoute("/agents")({
   head: () => ({
     meta: [
       { title: "Agents · EthioTrack" },
-      { name: "description", content: "Every downstream sales agent, their credit balance and payment behavior." },
+      {
+        name: "description",
+        content: "Every downstream sales agent, their credit balance and payment behavior.",
+      },
       { property: "og:title", content: "Agent Book · EthioTrack" },
-      { property: "og:description", content: "Track open credits, aging risk, and settlement history per agent." },
+      {
+        property: "og:description",
+        content: "Track open credits, aging risk, and settlement history per agent.",
+      },
     ],
   }),
   component: AgentsPage,
@@ -33,13 +49,18 @@ function AgentsPage() {
   const txns = useTransactions();
   const [selected, setSelected] = useState<string | null>(null);
 
-  const rows = useMemo(() =>
-    agents.map((a) => ({ agent: a, stats: computeAgentStats(a, txns) }))
-      .sort((x, y) => y.stats.openCreditSantim - x.stats.openCreditSantim),
-  [agents, txns]);
+  const rows = useMemo(
+    () =>
+      agents
+        .map((a) => ({ agent: a, stats: computeAgentStats(a, txns) }))
+        .sort((x, y) => y.stats.openCreditSantim - x.stats.openCreditSantim),
+    [agents, txns],
+  );
 
   const totals = useMemo(() => {
-    let airtimeOut = 0, cashIn = 0, open = 0;
+    let airtimeOut = 0,
+      cashIn = 0,
+      open = 0;
     for (const { stats } of rows) {
       airtimeOut += stats.totalOutSantim;
       cashIn += stats.totalInSantim;
@@ -55,16 +76,26 @@ function AgentsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl md:text-2xl font-bold">Agent Book</h1>
-          <p className="text-sm text-ink-soft">Downstream buyers, credit balances and payment behavior.</p>
+          <p className="text-sm text-ink-soft">
+            Downstream buyers, credit balances and payment behavior.
+          </p>
         </div>
-        <AgentDialog trigger={<Button><UserPlus className="h-4 w-4 mr-1" /> New agent</Button>} />
+        <AgentDialog
+          trigger={
+            <Button>
+              <UserPlus className="h-4 w-4 mr-1" /> New agent
+            </Button>
+          }
+        />
       </div>
 
       {rows.length > 0 && (
         <div className="grid grid-cols-3 gap-2 rounded-xl border border-border bg-card p-3 text-xs">
           <div>
             <div className="text-ink-soft">Airtime sent</div>
-            <div className="font-bold tabular-nums text-airtime">{formatEtb(totals.airtimeOut)}</div>
+            <div className="font-bold tabular-nums text-airtime">
+              {formatEtb(totals.airtimeOut)}
+            </div>
           </div>
           <div>
             <div className="text-ink-soft">Cash received</div>
@@ -72,7 +103,11 @@ function AgentsPage() {
           </div>
           <div>
             <div className="text-ink-soft">Open (leak signal)</div>
-            <div className={"font-bold tabular-nums " + (totals.open > 0 ? "text-money-out" : "text-ink-soft")}>
+            <div
+              className={
+                "font-bold tabular-nums " + (totals.open > 0 ? "text-money-out" : "text-ink-soft")
+              }
+            >
               {formatEtb(totals.open)}
             </div>
           </div>
@@ -87,7 +122,8 @@ function AgentsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {rows.map(({ agent, stats }) => {
-          const overLimit = agent.creditLimitSantim && stats.openCreditSantim > agent.creditLimitSantim;
+          const overLimit =
+            agent.creditLimitSantim && stats.openCreditSantim > agent.creditLimitSantim;
           return (
             <button
               key={agent.id}
@@ -96,7 +132,12 @@ function AgentsPage() {
             >
               <div className="flex items-baseline justify-between">
                 <div className="font-semibold">{agent.name}</div>
-                <div className={"text-sm font-bold tabular-nums " + (overLimit ? "text-money-out" : "text-credit")}>
+                <div
+                  className={
+                    "text-sm font-bold tabular-nums " +
+                    (overLimit ? "text-money-out" : "text-credit")
+                  }
+                >
                   {formatEtb(stats.openCreditSantim)}
                 </div>
               </div>
@@ -107,10 +148,16 @@ function AgentsPage() {
                 <span>·</span>
                 <span>out {formatEtb(stats.totalOutSantim)}</span>
                 {stats.avgPaymentDays !== null && (
-                  <><span>·</span><span>avg {stats.avgPaymentDays.toFixed(1)}d</span></>
+                  <>
+                    <span>·</span>
+                    <span>avg {stats.avgPaymentDays.toFixed(1)}d</span>
+                  </>
                 )}
                 {stats.oldestOpenCreditDays !== null && stats.oldestOpenCreditDays > 0 && (
-                  <><span>·</span><span>{stats.oldestOpenCreditDays}d oldest</span></>
+                  <>
+                    <span>·</span>
+                    <span>{stats.oldestOpenCreditDays}d oldest</span>
+                  </>
                 )}
               </div>
             </button>
@@ -118,9 +165,7 @@ function AgentsPage() {
         })}
       </div>
 
-      {focused && (
-        <AgentDetail agent={focused} txns={txns} onClose={() => setSelected(null)} />
-      )}
+      {focused && <AgentDetail agent={focused} txns={txns} onClose={() => setSelected(null)} />}
     </div>
   );
 }
@@ -129,7 +174,9 @@ function AgentDialog({ agent, trigger }: { agent?: Agent; trigger: React.ReactNo
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(agent?.name ?? "");
   const [phone, setPhone] = useState(agent?.phone ?? "");
-  const [limit, setLimit] = useState(agent?.creditLimitSantim ? (agent.creditLimitSantim / 100).toString() : "");
+  const [limit, setLimit] = useState(
+    agent?.creditLimitSantim ? (agent.creditLimitSantim / 100).toString() : "",
+  );
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -139,26 +186,56 @@ function AgentDialog({ agent, trigger }: { agent?: Agent; trigger: React.ReactNo
           <DialogDescription>Downstream buyers who take airtime on credit.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
-          <div><Label>Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
-          <div><Label>Phone</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="09xxxxxxxx" /></div>
-          <div><Label>Credit limit (ETB, optional)</Label><Input inputMode="decimal" value={limit} onChange={(e) => setLimit(e.target.value)} /></div>
-          <Button className="w-full" onClick={async () => {
-            if (!name.trim()) return toast.error("Name required");
-            await upsertAgent({
-              id: agent?.id, name, phone,
-              creditLimitSantim: parseEtbToSantim(limit) ?? undefined,
-            });
-            toast.success("Saved");
-            setOpen(false);
-          }}>Save</Button>
+          <div>
+            <Label>Name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div>
+            <Label>Phone</Label>
+            <Input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="09xxxxxxxx"
+            />
+          </div>
+          <div>
+            <Label>Credit limit (ETB, optional)</Label>
+            <Input inputMode="decimal" value={limit} onChange={(e) => setLimit(e.target.value)} />
+          </div>
+          <Button
+            className="w-full"
+            onClick={async () => {
+              if (!name.trim()) return toast.error("Name required");
+              await upsertAgent({
+                id: agent?.id,
+                name,
+                phone,
+                creditLimitSantim: parseEtbToSantim(limit) ?? undefined,
+              });
+              toast.success("Saved");
+              setOpen(false);
+            }}
+          >
+            Save
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
 
-function AgentDetail({ agent, txns, onClose }: { agent: Agent; txns: Transaction[]; onClose: () => void }) {
-  const mine = txns.filter((t) => t.partyId === agent.id).sort((a, b) => (a.date < b.date ? 1 : -1));
+function AgentDetail({
+  agent,
+  txns,
+  onClose,
+}: {
+  agent: Agent;
+  txns: Transaction[];
+  onClose: () => void;
+}) {
+  const mine = txns
+    .filter((t) => t.partyId === agent.id)
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
   const stats = computeAgentStats(agent, txns);
   const [settleAmt, setSettleAmt] = useState("");
 
@@ -169,7 +246,8 @@ function AgentDetail({ agent, txns, onClose }: { agent: Agent; txns: Transaction
     const plan = planFifoSettlement(santim, open);
     for (const cid of plan.settled) {
       const c = txns.find((t) => t.id === cid);
-      if (c) await updateTransaction({ ...c, isSettled: true, settledAt: new Date().toISOString() });
+      if (c)
+        await updateTransaction({ ...c, isSettled: true, settledAt: new Date().toISOString() });
     }
     toast.success(`Settled ${plan.settled.length} credit(s)`);
     setSettleAmt("");
@@ -185,7 +263,9 @@ function AgentDetail({ agent, txns, onClose }: { agent: Agent; txns: Transaction
           </DialogTitle>
           <DialogDescription>
             {formatEtb(stats.openCreditSantim)} open · {stats.unsettledCount} unsettled ·{" "}
-            {stats.avgPaymentDays !== null ? `avg pays in ${stats.avgPaymentDays.toFixed(1)}d` : "no payment history"}
+            {stats.avgPaymentDays !== null
+              ? `avg pays in ${stats.avgPaymentDays.toFixed(1)}d`
+              : "no payment history"}
           </DialogDescription>
         </DialogHeader>
 
@@ -193,10 +273,19 @@ function AgentDetail({ agent, txns, onClose }: { agent: Agent; txns: Transaction
           <div className="rounded-md border border-border p-3 bg-money-in/5 space-y-2">
             <div className="text-sm font-semibold">Settle credit (FIFO)</div>
             <div className="flex gap-2">
-              <Input inputMode="decimal" placeholder="ETB" value={settleAmt} onChange={(e) => setSettleAmt(e.target.value)} />
-              <Button onClick={settle}><Plus className="h-4 w-4 mr-1" /> Apply</Button>
+              <Input
+                inputMode="decimal"
+                placeholder="ETB"
+                value={settleAmt}
+                onChange={(e) => setSettleAmt(e.target.value)}
+              />
+              <Button onClick={settle}>
+                <Plus className="h-4 w-4 mr-1" /> Apply
+              </Button>
             </div>
-            <div className="text-[11px] text-ink-soft">Applies to oldest unsettled credits first.</div>
+            <div className="text-[11px] text-ink-soft">
+              Applies to oldest unsettled credits first.
+            </div>
           </div>
         )}
 
@@ -205,30 +294,56 @@ function AgentDetail({ agent, txns, onClose }: { agent: Agent; txns: Transaction
             <li key={t.id} className="p-2 flex items-center gap-2 text-sm">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] uppercase font-semibold text-ink-soft">{t.type}</span>
-                  {t.isSettled && <span className="text-[10px] text-money-in font-semibold">settled</span>}
+                  <span className="text-[10px] uppercase font-semibold text-ink-soft">
+                    {t.type}
+                  </span>
+                  {t.isSettled && (
+                    <span className="text-[10px] text-money-in font-semibold">settled</span>
+                  )}
                   <span className="text-xs text-ink-soft">{formatDate(t.date)}</span>
                 </div>
                 <div className="text-[11px] text-ink-soft truncate">{t.note}</div>
               </div>
-              <div className={"font-bold tabular-nums " + (t.type === "in" ? "text-money-in" : "text-foreground")}>
+              <div
+                className={
+                  "font-bold tabular-nums " +
+                  (t.type === "in" ? "text-money-in" : "text-foreground")
+                }
+              >
                 {t.type === "in" ? "+" : "−"} {formatEtb(t.amountSantim)}
               </div>
-              <Button variant="ghost" size="icon" onClick={async () => { await deleteTransaction(t.id); toast.success("Deleted"); }}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={async () => {
+                  await deleteTransaction(t.id);
+                  toast.success("Deleted");
+                }}
+              >
                 <Trash2 className="h-3.5 w-3.5 text-money-out" />
               </Button>
             </li>
           ))}
-          {!mine.length && <li className="p-6 text-center text-xs text-ink-soft">No transactions yet.</li>}
+          {!mine.length && (
+            <li className="p-6 text-center text-xs text-ink-soft">No transactions yet.</li>
+          )}
         </ul>
 
         <div className="flex justify-between pt-2">
-          <AgentDialog agent={agent} trigger={<Button variant="secondary" size="sm">Edit</Button>} />
+          <AgentDialog
+            agent={agent}
+            trigger={
+              <Button variant="secondary" size="sm">
+                Edit
+              </Button>
+            }
+          />
           <Button
             variant="ghost"
             size="sm"
             onClick={async () => {
-              if (!confirm(`Delete agent ${agent.name}? Transactions stay but become unlinked.`)) return;
+              if (!confirm(`Delete agent ${agent.name}? Transactions stay but become unlinked.`))
+                return;
               await deleteAgent(agent.id);
               toast.success("Deleted");
               onClose();

@@ -5,7 +5,11 @@ import { z } from "zod";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
   activeCutoffISO,
@@ -37,9 +41,15 @@ export const Route = createFileRoute("/history")({
   head: () => ({
     meta: [
       { title: "History · EthioTrack" },
-      { name: "description", content: "Every transaction you have logged, with filters and search." },
+      {
+        name: "description",
+        content: "Every transaction you have logged, with filters and search.",
+      },
       { property: "og:title", content: "Transaction history · EthioTrack" },
-      { property: "og:description", content: "Filter, search and audit every recorded transaction." },
+      {
+        property: "og:description",
+        content: "Filter, search and audit every recorded transaction.",
+      },
     ],
   }),
   validateSearch: zodValidator(searchSchema),
@@ -63,9 +73,7 @@ function HistoryPage() {
   // Auto-load archive when a filter demands data older than the active window.
   const activeCutoffDate = useMemo(() => activeCutoffISO().slice(0, 10), []);
   const needsArchive =
-    archive ||
-    (!!from && from < activeCutoffDate) ||
-    (!!to && to < activeCutoffDate);
+    archive || (!!from && from < activeCutoffDate) || (!!to && to < activeCutoffDate);
   useEffect(() => {
     if (needsArchive && !archive) setSearch({ archive: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -90,8 +98,7 @@ function HistoryPage() {
       if (fromIso && t.date < fromIso) return false;
       if (toIso && t.date > toIso) return false;
       if (needle) {
-        const hay =
-          `${t.partyName} ${t.reference ?? ""} ${t.note ?? ""}`.toLowerCase();
+        const hay = `${t.partyName} ${t.reference ?? ""} ${t.note ?? ""}`.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       return true;
@@ -154,7 +161,9 @@ function HistoryPage() {
             <SelectContent>
               <SelectItem value="all">All banks / wallets</SelectItem>
               {banks.map((b) => (
-                <SelectItem key={b.id} value={b.id}>{b.name} · {b.channel}</SelectItem>
+                <SelectItem key={b.id} value={b.id}>
+                  {b.name} · {b.channel}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -165,7 +174,9 @@ function HistoryPage() {
             <SelectContent>
               <SelectItem value="all">All distributors</SelectItem>
               {distributors.map((d) => (
-                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                <SelectItem key={d.id} value={d.id}>
+                  {d.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -200,16 +211,29 @@ function HistoryPage() {
           >
             {review ? "✓ Needs review" : "Needs review"}
           </Button>
-          {(q || type !== "all" || channel !== "all" || bankId !== "all" || distributorId !== "all" || from || to || review) && (
+          {(q ||
+            type !== "all" ||
+            channel !== "all" ||
+            bankId !== "all" ||
+            distributorId !== "all" ||
+            from ||
+            to ||
+            review) && (
             <Button
               size="sm"
               variant="ghost"
               className="h-6 px-2 text-xs"
               onClick={() =>
                 setSearch({
-                  q: "", type: "all", channel: "all",
-                  bankId: "all", distributorId: "all",
-                  from: "", to: "", archive: false, review: false,
+                  q: "",
+                  type: "all",
+                  channel: "all",
+                  bankId: "all",
+                  distributorId: "all",
+                  from: "",
+                  to: "",
+                  archive: false,
+                  review: false,
                 })
               }
             >
@@ -220,9 +244,7 @@ function HistoryPage() {
             <span className="text-ink-soft">
               Showing {needsArchive ? "last 6 months" : "last 3 months"}
               {archivedCount > 0 && (
-                <span className="ml-1 opacity-70">
-                  ({archivedCount} in archive)
-                </span>
+                <span className="ml-1 opacity-70">({archivedCount} in archive)</span>
               )}
             </span>
             <Button
@@ -239,16 +261,11 @@ function HistoryPage() {
 
       <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         {filtered.length === 0 ? (
-          <div className="p-10 text-center text-sm text-ink-soft">
-            No transactions match.
-          </div>
+          <div className="p-10 text-center text-sm text-ink-soft">No transactions match.</div>
         ) : (
           <ul className="divide-y divide-border">
             {filtered.map((t) => (
-              <li
-                key={t.id}
-                className="p-3 flex items-center gap-3 hover:bg-muted/40"
-              >
+              <li key={t.id} className="p-3 flex items-center gap-3 hover:bg-muted/40">
                 <span
                   className={
                     "w-1.5 self-stretch rounded-full " +
@@ -278,9 +295,7 @@ function HistoryPage() {
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-soft mt-0.5">
-                    <span className="uppercase font-semibold">
-                      {TYPE_LABEL[t.type]}
-                    </span>
+                    <span className="uppercase font-semibold">{TYPE_LABEL[t.type]}</span>
                     <span>·</span>
                     <span>{t.channel}</span>
                     <span>·</span>

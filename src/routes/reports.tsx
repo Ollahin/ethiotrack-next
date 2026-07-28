@@ -1,7 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useAgents, useAllPeriodClosings, useDistributors, useTransactions, getWeekStart, getWeekEnd } from "@/lib/db";
+import {
+  useAgents,
+  useAllPeriodClosings,
+  useDistributors,
+  useTransactions,
+  getWeekStart,
+  getWeekEnd,
+} from "@/lib/db";
 import { generateRangeReport, generateMonthlyReport } from "@/lib/report";
 import { formatEtb } from "@/lib/format";
 import { FileText, CalendarRange, Calendar } from "lucide-react";
@@ -12,9 +19,16 @@ export const Route = createFileRoute("/reports")({
   head: () => ({
     meta: [
       { title: "Reports · EthioTrack" },
-      { name: "description", content: "Weekly and monthly PDF summaries of airtime distributed, cash collected and aged receivables." },
+      {
+        name: "description",
+        content:
+          "Weekly and monthly PDF summaries of airtime distributed, cash collected and aged receivables.",
+      },
       { property: "og:title", content: "Reports · EthioTrack" },
-      { property: "og:description", content: "Auto-generated weekly and monthly performance summaries." },
+      {
+        property: "og:description",
+        content: "Auto-generated weekly and monthly performance summaries.",
+      },
     ],
   }),
   component: ReportsPage,
@@ -67,8 +81,10 @@ function ReportsPage() {
     const byTelecom: Record<Telecom, number> = { ethiotelecom: 0, safaricom: 0 };
     const byForm: Record<AirtimeForm, number> = { evd: 0, float: 0 };
     const matrix: Record<`${Telecom}:${AirtimeForm}`, number> = {
-      "ethiotelecom:evd": 0, "ethiotelecom:float": 0,
-      "safaricom:evd": 0, "safaricom:float": 0,
+      "ethiotelecom:evd": 0,
+      "ethiotelecom:float": 0,
+      "safaricom:evd": 0,
+      "safaricom:float": 0,
     };
     let untagged = 0;
     let count = 0;
@@ -80,7 +96,10 @@ function ReportsPage() {
       byForm[form] += t.amountSantim;
       const d = t.distributorId ? distMap.get(t.distributorId) : undefined;
       const telecoms = d?.telecoms;
-      if (!telecoms || !telecoms.length) { untagged += t.amountSantim; continue; }
+      if (!telecoms || !telecoms.length) {
+        untagged += t.amountSantim;
+        continue;
+      }
       const share = Math.floor(t.amountSantim / telecoms.length);
       const remainder = t.amountSantim - share * telecoms.length;
       telecoms.forEach((tel, i) => {
@@ -93,7 +112,13 @@ function ReportsPage() {
   }, [txns, distributors, summaryRange, weekStart, weekEnd]);
 
   async function downloadCurrentWeek() {
-    const blob = await generateRangeReport(agents, txns, new Date(weekStart), new Date(weekEnd + "T23:59:59"), "EthioTrack — Weekly Report");
+    const blob = await generateRangeReport(
+      agents,
+      txns,
+      new Date(weekStart),
+      new Date(weekEnd + "T23:59:59"),
+      "EthioTrack — Weekly Report",
+    );
     trigger(blob, `ethiotrack-week-${weekStart}.pdf`);
   }
   async function downloadMonth() {
@@ -101,12 +126,22 @@ function ReportsPage() {
     trigger(blob, `ethiotrack-month-${year}-${String(month).padStart(2, "0")}.pdf`);
   }
   async function downloadPastWeek(ws: string, we: string) {
-    const blob = await generateRangeReport(agents, txns, new Date(ws), new Date(we + "T23:59:59"), "EthioTrack — Weekly Report");
+    const blob = await generateRangeReport(
+      agents,
+      txns,
+      new Date(ws),
+      new Date(we + "T23:59:59"),
+      "EthioTrack — Weekly Report",
+    );
     trigger(blob, `ethiotrack-week-${ws}.pdf`);
   }
 
   const months = useMemo(
-    () => Array.from({ length: 12 }, (_, i) => ({ v: i + 1, label: new Date(2000, i, 1).toLocaleDateString(undefined, { month: "long" }) })),
+    () =>
+      Array.from({ length: 12 }, (_, i) => ({
+        v: i + 1,
+        label: new Date(2000, i, 1).toLocaleDateString(undefined, { month: "long" }),
+      })),
     [],
   );
   const years = useMemo(() => {
@@ -125,22 +160,44 @@ function ReportsPage() {
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <CalendarRange className="h-6 w-6 text-primary" />
           <div className="mt-2 font-semibold">Current week</div>
-          <div className="text-xs text-ink-soft">{weekStart} → {weekEnd}</div>
-          <Button className="mt-4 w-full" onClick={downloadCurrentWeek}>Download weekly PDF</Button>
+          <div className="text-xs text-ink-soft">
+            {weekStart} → {weekEnd}
+          </div>
+          <Button className="mt-4 w-full" onClick={downloadCurrentWeek}>
+            Download weekly PDF
+          </Button>
         </div>
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <Calendar className="h-6 w-6 text-primary" />
           <div className="mt-2 font-semibold">Monthly report</div>
           <div className="text-xs text-ink-soft">Aggregated analytics for a full month.</div>
           <div className="mt-3 flex gap-2">
-            <select className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm" value={month} onChange={(e) => setMonth(Number(e.target.value))}>
-              {months.map((m) => <option key={m.v} value={m.v}>{m.label}</option>)}
+            <select
+              className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+              value={month}
+              onChange={(e) => setMonth(Number(e.target.value))}
+            >
+              {months.map((m) => (
+                <option key={m.v} value={m.v}>
+                  {m.label}
+                </option>
+              ))}
             </select>
-            <select className="rounded-md border border-border bg-background px-2 py-1.5 text-sm" value={year} onChange={(e) => setYear(Number(e.target.value))}>
-              {years.map((y) => <option key={y} value={y}>{y}</option>)}
+            <select
+              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+            >
+              {years.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
             </select>
           </div>
-          <Button className="mt-3 w-full" onClick={downloadMonth}>Download monthly PDF</Button>
+          <Button className="mt-3 w-full" onClick={downloadMonth}>
+            Download monthly PDF
+          </Button>
         </div>
       </div>
 
@@ -150,18 +207,28 @@ function ReportsPage() {
           <div className="font-semibold">Closed weeks</div>
         </div>
         {closings.length === 0 ? (
-          <div className="text-xs text-ink-soft">No closed weeks yet. Close a week from the Close Week screen.</div>
+          <div className="text-xs text-ink-soft">
+            No closed weeks yet. Close a week from the Close Week screen.
+          </div>
         ) : (
           <ul className="divide-y divide-border text-sm">
             {closings.map((c) => (
               <li key={c.id} className="py-2 flex items-center justify-between gap-3">
                 <div>
-                  <div className="font-medium">{c.weekStart} → {c.weekEnd}</div>
+                  <div className="font-medium">
+                    {c.weekStart} → {c.weekEnd}
+                  </div>
                   <div className="text-xs text-ink-soft">
                     Actual {formatEtb(c.actualCashSantim)} · Variance {formatEtb(c.varianceSantim)}
                   </div>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => downloadPastWeek(c.weekStart, c.weekEnd)}>PDF</Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => downloadPastWeek(c.weekStart, c.weekEnd)}
+                >
+                  PDF
+                </Button>
               </li>
             ))}
           </ul>
@@ -174,7 +241,8 @@ function ReportsPage() {
           <div className="font-semibold">Airtime flow — this week</div>
         </div>
         <p className="text-xs text-ink-soft mb-3">
-          Purchases (money out to distributors) vs sales (airtime to agents), matched by distributor telecom and form tags.
+          Purchases (money out to distributors) vs sales (airtime to agents), matched by distributor
+          telecom and form tags.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -192,10 +260,14 @@ function ReportsPage() {
                   const b = flow.buckets[`${t}:${f}` as BucketKey];
                   return (
                     <tr key={`${t}:${f}`}>
-                      <td className="py-1.5 pr-3">{TELECOM_LABEL[t]} · {AIRTIME_FORM_LABEL[f]}</td>
+                      <td className="py-1.5 pr-3">
+                        {TELECOM_LABEL[t]} · {AIRTIME_FORM_LABEL[f]}
+                      </td>
                       <td className="py-1.5 pr-3 text-right">{formatEtb(b.purchasedSantim)}</td>
                       <td className="py-1.5 pr-3 text-right">{formatEtb(b.soldSantim)}</td>
-                      <td className={`py-1.5 text-right ${b.netSantim < 0 ? "text-money-out" : ""}`}>
+                      <td
+                        className={`py-1.5 text-right ${b.netSantim < 0 ? "text-money-out" : ""}`}
+                      >
                         {formatEtb(b.netSantim)}
                       </td>
                     </tr>
@@ -207,8 +279,8 @@ function ReportsPage() {
         </div>
         {(flow.unmatchedPurchases.length > 0 || flow.unmatchedSales.length > 0) && (
           <div className="mt-3 text-xs text-ink-soft">
-            Untagged: {flow.unmatchedPurchases.length} purchase(s), {flow.unmatchedSales.length} sale(s).
-            Add telecom / form tags on Distributors to include them.
+            Untagged: {flow.unmatchedPurchases.length} purchase(s), {flow.unmatchedSales.length}{" "}
+            sale(s). Add telecom / form tags on Distributors to include them.
           </div>
         )}
       </div>
@@ -231,7 +303,8 @@ function ReportsPage() {
         </div>
         <p className="text-xs text-ink-soft mb-3">
           Airtime distributed to agents, rolled up by telecom company and airtime form.
-          {summary.untagged > 0 && ` · ${formatEtb(summary.untagged)} untagged (distributor missing telecom).`}
+          {summary.untagged > 0 &&
+            ` · ${formatEtb(summary.untagged)} untagged (distributor missing telecom).`}
         </p>
 
         <div className="grid md:grid-cols-2 gap-3">
@@ -265,7 +338,9 @@ function ReportsPage() {
               <tr>
                 <th className="text-left py-1.5 pr-3">Telecom \ Form</th>
                 {FORMS.map((f) => (
-                  <th key={f} className="text-right py-1.5 pr-3">{AIRTIME_FORM_LABEL[f]}</th>
+                  <th key={f} className="text-right py-1.5 pr-3">
+                    {AIRTIME_FORM_LABEL[f]}
+                  </th>
                 ))}
                 <th className="text-right py-1.5">Total</th>
               </tr>
@@ -277,7 +352,9 @@ function ReportsPage() {
                   <tr key={t}>
                     <td className="py-1.5 pr-3">{TELECOM_LABEL[t]}</td>
                     {FORMS.map((f) => (
-                      <td key={f} className="py-1.5 pr-3 text-right">{formatEtb(summary.matrix[`${t}:${f}`])}</td>
+                      <td key={f} className="py-1.5 pr-3 text-right">
+                        {formatEtb(summary.matrix[`${t}:${f}`])}
+                      </td>
                     ))}
                     <td className="py-1.5 text-right font-medium">{formatEtb(rowTotal)}</td>
                   </tr>
@@ -286,14 +363,18 @@ function ReportsPage() {
               <tr className="font-medium">
                 <td className="py-1.5 pr-3">Total</td>
                 {FORMS.map((f) => (
-                  <td key={f} className="py-1.5 pr-3 text-right">{formatEtb(summary.byForm[f])}</td>
+                  <td key={f} className="py-1.5 pr-3 text-right">
+                    {formatEtb(summary.byForm[f])}
+                  </td>
                 ))}
                 <td className="py-1.5 text-right">{formatEtb(summary.total)}</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div className="mt-2 text-xs text-ink-soft">{summary.count} airtime transaction(s) in range.</div>
+        <div className="mt-2 text-xs text-ink-soft">
+          {summary.count} airtime transaction(s) in range.
+        </div>
       </div>
     </div>
   );
