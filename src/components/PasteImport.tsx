@@ -17,10 +17,7 @@ import {
   type ParsedOk,
   type ParsedRow,
 } from "@/lib/parser";
-import {
-  looksLikeDistributorRefillOcr,
-  parseDistributorRefillOcr,
-} from "@/lib/ocr-parser";
+import { looksLikeDistributorRefillOcr, parseDistributorRefillOcr } from "@/lib/ocr-parser";
 import {
   addTransactionsBulk,
   forceInsertTransactions,
@@ -47,9 +44,7 @@ type PartyAction =
 
 type BankAction = { kind: "auto" } | { kind: "skip" };
 
-type DistributorAction =
-  | { kind: "none" }
-  | { kind: "link"; id: string };
+type DistributorAction = { kind: "none" } | { kind: "link"; id: string };
 
 function isAirtimeRow(t: ParsedOk["type"]): boolean {
   return t === "airtime_evd" || (t as string) === "airtime_float";
@@ -102,9 +97,7 @@ function isGenericParty(name: string | undefined): boolean {
 function suggestBankName(channel: string, accountTail?: string): string {
   if (accountTail) return `${channel} ···${accountTail}`;
   const wallets = ["Telebirr", "M-Pesa", "CoopPay", "eBirr"];
-  return wallets.includes(channel)
-    ? `${channel} wallet`
-    : `${channel} account`;
+  return wallets.includes(channel) ? `${channel} wallet` : `${channel} account`;
 }
 
 export function PasteImport() {
@@ -134,9 +127,7 @@ export function PasteImport() {
     }
     // 2) Fall back to matching by channel name (e.g. "Telebirr" wallet).
     if (row.channel) {
-      const hit = banks.find(
-        (b) => b.channel.toLowerCase() === row.channel!.toLowerCase(),
-      );
+      const hit = banks.find((b) => b.channel.toLowerCase() === row.channel!.toLowerCase());
       if (hit) return hit;
     }
     return null;
@@ -186,11 +177,16 @@ export function PasteImport() {
 
   async function importAll() {
     const ok = enriched.filter((e) => e.row.ok);
-    if (!ok.length) { toast.error("Nothing to import"); return; }
+    if (!ok.length) {
+      toast.error("Nothing to import");
+      return;
+    }
 
     // Resolve per-row party + bank decisions BEFORE we build tx inputs, so
     // newly-created agents/distributors/banks get real ids we can link to.
-    let createdBanks = 0, createdAgents = 0, createdDistributors = 0;
+    let createdBanks = 0,
+      createdAgents = 0,
+      createdDistributors = 0;
     const inputs: Array<Omit<Transaction, "id" | "createdAt">> = [];
 
     for (let i = 0; i < enriched.length; i++) {
@@ -272,21 +268,29 @@ export function PasteImport() {
       const plan = planFifoSettlement(inp.amountSantim, open);
       for (const cid of plan.settled) {
         const c = txns.find((t) => t.id === cid);
-        if (c) await updateTransaction({ ...c, isSettled: true, settledAt: new Date().toISOString() });
+        if (c)
+          await updateTransaction({ ...c, isSettled: true, settledAt: new Date().toISOString() });
       }
     }
 
     const extras = [
       createdBanks && `${createdBanks} new bank${createdBanks > 1 ? "s" : ""}`,
       createdAgents && `${createdAgents} agent${createdAgents > 1 ? "s" : ""}`,
-      createdDistributors && `${createdDistributors} distributor${createdDistributors > 1 ? "s" : ""}`,
-    ].filter(Boolean).join(", ");
+      createdDistributors &&
+        `${createdDistributors} distributor${createdDistributors > 1 ? "s" : ""}`,
+    ]
+      .filter(Boolean)
+      .join(", ");
     toast.success(
       `Imported ${res.inserted}` +
         (res.skipped ? `, skipped ${res.skipped} duplicate(s)` : "") +
         (extras ? ` · registered ${extras}` : ""),
     );
-    setText(""); setRows(null); setPartyActions({}); setBankActions({}); setDistActions({});
+    setText("");
+    setRows(null);
+    setPartyActions({});
+    setBankActions({});
+    setDistActions({});
   }
 
   async function forceImportSkipped() {
@@ -311,10 +315,14 @@ export function PasteImport() {
       <div className="flex items-baseline justify-between">
         <div>
           <div className="font-semibold">Paste bank SMS</div>
-          <div className="text-xs text-ink-soft">The Brain auto-links agents and settles oldest credit first.</div>
+          <div className="text-xs text-ink-soft">
+            The Brain auto-links agents and settles oldest credit first.
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <Label htmlFor="personal" className="text-xs text-ink-soft">Mark as personal</Label>
+          <Label htmlFor="personal" className="text-xs text-ink-soft">
+            Mark as personal
+          </Label>
           <Switch id="personal" checked={isPersonal} onCheckedChange={setPersonal} />
         </div>
       </div>
@@ -325,7 +333,9 @@ export function PasteImport() {
         onChange={(e) => setText(e.target.value)}
       />
       <div className="flex gap-2">
-        <Button onClick={detect} variant="secondary">Detect</Button>
+        <Button onClick={detect} variant="secondary">
+          Detect
+        </Button>
         <Button
           onClick={() => {
             // eslint-disable-next-line no-console
@@ -355,9 +365,10 @@ export function PasteImport() {
             const pAction = partyActionFor(i, e);
             const bAction = bankActionFor(i, e);
             const dAction = distActionFor(i, e);
-            const suggestedBank = row.ok && !bank && row.channel && row.channel !== "Other"
-              ? suggestBankName(row.channel, row.accountTail)
-              : null;
+            const suggestedBank =
+              row.ok && !bank && row.channel && row.channel !== "Other"
+                ? suggestBankName(row.channel, row.accountTail)
+                : null;
             const partyIsReal = row.ok && row.party && !isGenericParty(row.party);
             const airtime = row.ok && isAirtimeRow(row.type);
             const airtimeForm = airtime ? airtimeFormOf(row.type) : undefined;
@@ -371,151 +382,189 @@ export function PasteImport() {
                 )
               : [];
             return (
-            <li key={i} className={"p-2 " + (row.ok ? "" : "bg-money-out/5")}>
-              {row.ok ? (
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <span className={"font-bold tabular-nums " + (row.type === "in" ? "text-money-in" : "text-money-out")}>
-                      {row.type === "in" ? "+" : "−"} {formatEtb(row.amountSantim)}
-                    </span>
-                    <span className="flex items-center gap-1 text-xs">
-                      <span className="uppercase font-semibold text-ink-soft">{row.channel}</span>
-                      {row.accountTail && (
-                        <span className="rounded bg-muted text-ink-soft px-1.5 py-0.5 tabular-nums">···{row.accountTail}</span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="text-xs">
-                    <span className="font-medium">{row.party}</span>
-                    {row.counterpartyPhone && (
-                      <span className="text-ink-soft"> · {row.counterpartyPhone}</span>
-                    )}
-                    {agent && <span className="text-money-in font-semibold"> · linked → {agent.name}</span>}
-                    {!agent && row.party && row.party !== "Unknown" && (
-                      <span className="text-ink-soft"> · no agent match</span>
-                    )}
-                    {bank ? (
-                      <span className="text-money-in font-semibold"> · account → {bank.name}</span>
-                    ) : row.accountTail ? (
-                      <span className="text-airtime"> · no bank match (···{row.accountTail})</span>
-                    ) : null}
-                    {airtime && distributor && (
-                      <span className="text-money-in font-semibold"> · distributor → {distributor.name}</span>
-                    )}
-                    {airtime && !distributor && (
-                      <span className="text-airtime"> · no distributor linked</span>
-                    )}
-                    {row.needsReview && (
-                      <span className="ml-1 inline-flex items-center rounded bg-airtime/15 text-airtime text-[10px] font-semibold px-1.5 py-0.5">review</span>
-                    )}
-                    {row.template && (
-                      <span className="ml-1 inline-flex items-center rounded bg-money-in/10 text-money-in text-[10px] font-semibold px-1.5 py-0.5">{row.template}</span>
-                    )}
-                  </div>
-                  {(suggestedBank || partyIsReal || airtime) && (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {suggestedBank && (
-                        <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
-                          <span className="text-ink-soft">Bank:</span>
-                          <Select
-                            value={bAction.kind}
-                            onValueChange={(v) =>
-                              setBankActions((s) => ({ ...s, [i]: { kind: v as BankAction["kind"] } }))
-                            }
-                          >
-                            <SelectTrigger className="h-6 w-auto min-w-[9rem] text-[11px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="auto">Register “{suggestedBank}”</SelectItem>
-                              <SelectItem value="skip">Skip — leave unlinked</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                      {airtime && (
-                        <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
-                          <span className="text-ink-soft">
-                            {airtimeForm === "float" ? "Float" : "EVD"} from →
+              <li key={i} className={"p-2 " + (row.ok ? "" : "bg-money-out/5")}>
+                {row.ok ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span
+                        className={
+                          "font-bold tabular-nums " +
+                          (row.type === "in" ? "text-money-in" : "text-money-out")
+                        }
+                      >
+                        {row.type === "in" ? "+" : "−"} {formatEtb(row.amountSantim)}
+                      </span>
+                      <span className="flex items-center gap-1 text-xs">
+                        <span className="uppercase font-semibold text-ink-soft">{row.channel}</span>
+                        {row.accountTail && (
+                          <span className="rounded bg-muted text-ink-soft px-1.5 py-0.5 tabular-nums">
+                            ···{row.accountTail}
                           </span>
-                          <Select
-                            value={dAction.kind === "link" ? `link:${dAction.id}` : "none"}
-                            onValueChange={(v) =>
-                              setDistActions((s) => ({
-                                ...s,
-                                [i]: v === "none"
-                                  ? { kind: "none" }
-                                  : { kind: "link", id: v.slice("link:".length) },
-                              }))
-                            }
-                          >
-                            <SelectTrigger className="h-6 w-auto min-w-[10rem] text-[11px]">
-                              <SelectValue placeholder="Pick distributor…" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Don't link (skew expected stock)</SelectItem>
-                              {distributorChoices.map((d) => (
-                                <SelectItem key={d.id} value={`link:${d.id}`}>
-                                  {d.name}
-                                </SelectItem>
-                              ))}
-                              {distributorChoices.length === 0 && (
-                                <SelectItem value="none" disabled>
-                                  No matching distributor — add one first
-                                </SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        )}
+                      </span>
+                    </div>
+                    <div className="text-xs">
+                      <span className="font-medium">{row.party}</span>
+                      {row.counterpartyPhone && (
+                        <span className="text-ink-soft"> · {row.counterpartyPhone}</span>
                       )}
-                      {partyIsReal && (
-                        <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
-                          <span className="text-ink-soft">“{row.party}” →</span>
-                          <Select
-                            value={encodePartyAction(pAction)}
-                            onValueChange={(v) =>
-                              setPartyActions((s) => ({ ...s, [i]: decodePartyAction(v) }))
-                            }
-                          >
-                            <SelectTrigger className="h-6 w-auto min-w-[10rem] text-[11px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="new-agent">Add as new agent</SelectItem>
-                              <SelectItem value="new-distributor">Add as new distributor</SelectItem>
-                              <SelectItem value="none">Don't link (manual later)</SelectItem>
-                              {agents.length > 0 && (
-                                <>
-                                  {agents.map((a) => (
-                                    <SelectItem key={`a-${a.id}`} value={`link:agent:${a.id}`}>
-                                      Link → agent · {a.name}
-                                    </SelectItem>
-                                  ))}
-                                </>
-                              )}
-                              {distributors.length > 0 && (
-                                <>
-                                  {distributors.map((d) => (
-                                    <SelectItem key={`d-${d.id}`} value={`link:distributor:${d.id}`}>
-                                      Link → distributor · {d.name}
-                                    </SelectItem>
-                                  ))}
-                                </>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                      {agent && (
+                        <span className="text-money-in font-semibold">
+                          {" "}
+                          · linked → {agent.name}
+                        </span>
+                      )}
+                      {!agent && row.party && row.party !== "Unknown" && (
+                        <span className="text-ink-soft"> · no agent match</span>
+                      )}
+                      {bank ? (
+                        <span className="text-money-in font-semibold">
+                          {" "}
+                          · account → {bank.name}
+                        </span>
+                      ) : row.accountTail ? (
+                        <span className="text-airtime">
+                          {" "}
+                          · no bank match (···{row.accountTail})
+                        </span>
+                      ) : null}
+                      {airtime && distributor && (
+                        <span className="text-money-in font-semibold">
+                          {" "}
+                          · distributor → {distributor.name}
+                        </span>
+                      )}
+                      {airtime && !distributor && (
+                        <span className="text-airtime"> · no distributor linked</span>
+                      )}
+                      {row.needsReview && (
+                        <span className="ml-1 inline-flex items-center rounded bg-airtime/15 text-airtime text-[10px] font-semibold px-1.5 py-0.5">
+                          review
+                        </span>
+                      )}
+                      {row.template && (
+                        <span className="ml-1 inline-flex items-center rounded bg-money-in/10 text-money-in text-[10px] font-semibold px-1.5 py-0.5">
+                          {row.template}
+                        </span>
                       )}
                     </div>
-                  )}
-                  <div className="text-[11px] text-ink-soft whitespace-pre-wrap break-words">{row.note}</div>
-                </div>
-              ) : (
-                <div className="text-xs text-money-out">
-                  Couldn't parse: <span className="text-ink-soft">{row.raw}</span>
-                </div>
-              )}
-            </li>
+                    {(suggestedBank || partyIsReal || airtime) && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {suggestedBank && (
+                          <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
+                            <span className="text-ink-soft">Bank:</span>
+                            <Select
+                              value={bAction.kind}
+                              onValueChange={(v) =>
+                                setBankActions((s) => ({
+                                  ...s,
+                                  [i]: { kind: v as BankAction["kind"] },
+                                }))
+                              }
+                            >
+                              <SelectTrigger className="h-6 w-auto min-w-[9rem] text-[11px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="auto">Register “{suggestedBank}”</SelectItem>
+                                <SelectItem value="skip">Skip — leave unlinked</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                        {airtime && (
+                          <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
+                            <span className="text-ink-soft">
+                              {airtimeForm === "float" ? "Float" : "EVD"} from →
+                            </span>
+                            <Select
+                              value={dAction.kind === "link" ? `link:${dAction.id}` : "none"}
+                              onValueChange={(v) =>
+                                setDistActions((s) => ({
+                                  ...s,
+                                  [i]:
+                                    v === "none"
+                                      ? { kind: "none" }
+                                      : { kind: "link", id: v.slice("link:".length) },
+                                }))
+                              }
+                            >
+                              <SelectTrigger className="h-6 w-auto min-w-[10rem] text-[11px]">
+                                <SelectValue placeholder="Pick distributor…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">
+                                  Don't link (skew expected stock)
+                                </SelectItem>
+                                {distributorChoices.map((d) => (
+                                  <SelectItem key={d.id} value={`link:${d.id}`}>
+                                    {d.name}
+                                  </SelectItem>
+                                ))}
+                                {distributorChoices.length === 0 && (
+                                  <SelectItem value="none" disabled>
+                                    No matching distributor — add one first
+                                  </SelectItem>
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                        {partyIsReal && (
+                          <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
+                            <span className="text-ink-soft">“{row.party}” →</span>
+                            <Select
+                              value={encodePartyAction(pAction)}
+                              onValueChange={(v) =>
+                                setPartyActions((s) => ({ ...s, [i]: decodePartyAction(v) }))
+                              }
+                            >
+                              <SelectTrigger className="h-6 w-auto min-w-[10rem] text-[11px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="new-agent">Add as new agent</SelectItem>
+                                <SelectItem value="new-distributor">
+                                  Add as new distributor
+                                </SelectItem>
+                                <SelectItem value="none">Don't link (manual later)</SelectItem>
+                                {agents.length > 0 && (
+                                  <>
+                                    {agents.map((a) => (
+                                      <SelectItem key={`a-${a.id}`} value={`link:agent:${a.id}`}>
+                                        Link → agent · {a.name}
+                                      </SelectItem>
+                                    ))}
+                                  </>
+                                )}
+                                {distributors.length > 0 && (
+                                  <>
+                                    {distributors.map((d) => (
+                                      <SelectItem
+                                        key={`d-${d.id}`}
+                                        value={`link:distributor:${d.id}`}
+                                      >
+                                        Link → distributor · {d.name}
+                                      </SelectItem>
+                                    ))}
+                                  </>
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className="text-[11px] text-ink-soft whitespace-pre-wrap break-words">
+                      {row.note}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-money-out">
+                    Couldn't parse: <span className="text-ink-soft">{row.raw}</span>
+                  </div>
+                )}
+              </li>
             );
           })}
         </ul>

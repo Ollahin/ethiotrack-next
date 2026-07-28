@@ -2,13 +2,27 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { extractPdfText } from "@/lib/pdf-parser";
 import { extractImageText, OCR_LOW_CONFIDENCE } from "@/lib/ocr";
-import { detectStatementTemplate, type StatementRow, type TemplateMatch } from "@/lib/distributor-parser";
-import { addTransactionsBulk, recordStatementImport, upsertAgent, useAgents, useDistributors } from "@/lib/db";
+import {
+  detectStatementTemplate,
+  type StatementRow,
+  type TemplateMatch,
+} from "@/lib/distributor-parser";
+import {
+  addTransactionsBulk,
+  recordStatementImport,
+  upsertAgent,
+  useAgents,
+  useDistributors,
+} from "@/lib/db";
 import { matchAgent } from "@/lib/brain/fuzzy";
 import { formatEtb } from "@/lib/format";
 import type { Agent, Transaction, DistributorStatementFormat } from "@/lib/types";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { UploadCloud, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
@@ -19,7 +33,9 @@ export function StatementImport() {
   const agents = useAgents();
   const distributors = useDistributors();
   const [distributorId, setDistributorId] = useState<string>("");
-  const [rows, setRows] = useState<Array<{ row: StatementRow; agent: Agent | null; overrideAgentId?: string }>>([]);
+  const [rows, setRows] = useState<
+    Array<{ row: StatementRow; agent: Agent | null; overrideAgentId?: string }>
+  >([]);
   const [rawText, setRawText] = useState("");
   const [fileName, setFileName] = useState("");
   const [sourceKind, setSourceKind] = useState<SourceKind | null>(null);
@@ -29,7 +45,8 @@ export function StatementImport() {
   const [match, setMatch] = useState<TemplateMatch | null>(null);
 
   const selectedDistributor = distributors.find((d) => d.id === distributorId);
-  const activeFormat: DistributorStatementFormat = selectedDistributor?.statementFormat ?? "generic";
+  const activeFormat: DistributorStatementFormat =
+    selectedDistributor?.statementFormat ?? "generic";
 
   async function handleFile(file: File) {
     setBusy(true);
@@ -52,17 +69,21 @@ export function StatementImport() {
       const detected = detectStatementTemplate(text, activeFormat);
       setMatch(detected);
       const parsed = detected.rows.filter((row) => row.ok);
-      setRows(parsed.map((row) => ({
-        row,
-        agent: matchAgent(row.agentName, agents) ?? matchAgent(row.phone, agents),
-      })));
+      setRows(
+        parsed.map((row) => ({
+          row,
+          agent: matchAgent(row.agentName, agents) ?? matchAgent(row.phone, agents),
+        })),
+      );
       if (confidence !== null && confidence < OCR_LOW_CONFIDENCE) {
         toast.warning("Low OCR confidence — check the extracted text below before committing.");
       }
     } catch (e) {
       toast.error("Couldn't read file");
       console.error(e);
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+    }
   }
 
   const okRows = rows.filter((r) => r.row.ok);
@@ -133,7 +154,12 @@ export function StatementImport() {
         (res.skipped ? `, skipped ${res.skipped}` : "") +
         (autoCreated ? ` · added ${autoCreated} new agent${autoCreated === 1 ? "" : "s"}` : ""),
     );
-    setRows([]); setRawText(""); setFileName(""); setSourceKind(null); setOcrConfidence(null); setMatch(null);
+    setRows([]);
+    setRawText("");
+    setFileName("");
+    setSourceKind(null);
+    setOcrConfidence(null);
+    setMatch(null);
   }
 
   const confidencePct = ocrConfidence !== null ? Math.round(ocrConfidence * 100) : null;
@@ -144,14 +170,20 @@ export function StatementImport() {
       <div className="flex items-baseline justify-between gap-3">
         <div>
           <div className="font-semibold">Import distributor statement</div>
-          <div className="text-xs text-ink-soft">PDF or screenshot. Runs entirely in your browser.</div>
+          <div className="text-xs text-ink-soft">
+            PDF or screenshot. Runs entirely in your browser.
+          </div>
         </div>
         {distributors.length > 0 && (
           <Select value={distributorId} onValueChange={setDistributorId}>
-            <SelectTrigger className="w-44 h-8 text-xs"><SelectValue placeholder="Distributor" /></SelectTrigger>
+            <SelectTrigger className="w-44 h-8 text-xs">
+              <SelectValue placeholder="Distributor" />
+            </SelectTrigger>
             <SelectContent>
               {distributors.map((d) => (
-                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                <SelectItem key={d.id} value={d.id}>
+                  {d.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -175,21 +207,30 @@ export function StatementImport() {
           type="file"
           accept="application/pdf,image/*"
           className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFile(f); }}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void handleFile(f);
+          }}
         />
       </label>
 
       {match && (
         <div className="rounded-md border border-border bg-muted/30 p-2 text-xs flex items-center gap-2 flex-wrap">
           <span className="font-semibold">Matched:</span>
-          <span className={`px-1.5 py-0.5 rounded font-semibold ${match.kind === "generic" ? "bg-money-out/10 text-money-out" : "bg-money-in/10 text-money-in"}`}>
+          <span
+            className={`px-1.5 py-0.5 rounded font-semibold ${match.kind === "generic" ? "bg-money-out/10 text-money-out" : "bg-money-in/10 text-money-in"}`}
+          >
             {match.label}
           </span>
           {match.forced && (
-            <span className="text-[10px] uppercase font-semibold text-ink-soft px-1 py-0.5 rounded bg-muted">forced</span>
+            <span className="text-[10px] uppercase font-semibold text-ink-soft px-1 py-0.5 rounded bg-muted">
+              forced
+            </span>
           )}
           <span className="text-ink-soft">· {match.reason}</span>
-          <span className="ml-auto tabular-nums font-semibold">{Math.round(match.confidence * 100)}%</span>
+          <span className="ml-auto tabular-nums font-semibold">
+            {Math.round(match.confidence * 100)}%
+          </span>
         </div>
       )}
 
@@ -205,7 +246,9 @@ export function StatementImport() {
               Extracted text ({sourceKind === "image" ? "OCR" : "PDF"})
             </span>
             {confidencePct !== null && (
-              <span className={`px-1.5 py-0.5 rounded font-semibold ${lowConfidence ? "bg-money-out/10 text-money-out" : "bg-money-in/10 text-money-in"}`}>
+              <span
+                className={`px-1.5 py-0.5 rounded font-semibold ${lowConfidence ? "bg-money-out/10 text-money-out" : "bg-money-in/10 text-money-in"}`}
+              >
                 {lowConfidence && <AlertTriangle className="h-3 w-3 inline mr-1" />}
                 {confidencePct}%
               </span>
@@ -227,7 +270,9 @@ export function StatementImport() {
               {okRows.length} rows parsed · {linked.length} auto-linked · {flagged} need agent
               {reviewCount > 0 && ` · ${reviewCount} flagged for review`}
             </div>
-            <div className="text-xs mt-0.5">Total: <span className="font-semibold">{formatEtb(total)}</span></div>
+            <div className="text-xs mt-0.5">
+              Total: <span className="font-semibold">{formatEtb(total)}</span>
+            </div>
           </div>
           <ul className="text-sm divide-y divide-border rounded-md border border-border max-h-80 overflow-y-auto">
             {okRows.map(({ row, agent, overrideAgentId }, i) => (
@@ -236,7 +281,9 @@ export function StatementImport() {
                   <span className="font-medium">{row.agentName}</span>
                   <span className="text-xs text-ink-soft">{row.phone ?? ""}</span>
                   {row.needsReview && (
-                    <span className="text-[10px] uppercase font-semibold px-1 py-0.5 rounded bg-money-out/10 text-money-out">Review</span>
+                    <span className="text-[10px] uppercase font-semibold px-1 py-0.5 rounded bg-money-out/10 text-money-out">
+                      Review
+                    </span>
                   )}
                   <span className="ml-auto font-bold tabular-nums text-airtime">
                     {formatEtb(row.amountSantim!)}
@@ -247,12 +294,23 @@ export function StatementImport() {
                   {agent ? (
                     <span className="w-full text-xs text-money-in">→ {agent.name}</span>
                   ) : (
-                    <Select value={overrideAgentId ?? ""} onValueChange={(v) =>
-                      setRows((s) => s.map((x, j) => j === i ? { ...x, overrideAgentId: v } : x))
-                    }>
-                      <SelectTrigger className="w-full h-7 text-xs mt-1"><SelectValue placeholder="Link to agent…" /></SelectTrigger>
+                    <Select
+                      value={overrideAgentId ?? ""}
+                      onValueChange={(v) =>
+                        setRows((s) =>
+                          s.map((x, j) => (j === i ? { ...x, overrideAgentId: v } : x)),
+                        )
+                      }
+                    >
+                      <SelectTrigger className="w-full h-7 text-xs mt-1">
+                        <SelectValue placeholder="Link to agent…" />
+                      </SelectTrigger>
                       <SelectContent>
-                        {agents.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                        {agents.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {a.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   )}
@@ -260,7 +318,9 @@ export function StatementImport() {
               </li>
             ))}
           </ul>
-          <Button onClick={commit} className="w-full">Commit import</Button>
+          <Button onClick={commit} className="w-full">
+            Commit import
+          </Button>
         </>
       )}
     </div>
