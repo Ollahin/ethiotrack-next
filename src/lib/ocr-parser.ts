@@ -4,6 +4,14 @@
 
 import type { ParsedOk, ParsedRow } from "./parser";
 
+// Internal refined type: rows produced by the OCR extractor always carry a
+// concrete `date` (ISO string) and `party` (agent name), even though those
+// fields are optional on the public `ParsedOk` shape.
+type CompleteOcrParsedRow = ParsedOk & {
+  date: string;
+  party: string;
+};
+
 // ── Re-export santim helper ────────────────────────────────────────────────
 export function toSantim(s: string): number {
   const clean = s.replace(/,/g, "").trim();
@@ -109,8 +117,12 @@ function cleanLines(text: string): string[] {
 }
 
 // ── Core extraction: find all transactions by anchoring on dates ───────────
-function extractByDateAnchors(lines: string[], type: "airtime_evd" | "out", template: string): ParsedOk[] {
-  const results: ParsedOk[] = [];
+function extractByDateAnchors(
+  lines: string[],
+  type: "airtime_evd" | "out",
+  template: string,
+): CompleteOcrParsedRow[] {
+  const results: CompleteOcrParsedRow[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const date = parseDateLine(lines[i]);
