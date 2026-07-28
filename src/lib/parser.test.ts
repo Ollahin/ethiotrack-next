@@ -8,9 +8,9 @@ function ok(r: ParsedRow): ParsedOk {
 
 describe("parseOne", () => {
   it("parses a Telebirr credit", () => {
-    const r = ok(parseOne(
-      "Telebirr: You have received ETB 500.00 from Alemu Kebede. Ref: TB123456",
-    ));
+    const r = ok(
+      parseOne("Telebirr: You have received ETB 500.00 from Alemu Kebede. Ref: TB123456"),
+    );
     expect(r.type).toBe("in");
     expect(r.channel).toBe("Telebirr");
     expect(r.amountSantim).toBe(50000);
@@ -20,9 +20,11 @@ describe("parseOne", () => {
   });
 
   it("parses a Telebirr debit", () => {
-    const r = ok(parseOne(
-      "Telebirr: You have paid ETB 1,250.75 to Mesfin Getachew on 2026-07-15. Ref: TB999888",
-    ));
+    const r = ok(
+      parseOne(
+        "Telebirr: You have paid ETB 1,250.75 to Mesfin Getachew on 2026-07-15. Ref: TB999888",
+      ),
+    );
     expect(r.type).toBe("out");
     expect(r.amountSantim).toBe(125075);
     expect(r.party).toBe("Mesfin Getachew");
@@ -59,27 +61,29 @@ describe("parseOne", () => {
   });
 
   it("parses a CBE credit", () => {
-    const r = ok(parseOne(
-      "CBE: Your account has been credited with ETB 2500.00 from Almaz T. on 2026-07-01. Ref: CBE7788",
-    ));
+    const r = ok(
+      parseOne(
+        "CBE: Your account has been credited with ETB 2500.00 from Almaz T. on 2026-07-01. Ref: CBE7788",
+      ),
+    );
     expect(r.channel).toBe("CBE");
     expect(r.type).toBe("in");
     expect(r.amountSantim).toBe(250000);
   });
 
   it("parses a CBE debit", () => {
-    const r = ok(parseOne(
-      "CBE: Your account has been debited ETB 400.00 to Water Utility. Ref: CBE0001",
-    ));
+    const r = ok(
+      parseOne("CBE: Your account has been debited ETB 400.00 to Water Utility. Ref: CBE0001"),
+    );
     expect(r.type).toBe("out");
     expect(r.amountSantim).toBe(40000);
   });
 
   it("parses Awash/Dashen/Abyssinia by name", () => {
     for (const bank of ["Awash", "Dashen", "Abyssinia", "Wegagen"]) {
-      const r = ok(parseOne(
-        `${bank}: Your account credited ETB 100.00 from Test User on 2026-01-01. Ref: X1`,
-      ));
+      const r = ok(
+        parseOne(`${bank}: Your account credited ETB 100.00 from Test User on 2026-01-01. Ref: X1`),
+      );
       expect(r.channel).toBe(bank);
       expect(r.type).toBe("in");
     }
