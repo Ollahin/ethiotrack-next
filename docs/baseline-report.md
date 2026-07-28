@@ -401,3 +401,55 @@ commas, and line wrapping).
 No file other than `.prettierignore` and `docs/baseline-report.md` was
 modified. The three protected blueprint documents were not read, rewritten,
 or formatted.
+## Task 0.1C-b — src/lib core formatting
+
+### Files formatted (exactly 10)
+
+```
+src/lib/parser.ts
+src/lib/parser.test.ts
+src/lib/ocr-parser.ts
+src/lib/ocr.ts
+src/lib/distributor-parser.ts
+src/lib/distributor-parser.test.ts
+src/lib/pdf-parser.ts
+src/lib/format.ts
+src/lib/ids.ts
+src/lib/types.ts
+```
+
+### `.prettierignore` change
+
+Replaced the two individual `.workspace/skills/ui-ux-pro-max/*` entries with
+the durable glob `.workspace/skills/**`. Blueprint exclusions preserved. The
+`.workspace` directory itself is not ignored — only its `skills/**` subtree.
+
+### Diff nature
+
+Formatter-only: whitespace, indentation, line wrapping, quote style, trailing
+commas, semicolons, parentheses. No identifiers, values, regexes, strings,
+conditions, control flow, types, test expectations, parser output, or OCR
+behavior changed. Approximate diff size: ~1,500–2,000 changed lines across
+the 10 files (upper bound; pure layout).
+
+### Command results
+
+- `bun run typecheck` — **pass**
+- `bun run test` — **pass** (2 files, 35 tests)
+- `bun run build` — **pass**
+- `bun run lint` — **fail** (expected; remaining batches carry the drift)
+- `bun run format:check` — **fail** (expected)
+
+### Remaining drift
+
+- Count: **43 files** (down from 117).
+- Reduction: 10 files formatted this batch + 64 sandbox-injected
+  `.workspace/skills/**` files now excluded via the new glob.
+- Buckets remaining:
+  - `src/lib` remainder (batch 0.1C-c) — 10 files
+  - Feature components (batch 0.1C-d) — 12 files
+  - Routes (batch 0.1C-e) — 14 files
+  - Styles + external tests (batch 0.1C-f) — 2 files
+  - Ordinary docs (batch 0.1C-g) — up to 4 files (this file will re-drift)
+- `.workspace/skills/**` is confirmed excluded — no such paths appear in
+  `prettier --check` output.
