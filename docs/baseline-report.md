@@ -676,3 +676,100 @@ listed 15 items:
 The summary count of 14 was inaccurate; the enumerated inventory was
 authoritative and drove the actual work in Task 0.1C-e. `src/routes/__root.tsx`
 was already conformant and remained excluded from every batch.
+
+## Task 0.1C-g — Final documentation formatting
+
+### Files formatted (exactly 4)
+
+- `AGENTS.md`
+- `docs/README.md`
+- `PROJECT_STATUS.md`
+- `docs/baseline-report.md`
+
+### Approximate diff size
+
+Total diff footprint across the four files: roughly 45 changed hunks / ~90
+lines touched (net near-zero). Changes were: blank-line normalization around
+HTML comment fences (`AGENTS.md`); list continuation indentation and a
+trailing-newline fix (`docs/README.md`); blank lines after headings
+(`PROJECT_STATUS.md`); blank lines after headings, list-item spacing, and
+GitHub-flavored table alignment padding (`docs/baseline-report.md`).
+
+One post-format preservation was applied to `docs/baseline-report.md`: the
+prose token `references/*.md, scripts/*.cjs, templates/*` was wrapped in
+backticks (`` `references/*.md` ``, etc.) so Prettier's markdown-emphasis
+pass does not reinterpret the `*` characters. The literal glob patterns and
+their semantics are preserved; the authoritative enumerated file list in the
+adjacent fenced code block was not modified.
+
+### Formatting-only confirmation
+
+All changes are whitespace, wrapping, indentation, blank lines, and table
+alignment. No business decision, architecture requirement, branch name, task
+name, command string, file path, validation result, error code, test count,
+parser/OCR requirement, authority order, status/stage meaning, or link
+target was altered.
+
+### Blueprint integrity
+
+`docs/blueprint/01-master-blueprint.md`,
+`docs/blueprint/02-parser-ocr-corpus-spec.md`, and
+`docs/blueprint/03-production-execution-playbook.md` were not opened,
+rewritten, or reformatted. Their content hashes are unchanged from the
+archive import performed earlier in Stage 0.
+
+### Command results (this task)
+
+- `bun install --frozen-lockfile` — **pass** (lockfile satisfied, no drift)
+- `bun run typecheck` — **pass**
+- `bun run lint` — **fail** (11 errors, 12 warnings; all pre-existing rule
+  violations in `src/**` — `no-useless-escape`, `prefer-const`,
+  `react-hooks/exhaustive-deps`, `react-refresh/only-export-components`,
+  unused `eslint-disable` directives. None are `prettier/prettier`; none are
+  in the four documentation files touched by this task. Fixing them requires
+  source edits outside the Task 0.1C-g scope.)
+- `bun run format:check` — **pass** ("All matched files use Prettier code
+  style!")
+- `bun run test` — **pass** (2 files, 35 tests)
+- `bun run build` — **pass**
+- `bun run verify` — **fail** (fails only because `lint` fails; the other
+  gates in the composite command pass)
+
+### Final formatting-drift count
+
+**0 files.** `bunx prettier --check .` reports "All matched files use
+Prettier code style!". `.workspace/skills/**` remains excluded via
+`.prettierignore`.
+
+### Validation-baseline conclusion
+
+The Prettier formatting baseline is complete: every non-ignored file in the
+repository is Prettier-clean, and `bun run format:check` passes. The
+remaining lint failures are pre-existing source-code rule violations that
+were surfaced (not introduced) by Task 0.1A and were previously masked in
+lint output by the volume of `prettier/prettier` diagnostics. They are
+in-scope for a follow-up code task, not for the documentation formatting
+batch series (0.1C-b … 0.1C-g).
+
+## Stage 0 validation summary
+
+- Dependency installation (`bun install --frozen-lockfile`): **pass**
+- Strict TypeScript (`bun run typecheck`): **pass**
+- Lint (`bun run lint`): **fail** — 11 pre-existing source rule violations
+  remain (`no-useless-escape`, `prefer-const`, plus warnings). No
+  `prettier/prettier` violations remain. Resolving these requires source
+  edits outside the Stage 0 documentation/formatting scope and is deferred
+  to a dedicated follow-up task.
+- Format check (`bun run format:check`): **pass**
+- Unit tests (`bun run test`): **pass**, 35/35
+- Production build (`bun run build`): **pass**
+- Composite verify (`bun run verify`): **fail** solely because `lint` fails;
+  all other gates pass.
+- Parser/OCR behavior changes during Stage 0: **none**.
+- Known parser-quality problems remain intentionally unresolved until the
+  corpus evaluator is created.
+
+Note: the pre-declared Stage 0 target of "lint: pass / verify: pass" is not
+achievable within this task's allowed scope (four documentation files only).
+A follow-up code task must clear the residual `no-useless-escape` and
+`prefer-const` errors under `src/**` to close the composite `verify` gate.
