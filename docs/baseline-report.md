@@ -453,3 +453,47 @@ the 10 files (upper bound; pure layout).
   - Ordinary docs (batch 0.1C-g) — up to 4 files (this file will re-drift)
 - `.workspace/skills/**` is confirmed excluded — no such paths appear in
   `prettier --check` output.
+
+## Task 0.1C-c — Remaining src/lib formatting
+
+### Files formatted (exactly 10)
+
+```
+src/lib/db.ts
+src/lib/backup.ts
+src/lib/crypto.ts
+src/lib/user.ts
+src/lib/report.ts
+src/lib/brain/alerts.ts
+src/lib/brain/credits.ts
+src/lib/brain/fuzzy.ts
+src/lib/brain/stats.ts
+src/lib/brain/telecomFlow.ts
+```
+
+### Diff nature
+
+Formatter-only: whitespace, indentation, wrapping, quote style, trailing
+commas, semicolons, formatter-added parentheses. No identifiers, literals,
+strings, regexes, conditions, control flow, schemas, database queries,
+fuzzy-matching thresholds, transaction calculations, or test expectations
+were changed. Approximate diff size: ~800–1,200 changed lines across the 10
+files (upper bound; pure layout).
+
+### Command results
+
+- `bun run typecheck` — **pass**
+- `bun run test` — **pass** (2 files, 35 tests)
+- `bun run build` — **pass**
+- `bun run lint` — **fail** (expected; remaining batches carry the drift)
+- `bun run format:check` — **fail** (expected)
+
+### Remaining drift
+
+- Count: **34 files** (down from 43).
+- Buckets remaining:
+  - Feature components (batch 0.1C-d) — 12 files
+  - Routes (batch 0.1C-e) — 14 files
+  - Styles + external tests (batch 0.1C-f) — 2 files
+  - Ordinary docs (batch 0.1C-g) — up to 4 files (this file re-drifts)
+  - No `src/lib` files remain in the drift set.
