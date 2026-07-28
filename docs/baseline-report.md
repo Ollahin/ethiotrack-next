@@ -145,3 +145,259 @@ baseline.
 - `bun run format:check` — same underlying drift.
 
 These will be resolved by the formatting-only pass in Task 0.1C.
+
+## Task 0.1C-a — Formatting scope inventory
+
+No file was formatted in this task. Only `.prettierignore` and this report
+were modified.
+
+### Original drift count
+
+122 files (baseline from Task 0.1C step 1).
+
+### Protected files added to `.prettierignore`
+
+```
+docs/blueprint/01-master-blueprint.md
+docs/blueprint/02-parser-ocr-corpus-spec.md
+docs/blueprint/03-production-execution-playbook.md
+.workspace/skills/ui-ux-pro-max/SKILL.md
+.workspace/skills/ui-ux-pro-max/references/pro-rules.md
+```
+
+Existing entries preserved (`node_modules`, `dist`, `.output`, `.vinxi`,
+`pnpm-lock.yaml`, `package-lock.json`, `bun.lock`, `routeTree.gen.ts`).
+
+### Remaining drift count
+
+117 files.
+
+### Full grouped inventory
+
+Line-count estimates are `wc -l` of the current file — a rough upper bound on
+the diff Prettier would produce (real diffs are typically 10–40% of file size
+for pure formatter drift).
+
+#### 1. `src/lib` and its tests — 20 files, ~4,156 lines total
+
+```
+src/lib/backup.ts
+src/lib/brain/alerts.ts
+src/lib/brain/credits.ts
+src/lib/brain/fuzzy.ts
+src/lib/brain/stats.ts
+src/lib/brain/telecomFlow.ts
+src/lib/crypto.ts
+src/lib/db.ts
+src/lib/distributor-parser.test.ts
+src/lib/distributor-parser.ts
+src/lib/format.ts
+src/lib/ids.ts
+src/lib/ocr-parser.ts
+src/lib/ocr.ts
+src/lib/parser.test.ts
+src/lib/parser.ts
+src/lib/pdf-parser.ts
+src/lib/report.ts
+src/lib/types.ts
+src/lib/user.ts
+```
+
+#### 2. `src/components` excluding `src/components/ui` — 11 files, ~2,659 lines total
+
+```
+src/components/AppShell.tsx
+src/components/DashboardTiles.tsx
+src/components/GlobalSearch.tsx
+src/components/LicenseExpiryBanner.tsx
+src/components/LicenseStatus.tsx
+src/components/LockGate.tsx
+src/components/OpenDayModal.tsx
+src/components/OpenPeriodModal.tsx
+src/components/PasteImport.tsx
+src/components/StatementImport.tsx
+src/components/TransactionForm.tsx
+src/components/WeekBreakdown.tsx
+```
+
+(12 files — recount: `AppShell`, `DashboardTiles`, `GlobalSearch`,
+`LicenseExpiryBanner`, `LicenseStatus`, `LockGate`, `OpenDayModal`,
+`OpenPeriodModal`, `PasteImport`, `StatementImport`, `TransactionForm`,
+`WeekBreakdown`.)
+
+#### 3. `src/components/ui` — 0 files
+
+None reported. The shadcn UI primitives are already conformant.
+
+#### 4. `src/routes` — 14 files, ~2,491 lines total (12 `.tsx` routes + 1 README + 1 more)
+
+```
+src/routes/account.tsx
+src/routes/agents.tsx
+src/routes/alerts.tsx
+src/routes/banks.tsx
+src/routes/capture.tsx
+src/routes/close.tsx
+src/routes/distributors.tsx
+src/routes/exports.tsx
+src/routes/history.tsx
+src/routes/index.tsx
+src/routes/reconcile.tsx
+src/routes/reports.tsx
+src/routes/settings.tsx
+src/routes/unlock.tsx
+src/routes/README.md
+```
+
+#### 5. Styles and static source files — 1 file
+
+```
+src/styles.css
+```
+
+#### 6. Tests outside `src` — 1 file
+
+```
+tests/visual/README.md
+```
+
+(The Python visual-test harness itself is not touched by Prettier.)
+
+#### 7. Documentation excluding protected blueprints — 4 files
+
+```
+AGENTS.md
+docs/README.md
+docs/baseline-report.md
+PROJECT_STATUS.md
+```
+
+`docs/baseline-report.md` will re-drift each time this file is appended to;
+it should be formatted last in its batch.
+
+#### 8. Root configuration files — 0 files
+
+None.
+
+#### 9. Generated files — 0 files
+
+None of the drift entries are build-generated. `routeTree.gen.ts` is already
+in `.prettierignore` and does not appear.
+
+#### 10. Other files — 64 files (sandbox-injected workspace skills)
+
+All under `.workspace/skills/**`, spanning the `banner-design`, `brand`,
+`design`, `design-system`, `slides`, and `ui-styling` skill packs
+(SKILL.md, references/*.md, scripts/*.cjs, templates/*). Full list:
+
+```
+.workspace/skills/banner-design/references/banner-sizes-and-styles.md
+.workspace/skills/banner-design/SKILL.md
+.workspace/skills/brand/references/approval-checklist.md
+.workspace/skills/brand/references/asset-organization.md
+.workspace/skills/brand/references/brand-guideline-template.md
+.workspace/skills/brand/references/color-palette-management.md
+.workspace/skills/brand/references/consistency-checklist.md
+.workspace/skills/brand/references/logo-usage-rules.md
+.workspace/skills/brand/references/messaging-framework.md
+.workspace/skills/brand/references/typography-specifications.md
+.workspace/skills/brand/references/update.md
+.workspace/skills/brand/references/visual-identity.md
+.workspace/skills/brand/references/voice-framework.md
+.workspace/skills/brand/scripts/extract-colors.cjs
+.workspace/skills/brand/scripts/inject-brand-context.cjs
+.workspace/skills/brand/scripts/sync-brand-to-tokens.cjs
+.workspace/skills/brand/scripts/validate-asset.cjs
+.workspace/skills/brand/SKILL.md
+.workspace/skills/brand/templates/brand-guidelines-starter.md
+.workspace/skills/design-system/references/component-specs.md
+.workspace/skills/design-system/references/primitive-tokens.md
+.workspace/skills/design-system/references/semantic-tokens.md
+.workspace/skills/design-system/references/states-and-variants.md
+.workspace/skills/design-system/references/tailwind-integration.md
+.workspace/skills/design-system/references/token-architecture.md
+.workspace/skills/design-system/scripts/embed-tokens.cjs
+.workspace/skills/design-system/scripts/generate-tokens.cjs
+.workspace/skills/design-system/scripts/validate-tokens.cjs
+.workspace/skills/design-system/SKILL.md
+.workspace/skills/design-system/templates/design-tokens-starter.json
+.workspace/skills/design/references/banner-sizes-and-styles.md
+.workspace/skills/design/references/cip-deliverable-guide.md
+.workspace/skills/design/references/cip-design.md
+.workspace/skills/design/references/cip-prompt-engineering.md
+.workspace/skills/design/references/cip-style-guide.md
+.workspace/skills/design/references/design-routing.md
+.workspace/skills/design/references/icon-design.md
+.workspace/skills/design/references/logo-color-psychology.md
+.workspace/skills/design/references/logo-design.md
+.workspace/skills/design/references/logo-prompt-engineering.md
+.workspace/skills/design/references/logo-style-guide.md
+.workspace/skills/design/references/slides-copywriting-formulas.md
+.workspace/skills/design/references/slides-create.md
+.workspace/skills/design/references/slides-html-template.md
+.workspace/skills/design/references/slides-layout-patterns.md
+.workspace/skills/design/references/slides-strategies.md
+.workspace/skills/design/references/slides.md
+.workspace/skills/design/references/social-photos-design.md
+.workspace/skills/design/SKILL.md
+.workspace/skills/slides/references/copywriting-formulas.md
+.workspace/skills/slides/references/create.md
+.workspace/skills/slides/references/html-template.md
+.workspace/skills/slides/references/layout-patterns.md
+.workspace/skills/slides/references/slide-strategies.md
+.workspace/skills/slides/SKILL.md
+.workspace/skills/ui-styling/references/canvas-design-system.md
+.workspace/skills/ui-styling/references/shadcn-accessibility.md
+.workspace/skills/ui-styling/references/shadcn-components.md
+.workspace/skills/ui-styling/references/shadcn-theming.md
+.workspace/skills/ui-styling/references/tailwind-customization.md
+.workspace/skills/ui-styling/references/tailwind-responsive.md
+.workspace/skills/ui-styling/references/tailwind-utilities.md
+.workspace/skills/ui-styling/scripts/tests/coverage-ui.json
+.workspace/skills/ui-styling/SKILL.md
+```
+
+### Generated-file candidates (recommended, not yet excluded)
+
+No build-generated files remain in the drift list. However, the entire
+`.workspace/skills/**` tree is **sandbox-injected**: per the workspace-skills
+directive (rule 5) it is reset from the workspace repo on every message, so
+any formatting written back is discarded on the next turn. These 64 files
+behave like generated content from Prettier's perspective.
+
+**Recommendation for Task 0.1C-h (final):** add the single directory glob
+`.workspace/` to `.prettierignore` (not individual files) after explicit
+approval. This is broader than the "no directory-wide ignores in `src`, `docs`
+or the repo root" restriction but does not touch project source or docs.
+Without this, `bun run format:check` will keep failing even after every
+`src/` and `docs/` file is formatted.
+
+### Proposed formatting batches
+
+Each batch ≤ 20 files and estimated well under ~1,000 changed lines
+(formatter drift on this codebase is dominated by quote style, trailing
+commas, and line wrapping).
+
+| Batch | Task ID | Contents | Files | ~Lines (upper bound) |
+|---|---|---|---:|---:|
+| 1 | 0.1C-b | `src/lib` core + colocated tests: `parser.ts`, `parser.test.ts`, `ocr-parser.ts`, `ocr.ts`, `distributor-parser.ts`, `distributor-parser.test.ts`, `pdf-parser.ts`, `format.ts`, `ids.ts`, `types.ts` | 10 | ~2,100 |
+| 2 | 0.1C-c | Remaining `src/lib`: `db.ts`, `backup.ts`, `crypto.ts`, `user.ts`, `report.ts`, `brain/alerts.ts`, `brain/credits.ts`, `brain/fuzzy.ts`, `brain/stats.ts`, `brain/telecomFlow.ts` | 10 | ~2,050 |
+| 3 | 0.1C-d | Feature components (`src/components/*.tsx`, excludes `ui/`) | 12 | ~2,660 |
+| 4 | — | UI component library (`src/components/ui/*`) | 0 | — (no drift; batch skipped) |
+| 5 | 0.1C-e | Routes: all 13 `.tsx` under `src/routes/` + `src/routes/README.md` | 14 | ~2,500 |
+| 6 | 0.1C-f | Styles + external tests: `src/styles.css`, `tests/visual/README.md` | 2 | ~200 |
+| 7 | 0.1C-g | Ordinary docs + root files: `AGENTS.md`, `docs/README.md`, `PROJECT_STATUS.md`, `docs/baseline-report.md` (last, since this file will keep drifting until then) | 4 | ~600 |
+| 8 | 0.1C-h | Generated-file handling — add `.workspace/` glob to `.prettierignore` after approval. No source formatting. | 0 | — |
+
+### Command results (this task)
+
+- `bun run typecheck` — **pass**
+- `bun run test` — **pass** (2 files, 35 tests)
+- `bun run build` — **pass**
+- `bun run format:check` — **fail** (117 files remaining, as expected; source formatting has not started)
+
+### Confirmation
+
+No file other than `.prettierignore` and `docs/baseline-report.md` was
+modified. The three protected blueprint documents were not read, rewritten,
+or formatted.
