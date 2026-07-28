@@ -149,7 +149,7 @@ const EDGE_NOISE_RX =
 // Names on the distributor screenshots are always alphabetic (Latin or Ethiopic
 // script), with spaces / hyphens / apostrophes / dots. Any digit disqualifies
 // the line — that's how we stop dates and amounts leaking into the name slot.
-const NAME_RX = /^[A-Za-z\u1200-\u137F][A-Za-z\u1200-\u137F\s'.\-]{1,58}$/;
+const NAME_RX = /^[A-Za-z\u1200-\u137F][A-Za-z\u1200-\u137F\s'.-]{1,58}$/;
 const MONTHS_RX = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i;
 const REPEATED_SENDER_RX = /^([A-Za-z0-9._-]{3,})\s*[-–]\s*\1\b/i;
 
@@ -187,7 +187,7 @@ function stripNameTrailers(line: string): string {
         "",
       )
       // Trailing bullets/arrows/ticks/punctuation OCR sprays after the name.
-      .replace(/[\s\u00A0•·●◦▪■◆★✓✔✕✗»›▸▶→←⇒&*+\-–—_=|\\/`'"“”‘’(){}\[\].,:;!?@#$%^~<>]+$/, "")
+      .replace(/[\s\u00A0•·●◦▪■◆★✓✔✕✗»›▸▶→←⇒&*+\-–—_=|\\/`'"“”‘’(){}[\].,:;!?@#$%^~<>]+$/, "")
       .trim()
   );
 }
@@ -205,10 +205,10 @@ function stripNameLeaders(line: string): string {
   let out = line
     // Explicit stray leaders OCR emits on transfer cards: bullets, arrows,
     // status ticks, ampersand, single/double quotes, pipes, backticks.
-    .replace(/^[\s\u00A0•·●◦▪■◆★✓✔✕✗»›▸▶→←⇒&*+\-–—_=|\\/`'"“”‘’(){}\[\].,:;!?@#$%^~<>]+/, "")
+    .replace(/^[\s\u00A0•·●◦▪■◆★✓✔✕✗»›▸▶→←⇒&*+\-–—_=|\\/`'"“”‘’(){}[\].,:;!?@#$%^~<>]+/, "")
     .replace(/^[^A-Za-z\u1200-\u137F]+/, "")
     .trim();
-  const m = out.match(/^([A-Za-z]{1,2})\s+([A-Za-z\u1200-\u137F][A-Za-z\u1200-\u137F'.\-]{2,})$/);
+  const m = out.match(/^([A-Za-z]{1,2})\s+([A-Za-z\u1200-\u137F][A-Za-z\u1200-\u137F'.-]{2,})$/);
   if (m) out = m[2];
   return out;
 }

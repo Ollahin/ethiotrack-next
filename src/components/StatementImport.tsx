@@ -106,7 +106,7 @@ export function StatementImport() {
     // Auto-register any agent name that OCR discovered but the user hasn't
     // linked yet — mirrors the auto-register-bank behaviour on paste import.
     // Only names that pass the strict alphabetic guard are eligible.
-    const NAME_OK = /^[A-Za-z\u1200-\u137F][A-Za-z\u1200-\u137F\s'.\-]{1,58}$/;
+    const NAME_OK = /^[A-Za-z\u1200-\u137F][A-Za-z\u1200-\u137F\s'.-]{1,58}$/;
     const created: Record<string, string> = {}; // normalized name -> agent id
     const resolvedIds = new Map<number, string | undefined>();
     let autoCreated = 0;

@@ -110,7 +110,7 @@ function stripTrailingGarbage(s: string): string {
 }
 
 function isAgentName(line: string): boolean {
-  let clean = stripTrailingGarbage(line);
+  const clean = stripTrailingGarbage(line);
   if (clean.length < 2 || clean.length > 40) return false;
   // Must contain at least 2 letters
   if ((clean.match(/[A-Za-z]/g) || []).length < 2) return false;
@@ -128,7 +128,7 @@ function isAgentName(line: string): boolean {
   if (/^\d{1,2}:\d{2}/.test(clean)) return false;
   if (/^4G$|^5G$|^LTE$/i.test(clean)) return false;
   // Allow letters, spaces, and limited punctuation
-  return /^[A-Za-z\s.'\-]+$/.test(clean);
+  return /^[A-Za-z\s.'-]+$/.test(clean);
 }
 
 // ── Noise removal ──────────────────────────────────────────────────────────
@@ -137,7 +137,7 @@ function cleanLines(text: string): string[] {
     .split(/\n+/)
     .map((l) => l.trim())
     .filter((l) => l.length > 0)
-    .filter((l) => !/^[=–—\-]+$/.test(l))
+    .filter((l) => !/^[=–—-]+$/.test(l))
     .filter((l) => !/^→\s*/.test(l))
     .filter((l) => !/^\d{1,2}%$/.test(l))
     .filter((l) => !/^\d{1,2}:\d{2}$/.test(l))

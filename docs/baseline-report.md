@@ -773,3 +773,114 @@ Note: the pre-declared Stage 0 target of "lint: pass / verify: pass" is not
 achievable within this task's allowed scope (four documentation files only).
 A follow-up code task must clear the residual `no-useless-escape` and
 `prefer-const` errors under `src/**` to close the composite `verify` gate.
+
+## Task 0.1D — ESLint error cleanup
+
+### Original 11 errors (grouped by file and rule)
+
+`src/components/StatementImport.tsx` (1)
+
+- 109:68 `no-useless-escape` — `\-` at end of character class
+  `[A-Za-z\u1200-\u137F\s'.\-]`
+
+`src/lib/crypto.ts` (1)
+
+- 142:5 `prefer-const` — `let listeners = new Set<() => void>()` never
+  reassigned
+
+`src/lib/distributor-parser.ts` (4)
+
+- 152:64 `no-useless-escape` — `\-` at end of char class in `NAME_RX`
+- 190:69 `no-useless-escape` — `\[` inside char class in
+  `stripNameTrailers` trailer strip
+- 208:68 `no-useless-escape` — `\[` inside char class in `stripNameLeaders`
+  leader strip
+- 211:87 `no-useless-escape` — `\-` at end of char class in the
+  short-leader-token match
+
+`src/lib/ocr-parser.ts` (3)
+
+- 113:7 `prefer-const` — `let clean = stripTrailingGarbage(line)` never
+  reassigned
+- 131:23 `no-useless-escape` — `\-` at end of char class in the agent-name
+  allow-list
+- 140:27 `no-useless-escape` — `\-` at end of char class `[=–—\-]` in the
+  divider filter
+
+`src/lib/parser.ts` (2)
+
+- 213:29 `no-useless-escape` — `\/` inside char class `[A-Z0-9 .'\/-]` of
+  the Coop credit "BY …" capture
+- 227:123 `no-useless-escape` — `\/` inside char class `[A-Z0-9 .'\/-]` of
+  the Coop debit "TO …" capture
+
+### Exact source files changed (5)
+
+- `src/components/StatementImport.tsx`
+- `src/lib/crypto.ts`
+- `src/lib/distributor-parser.ts`
+- `src/lib/ocr-parser.ts`
+- `src/lib/parser.ts`
+
+### Fix category applied to each error
+
+- StatementImport.tsx 109:68 — removed one useless `\` before `-` at end of
+  character class (regex language unchanged; `-` at class end is literal).
+- crypto.ts 142:5 — `let` → `const` for `listeners` (Set is mutated via
+  `.add`/`.delete`, binding itself is never reassigned).
+- distributor-parser.ts 152:64, 211:87 — removed one useless `\` before `-`
+  at end of character class.
+- distributor-parser.ts 190:69, 208:68 — removed one useless `\` before `[`
+  inside character class (`[` is literal inside a class; closing `\]` kept).
+- ocr-parser.ts 113:7 — `let` → `const` for `clean` (never reassigned; only
+  read).
+- ocr-parser.ts 131:23, 140:27 — removed one useless `\` before `-` at end
+  of character class.
+- parser.ts 213:29, 227:123 — removed one useless `\` before `/` inside
+  character class (regex-literal delimiter escaping is not required inside a
+  character class).
+
+No regex flag, capture group, quantifier, anchor, alternation, or ordering
+was changed. Every modified character class accepts and rejects exactly the
+same code points as before.
+
+### Warnings intentionally not addressed
+
+The 12 warnings reported alongside the 11 errors (react-hooks/exhaustive-deps,
+react-refresh/only-export-components, unused eslint-disable directives in
+`PasteImport.tsx`) were left untouched, per task scope.
+
+### Command results (this task)
+
+- `bun run typecheck` — **pass**
+- `bun run lint` — **pass** (0 errors, 12 pre-existing warnings)
+- `bun run format:check` — **pass**
+- `bun run test` — **pass** (2 files, 35 tests)
+- `bun run build` — **pass**
+- `bun run verify` — **pass**
+
+### Runtime-behavior confirmation
+
+No runtime behavior changed. `prefer-const` fixes are compile-time only.
+`no-useless-escape` fixes remove backslashes that the ECMAScript regex
+grammar already treats as identity escapes; the resulting `RegExp` objects
+match the same strings. All 35 unit tests (including the parser and
+distributor-parser suites that exercise these regexes) pass unchanged.
+
+### Stage 0 validation summary — final
+
+Superseding the interim entry above:
+
+- Dependency installation (`bun install --frozen-lockfile`): **pass**
+- Strict TypeScript (`bun run typecheck`): **pass**
+- Lint (`bun run lint`): **pass** with 12 non-blocking warnings
+- Format check (`bun run format:check`): **pass**
+- Unit tests (`bun run test`): **pass**, 35/35
+- Production build (`bun run build`): **pass**
+- Composite verify (`bun run verify`): **pass**
+- Parser/OCR behavior changes during Stage 0: **none**
+- Known parser-quality problems remain intentionally unresolved until the
+  corpus evaluator is created.
+
+The earlier historical record showing that lint previously failed is
+preserved above and is not rewritten.
