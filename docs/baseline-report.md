@@ -298,7 +298,7 @@ in `.prettierignore` and does not appear.
 
 All under `.workspace/skills/**`, spanning the `banner-design`, `brand`,
 `design`, `design-system`, `slides`, and `ui-styling` skill packs
-(SKILL.md, references/_.md, scripts/_.cjs, templates/\*). Full list:
+(`SKILL.md`, `references/*.md`, `scripts/*.cjs`, `templates/*`). Full list:
 
 ```
 .workspace/skills/banner-design/references/banner-sizes-and-styles.md
