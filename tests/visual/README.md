@@ -5,11 +5,11 @@ tablet, and desktop breakpoints.
 
 ## What it covers
 
-| Viewport | Size      | Expected layout          |
-| -------- | --------- | ------------------------ |
-| Mobile   | 390×844   | Floating bottom tab bar  |
-| Tablet   | 820×1180  | Sidebar rail             |
-| Desktop  | 1440×900  | Sidebar rail             |
+| Viewport | Size     | Expected layout         |
+| -------- | -------- | ----------------------- |
+| Mobile   | 390×844  | Floating bottom tab bar |
+| Tablet   | 820×1180 | Sidebar rail            |
+| Desktop  | 1440×900 | Sidebar rail            |
 
 For each viewport it asserts:
 
