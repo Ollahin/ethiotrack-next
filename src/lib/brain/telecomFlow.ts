@@ -5,9 +5,9 @@ export type BucketKey = `${Telecom}:${AirtimeForm}`;
 export interface FlowBucket {
   telecom: Telecom;
   form: AirtimeForm;
-  purchasedSantim: number;   // subdistributor bought from upstream distributors
-  soldSantim: number;         // distributed / sold to agents
-  netSantim: number;          // purchased − sold (positive = leftover stock built up)
+  purchasedSantim: number; // subdistributor bought from upstream distributors
+  soldSantim: number; // distributed / sold to agents
+  netSantim: number; // purchased − sold (positive = leftover stock built up)
   purchaseTxnIds: string[];
   saleTxnIds: string[];
 }
@@ -15,7 +15,7 @@ export interface FlowBucket {
 export interface FlowMatch {
   buckets: Record<BucketKey, FlowBucket>;
   unmatchedPurchases: Transaction[]; // `out` to a distributor with no telecom/form tags
-  unmatchedSales: Transaction[];      // airtime txn missing distributorId or distributor
+  unmatchedSales: Transaction[]; // airtime txn missing distributorId or distributor
 }
 
 const TELECOMS: Telecom[] = ["ethiotelecom", "safaricom"];
@@ -35,9 +35,10 @@ function emptyBucket(t: Telecom, f: AirtimeForm): FlowBucket {
 
 function emptyBuckets(): Record<BucketKey, FlowBucket> {
   const out = {} as Record<BucketKey, FlowBucket>;
-  for (const t of TELECOMS) for (const f of FORMS) {
-    out[`${t}:${f}` as BucketKey] = emptyBucket(t, f);
-  }
+  for (const t of TELECOMS)
+    for (const f of FORMS) {
+      out[`${t}:${f}` as BucketKey] = emptyBucket(t, f);
+    }
   return out;
 }
 
@@ -68,10 +69,7 @@ function splitAcrossTags(
  * the classifier. Every airtime txn contributes to `sold`; every `out` txn
  * whose party is a tagged distributor contributes to `purchased`.
  */
-export function computeTelecomFlow(
-  txns: Transaction[],
-  distributors: Distributor[],
-): FlowMatch {
+export function computeTelecomFlow(txns: Transaction[], distributors: Distributor[]): FlowMatch {
   const distMap = new Map(distributors.map((d) => [d.id, d]));
   const buckets = emptyBuckets();
   const unmatchedPurchases: Transaction[] = [];
@@ -84,7 +82,10 @@ export function computeTelecomFlow(
     if (t.type === "out" && t.partyType === "distributor" && t.partyId) {
       const d = distMap.get(t.partyId);
       const split = splitAcrossTags(t.amountSantim, d?.telecoms, d?.forms);
-      if (!split) { unmatchedPurchases.push(t); continue; }
+      if (!split) {
+        unmatchedPurchases.push(t);
+        continue;
+      }
       for (const s of split) {
         const b = buckets[`${s.telecom}:${s.form}` as BucketKey];
         b.purchasedSantim += s.share;
@@ -98,7 +99,10 @@ export function computeTelecomFlow(
       const form: AirtimeForm = t.type === "airtime_evd" ? "evd" : "float";
       const d = t.distributorId ? distMap.get(t.distributorId) : undefined;
       const telecoms = d?.telecoms;
-      if (!d || !telecoms || !telecoms.length) { unmatchedSales.push(t); continue; }
+      if (!d || !telecoms || !telecoms.length) {
+        unmatchedSales.push(t);
+        continue;
+      }
       const share = Math.floor(t.amountSantim / telecoms.length);
       const remainder = t.amountSantim - share * telecoms.length;
       telecoms.forEach((tel, i) => {

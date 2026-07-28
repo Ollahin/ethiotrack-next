@@ -5,21 +5,37 @@ export async function downloadJsonBackup() {
   const blob = new Blob([JSON.stringify(backup, null, 2)], {
     type: "application/json",
   });
-  triggerDownload(
-    blob,
-    `ethiotrack-backup-${new Date().toISOString().slice(0, 10)}.json`,
-  );
+  triggerDownload(blob, `ethiotrack-backup-${new Date().toISOString().slice(0, 10)}.json`);
 }
 
 export async function downloadCsv() {
   const b = await exportBackup();
   const rows: string[][] = [
-    ["date", "type", "amount_etb", "party", "party_type", "channel", "reference", "note", "is_personal", "is_settled", "source"],
+    [
+      "date",
+      "type",
+      "amount_etb",
+      "party",
+      "party_type",
+      "channel",
+      "reference",
+      "note",
+      "is_personal",
+      "is_settled",
+      "source",
+    ],
     ...b.transactions.map((t) => [
-      t.date, t.type, (t.amountSantim / 100).toFixed(2),
-      t.partyName, t.partyType ?? "", t.channel,
-      t.reference ?? "", t.note ?? "",
-      t.isPersonal ? "yes" : "", t.isSettled ? "yes" : "", t.source,
+      t.date,
+      t.type,
+      (t.amountSantim / 100).toFixed(2),
+      t.partyName,
+      t.partyType ?? "",
+      t.channel,
+      t.reference ?? "",
+      t.note ?? "",
+      t.isPersonal ? "yes" : "",
+      t.isSettled ? "yes" : "",
+      t.source,
     ]),
   ];
   const csv = rows.map((r) => r.map(csvCell).join(",")).join("\r\n");

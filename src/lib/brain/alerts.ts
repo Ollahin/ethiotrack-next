@@ -54,9 +54,7 @@ export function computeAlerts(
     ) {
       const latest = txns
         .filter(
-          (t) =>
-            t.partyId === a.id &&
-            (t.type === "airtime_evd" || t.type === "airtime_float"),
+          (t) => t.partyId === a.id && (t.type === "airtime_evd" || t.type === "airtime_float"),
         )
         .sort((x, y) => (x.date < y.date ? 1 : -1))[0];
       if (latest) {

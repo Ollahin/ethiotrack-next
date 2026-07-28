@@ -13,10 +13,14 @@ export type UserProfile = {
 };
 
 const listeners = new Set<(name: string | null) => void>();
-function emit(name: string | null) { for (const l of listeners) l(name); }
+function emit(name: string | null) {
+  for (const l of listeners) l(name);
+}
 
 const profileListeners = new Set<(p: UserProfile | null) => void>();
-function emitProfile(p: UserProfile | null) { for (const l of profileListeners) l(p); }
+function emitProfile(p: UserProfile | null) {
+  for (const l of profileListeners) l(p);
+}
 
 export async function getUserName(): Promise<string | null> {
   return (await metaGet<string>(USER_NAME_KEY)) ?? null;
@@ -75,10 +79,15 @@ export function useUserProfile(): UserProfile | null {
   const [p, setP] = useState<UserProfile | null>(null);
   useEffect(() => {
     let alive = true;
-    getUserProfile().then((v) => { if (alive) setP(v); });
+    getUserProfile().then((v) => {
+      if (alive) setP(v);
+    });
     const l = (v: UserProfile | null) => setP(v);
     profileListeners.add(l);
-    return () => { alive = false; profileListeners.delete(l); };
+    return () => {
+      alive = false;
+      profileListeners.delete(l);
+    };
   }, []);
   return p;
 }
@@ -87,10 +96,15 @@ export function useUserName(): string | null {
   const [name, setName] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
-    getUserName().then((n) => { if (alive) setName(n); });
+    getUserName().then((n) => {
+      if (alive) setName(n);
+    });
     const l = (n: string | null) => setName(n);
     listeners.add(l);
-    return () => { alive = false; listeners.delete(l); };
+    return () => {
+      alive = false;
+      listeners.delete(l);
+    };
   }, []);
   return name;
 }
