@@ -1,38 +1,26 @@
 ## Goal
-Make the weekly opening modal show, for each cash / bank / distributor field, the exact expected carry-forward value alongside what the user entered, and highlight any field that doesn't match.
 
-## What "expected" means
-The expected opening for a new week = the previous week's opening + all business (non-personal) transactions dated in that previous week, computed per account:
-- Cash: prev cash + `in` (no bank) − (`out` + `expense`) (no bank)
-- Each bank/wallet: prev balance + `in` on that bank − (`out` + `expense`) on that bank
-- Each distributor EVD: prev EVD stock − `airtime_evd` issued for that distributor
-- Each distributor Float: prev Float stock − `airtime_float` issued for that distributor
+Add three verbatim Markdown documents from the uploaded `EthioTrack_Blueprint_Archive_v1.0.zip` into the repo. Documentation-only change on branch `production-v3`.
 
-If there is no prior weekly opening, no expected values are shown (first-ever week).
+## Steps
 
-## Changes
+1. Extract the archive to a temp directory (`/tmp/blueprint-extract/`).
+2. Create `docs/blueprint/`.
+3. Copy the three `.md` files verbatim to their target names:
+   - `01_EthioTrack_Master_Blueprint_v1.0.md` → `docs/blueprint/01-master-blueprint.md`
+   - `02_EthioTrack_Parser_OCR_Corpus_Spec_v1.0.md` → `docs/blueprint/02-parser-ocr-corpus-spec.md`
+   - `03_EthioTrack_Production_Execution_Playbook_v1.0.md` → `docs/blueprint/03-production-execution-playbook.md`
+4. Scan the copied files for relative Markdown links; if any point to old filenames (e.g. the `01_...v1.0.md` names) that would now be broken, retarget them to the new kebab-case filenames. Leave all other content untouched.
+5. Do not copy the `.docx` files, `README.txt`, or the ZIP.
 
-### 1. `src/lib/db.ts` — new reactive hook
-Add `usePreviousPeriodExpected(weekStart)` that:
-- Finds the most recent `PeriodOpening` with `weekStart < current weekStart`.
-- Loads transactions dated `[prevWeekStart, weekStart)`.
-- Returns `{ prevWeekStart, cashSantim, bankBalances, evdStockByDistributor, floatStockByDistributor }`, or `null` when no prior opening exists.
+## Constraints
 
-### 2. `src/components/OpenPeriodModal.tsx` — inline expected/mismatch UI
-- Call the new hook and compute expected totals for banks / EVD / Float / grand total.
-- Per field, show a small line under the input:
-  - Green "Matches expected X" when entered equals expected.
-  - Amber "Expected X · ±Δ" when they differ, plus an amber input border.
-- Per section (Banks, EVD, Float): append "/ exp X" next to the subtotal, colored green/amber.
-- Add a summary banner at the top:
-  - "Expected carry-forward from week of YYYY-MM-DD" with expected grand total.
-  - Count of fields that differ from expected.
-  - "Use expected" button that auto-fills every input from the expected values.
-- Weekly-total footer gets an extra "vs expected X · ±Δ" line.
-- Purely additive — validation rules, save flow, and stored shape are unchanged.
+- No changes to any non-documentation file (no code, config, schema, deps, UI, styling, parser, OCR).
+- No summarizing, rewriting, or reformatting of the Markdown contents.
+- Only fix clearly broken relative Markdown links between the three docs.
 
-## Technical notes
-- Comparison uses integer santim, so equality is exact (no float drift).
-- Expected values ignore `isPersonal` transactions, matching how the rest of the app treats them.
-- Mismatch styling uses amber (`border-amber-500/70`) and never blocks saving — a legitimate reason to override expected (adjustment, correction) must still be allowed. Real invalid input keeps the existing red `aria-invalid` + destructive text.
-- The hook is `useLiveQuery`-based, so edits to prior-week transactions update the expected numbers in real time.
+## Report at the end
+
+- Files added.
+- Whether any text inside the Markdown was changed (and, if so, exactly which link fixes).
+- Confirmation that no non-documentation file changed.
