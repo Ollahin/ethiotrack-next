@@ -800,7 +800,7 @@ A follow-up code task must clear the residual `no-useless-escape` and
 
 `src/lib/ocr-parser.ts` (3)
 
-- 113:7  `prefer-const` — `let clean = stripTrailingGarbage(line)` never
+- 113:7 `prefer-const` — `let clean = stripTrailingGarbage(line)` never
   reassigned
 - 131:23 `no-useless-escape` — `\-` at end of char class in the agent-name
   allow-list
@@ -809,7 +809,7 @@ A follow-up code task must clear the residual `no-useless-escape` and
 
 `src/lib/parser.ts` (2)
 
-- 213:29  `no-useless-escape` — `\/` inside char class `[A-Z0-9 .'\/-]` of
+- 213:29 `no-useless-escape` — `\/` inside char class `[A-Z0-9 .'\/-]` of
   the Coop credit "BY …" capture
 - 227:123 `no-useless-escape` — `\/` inside char class `[A-Z0-9 .'\/-]` of
   the Coop debit "TO …" capture
