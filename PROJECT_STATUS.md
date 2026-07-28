@@ -18,14 +18,16 @@ Stage 0 — Establish control
 - Product and accounting decisions documented
 - Parser/OCR requirements documented
 - Production execution process documented
+- Validation baseline established (typecheck, lint, format, tests, build)
+- GitHub Actions CI configured for pull requests and production-v3 pushes
 
 ## Current task
 
-Documentation archive and branch establishment
+Task 0.1E — Continuous integration
 
 ## Next task
 
-Validation baseline and continuous integration
+Task 0.2A — Parser corpus archive and sanitized fixture manifest
 
 ## Important rule
 
