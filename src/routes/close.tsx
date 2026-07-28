@@ -23,7 +23,11 @@ export const Route = createFileRoute("/close")({
       { title: "Close Week · EthioTrack" },
       { name: "description", content: "Reconcile expected vs actual cash and close the week." },
       { property: "og:title", content: "Weekly Close · EthioTrack" },
-      { property: "og:description", content: "End-of-week cash reconciliation with variance explanation and auto weekly report." },
+      {
+        property: "og:description",
+        content:
+          "End-of-week cash reconciliation with variance explanation and auto weekly report.",
+      },
     ],
   }),
   component: ClosePage,
@@ -40,13 +44,16 @@ function ClosePage() {
   const [notes, setNotes] = useState("");
 
   const inRange = useMemo(
-    () => txns.filter((t) => {
-      const d = t.date.slice(0, 10);
-      return d >= weekStart && d <= weekEnd && !t.isPersonal;
-    }),
+    () =>
+      txns.filter((t) => {
+        const d = t.date.slice(0, 10);
+        return d >= weekStart && d <= weekEnd && !t.isPersonal;
+      }),
     [txns, weekStart, weekEnd],
   );
-  const cashIn = inRange.filter((t) => t.type === "in" && t.channel === "Cash").reduce((s, t) => s + t.amountSantim, 0);
+  const cashIn = inRange
+    .filter((t) => t.type === "in" && t.channel === "Cash")
+    .reduce((s, t) => s + t.amountSantim, 0);
   const cashOut = inRange
     .filter((t) => (t.type === "out" || t.type === "expense") && t.channel === "Cash")
     .reduce((s, t) => s + t.amountSantim, 0);
@@ -68,13 +75,19 @@ function ClosePage() {
     return (
       <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-4">
         <h1 className="text-xl md:text-2xl font-bold">Week closed</h1>
-        <p className="text-sm text-ink-soft">{weekStart} → {weekEnd}</p>
+        <p className="text-sm text-ink-soft">
+          {weekStart} → {weekEnd}
+        </p>
         <div className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-2">
           <Row k="Actual cash" v={formatEtb(closing.actualCashSantim)} />
           <Row k="Variance" v={formatEtb(closing.varianceSantim)} />
-          {closing.notes && <div className="text-xs text-ink-soft pt-2 border-t border-border">{closing.notes}</div>}
+          {closing.notes && (
+            <div className="text-xs text-ink-soft pt-2 border-t border-border">{closing.notes}</div>
+          )}
         </div>
-        <Button variant="outline" onClick={() => downloadWeekly(weekStart, weekEnd)}>Re-download weekly PDF</Button>
+        <Button variant="outline" onClick={() => downloadWeekly(weekStart, weekEnd)}>
+          Re-download weekly PDF
+        </Button>
       </div>
     );
   }
@@ -96,27 +109,67 @@ function ClosePage() {
       <div className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-3">
         <div>
           <Label>Actual cash counted</Label>
-          <Input inputMode="decimal" value={actual} onChange={(e) => setActual(e.target.value)} placeholder="0.00" />
+          <Input
+            inputMode="decimal"
+            value={actual}
+            onChange={(e) => setActual(e.target.value)}
+            placeholder="0.00"
+          />
         </div>
-        <Row k="Variance" v={formatEtb(variance)} bold className={variance === 0 ? "text-foreground" : "text-money-out"} />
+        <Row
+          k="Variance"
+          v={formatEtb(variance)}
+          bold
+          className={variance === 0 ? "text-foreground" : "text-money-out"}
+        />
         <div>
-          <Label>Notes {variance !== 0 && <span className="text-money-out">(required)</span>}</Label>
-          <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Explain the difference…" />
+          <Label>
+            Notes {variance !== 0 && <span className="text-money-out">(required)</span>}
+          </Label>
+          <Textarea
+            rows={3}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Explain the difference…"
+          />
         </div>
-        <Button className="w-full" onClick={async () => {
-          if (!actual) return toast.error("Enter actual cash");
-          if (variance !== 0 && !notes.trim()) return toast.error("Explain the variance");
-          await closePeriod({ weekStart, openingId: opening.id, actualCashSantim: actualSantim, varianceSantim: variance, notes });
-          toast.success("Week closed — downloading weekly report");
-          const blob = await generateRangeReport(agents, txns, new Date(weekStart), new Date(weekEnd + "T23:59:59"), `EthioTrack — Weekly Report`);
-          triggerDownload(blob, `ethiotrack-week-${weekStart}.pdf`);
-        }}>Close week</Button>
+        <Button
+          className="w-full"
+          onClick={async () => {
+            if (!actual) return toast.error("Enter actual cash");
+            if (variance !== 0 && !notes.trim()) return toast.error("Explain the variance");
+            await closePeriod({
+              weekStart,
+              openingId: opening.id,
+              actualCashSantim: actualSantim,
+              varianceSantim: variance,
+              notes,
+            });
+            toast.success("Week closed — downloading weekly report");
+            const blob = await generateRangeReport(
+              agents,
+              txns,
+              new Date(weekStart),
+              new Date(weekEnd + "T23:59:59"),
+              `EthioTrack — Weekly Report`,
+            );
+            triggerDownload(blob, `ethiotrack-week-${weekStart}.pdf`);
+          }}
+        >
+          Close week
+        </Button>
       </div>
     </div>
   );
 
   async function downloadWeekly(ws: string, we: string) {
-    const blob = await generateRangeReport(agents, txns, new Date(ws), new Date(we + "T23:59:59"), `EthioTrack — Weekly Report`);
+    const blob = await generateRangeReport(
+      agents,
+      txns,
+      new Date(ws),
+      new Date(we + "T23:59:59"),
+      `EthioTrack — Weekly Report`,
+    );
     triggerDownload(blob, `ethiotrack-week-${ws}.pdf`);
   }
 }
@@ -128,7 +181,17 @@ function triggerDownload(blob: Blob, name: string) {
   a.click();
 }
 
-function Row({ k, v, bold, className = "" }: { k: string; v: string; bold?: boolean; className?: string }) {
+function Row({
+  k,
+  v,
+  bold,
+  className = "",
+}: {
+  k: string;
+  v: string;
+  bold?: boolean;
+  className?: string;
+}) {
   return (
     <div className="flex items-center justify-between text-sm">
       <span className="text-ink-soft">{k}</span>

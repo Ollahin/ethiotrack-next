@@ -22,9 +22,15 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Dashboard · EthioTrack" },
-      { name: "description", content: "Today's sales, receipts, open credits and cash variance at a glance." },
+      {
+        name: "description",
+        content: "Today's sales, receipts, open credits and cash variance at a glance.",
+      },
       { property: "og:title", content: "EthioTrack — Subdistributor Dashboard" },
-      { property: "og:description", content: "Local-first financial dashboard for Ethiopian telecom subdistributors." },
+      {
+        property: "og:description",
+        content: "Local-first financial dashboard for Ethiopian telecom subdistributors.",
+      },
     ],
   }),
   component: DashboardPage,
@@ -76,8 +82,10 @@ function DashboardPage() {
       )}
       <GlobalSearchTrigger />
       {/* Hero week card */}
-      <div className="relative overflow-hidden rounded-2xl p-5 md:p-6 text-white shadow-[var(--shadow-glow)]"
-           style={{ backgroundImage: "var(--gradient-hero)" }}>
+      <div
+        className="relative overflow-hidden rounded-2xl p-5 md:p-6 text-white shadow-[var(--shadow-glow)]"
+        style={{ backgroundImage: "var(--gradient-hero)" }}
+      >
         {/* faint dot texture */}
         <div
           aria-hidden
@@ -98,8 +106,15 @@ function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className={"inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider " + (closing ? "text-white" : "text-white")}>
-              <span className={"h-1.5 w-1.5 rounded-full " + (closing ? "bg-white/70" : "bg-money-in")} />
+            <span
+              className={
+                "inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider " +
+                (closing ? "text-white" : "text-white")
+              }
+            >
+              <span
+                className={"h-1.5 w-1.5 rounded-full " + (closing ? "bg-white/70" : "bg-money-in")}
+              />
               {closing ? "Closed" : opening ? "Open" : "Not opened"}
             </span>
             <Wifi className="h-4 w-4 text-white/60" aria-hidden />
@@ -174,9 +189,15 @@ function DashboardPage() {
         <OpenPeriodModal
           weekStart={weekStart}
           open={modalOpen}
-          existing={manualOpen ? opening ?? null : null}
-          onOpened={() => { setManualOpen(false); setDismissed(false); }}
-          onCancel={() => { setManualOpen(false); setDismissed(true); }}
+          existing={manualOpen ? (opening ?? null) : null}
+          onOpened={() => {
+            setManualOpen(false);
+            setDismissed(false);
+          }}
+          onCancel={() => {
+            setManualOpen(false);
+            setDismissed(true);
+          }}
         />
       )}
     </div>
