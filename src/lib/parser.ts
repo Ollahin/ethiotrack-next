@@ -210,7 +210,7 @@ function matchTemplates(raw: string): TemplateFields | null {
   if (m) {
     const bySelf = /\bby self\b/i.test(raw);
     const byM = raw.match(
-      /BY\s+([A-Z][A-Z0-9 .'\/-]{1,60}?)(?:\s+ON\s+\d|\s*\.\s*Your Current Balance)/i,
+      /BY\s+([A-Z][A-Z0-9 .'/-]{1,60}?)(?:\s+ON\s+\d|\s*\.\s*Your Current Balance)/i,
     );
     return {
       channel: "Coop",
@@ -224,7 +224,7 @@ function matchTemplates(raw: string): TemplateFields | null {
     };
   }
   m = raw.match(
-    /Account\s+([\d*]+)\s+has been Debited with ETB\s*-?([\d,]+(?:\.\d+)?)\s+Ref:\s*([A-Z0-9]+).*?(?:TO\s+([A-Z][A-Z0-9 .'\/-]{1,60}?))?\.\s*Your Current Balance is ETB\s*([\d,]+(?:\.\d+)?)/i,
+    /Account\s+([\d*]+)\s+has been Debited with ETB\s*-?([\d,]+(?:\.\d+)?)\s+Ref:\s*([A-Z0-9]+).*?(?:TO\s+([A-Z][A-Z0-9 .'/-]{1,60}?))?\.\s*Your Current Balance is ETB\s*([\d,]+(?:\.\d+)?)/i,
   );
   if (m)
     return {
