@@ -613,3 +613,55 @@ values, or accessibility attributes were changed.
     `AGENTS.md`, `docs/README.md`, `PROJECT_STATUS.md`,
     `docs/baseline-report.md` (this file re-drifts on each append)
   - No `src/routes` files remain in the drift set.
+
+## Task 0.1C-f — Styles and visual-test documentation formatting
+
+### Files formatted (2)
+
+```
+src/styles.css
+tests/visual/README.md
+```
+
+### Diff nature
+
+Formatter-only. `src/styles.css`: 163 → 188 lines (+25 net) — whitespace,
+declaration formatting, blank lines. No selectors, property names, values,
+units, colors, custom-property declarations, media queries, or comments
+changed. `tests/visual/README.md`: 46 → 47 lines (+1 net) — wrapping and
+blank lines only. No commands, paths, expected results, or testing
+instructions changed.
+
+### Command results
+
+- `bun run typecheck` — **pass**
+- `bun run test` — **pass** (2 files, 35 tests)
+- `bun run build` — **pass**
+- `bun run lint` — **fail** (expected; 4 ordinary docs remain)
+- `bun run format:check` — **fail** (expected)
+
+### Remaining drift (exact)
+
+```
+AGENTS.md
+docs/README.md
+PROJECT_STATUS.md
+docs/baseline-report.md   (re-drifts each time this file is appended to)
+```
+
+Count: **4 files**, all ordinary documentation — batch 0.1C-g.
+
+### Correction to Task 0.1C-e inventory
+
+The batch table in Task 0.1C-a recorded `0.1C-e` as "14 files (13 `.tsx` +
+`README.md`)". The enumerated inventory in the same section was correct and
+listed 15 items:
+
+- 14 TSX route files (`account`, `agents`, `alerts`, `banks`, `capture`,
+  `close`, `distributors`, `exports`, `history`, `index`, `reconcile`,
+  `reports`, `settings`, `unlock`)
+- `src/routes/README.md`
+
+The summary count of 14 was inaccurate; the enumerated inventory was
+authoritative and drove the actual work in Task 0.1C-e. `src/routes/__root.tsx`
+was already conformant and remained excluded from every batch.
