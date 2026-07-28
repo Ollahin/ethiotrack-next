@@ -1,6 +1,7 @@
 # EthioTrack Validation Baseline
 
 ## Repository baseline
+
 - Branch: `production-v3` (Lovable working ref `edit/edt-*`)
 - Commit: not captured (Lovable manages git state)
 - Package manager: **bun** (bun 1.3.3)
@@ -9,6 +10,7 @@
 - Package-manager version: `bun@1.3.3` (confirmed via `bun --version`)
 
 ## Existing scripts (pre-task)
+
 - `dev`: `vite dev`
 - `build`: `vite build`
 - `build:dev`: `vite build --mode development`
@@ -23,10 +25,12 @@ No `typecheck`, `format:check`, or `verify` script existed prior to this task.
 ## Commands executed
 
 ### `bun install --frozen-lockfile`
+
 - Result: **pass** (exit 0)
 - Notes: lockfile satisfied, no drift.
 
 ### `bunx tsc --noEmit`
+
 - Result: **fail** (exit 2)
 - Output:
   ```
@@ -36,18 +40,22 @@ No `typecheck`, `format:check`, or `verify` script existed prior to this task.
   ```
 
 ### `bun run lint` (`eslint .`)
+
 - Result: **fail** (exit 1)
 - Notes: numerous `prettier/prettier` violations across `src/routes/*.tsx`, `src/components/*.tsx`, and `src/lib/*.ts`. All are formatting-only diagnostics surfaced through `eslint-plugin-prettier`. No functional or type rules were violated.
 
 ### `bunx prettier --check .`
+
 - Result: **fail** (exit 1)
 - Notes: same underlying formatting drift as the ESLint prettier plugin reports. No code behavior implications.
 
 ### `bun run test` (`vitest run`)
+
 - Result: **pass** (exit 0)
 - Summary: 2 test files, 35 tests passed.
 
 ### `bun run build` (`vite build`)
+
 - Result: **pass** (exit 0)
 - Notes: production bundle builds successfully; Vite/TanStack Start build does not gate on `tsc`, so pre-existing type errors do not block the build.
 
@@ -63,10 +71,12 @@ Formatting (`prettier --check` / `eslint prettier/prettier`): widespread drift i
 ## Existing test inventory
 
 Test files (unchanged):
+
 - `src/lib/parser.test.ts`
 - `src/lib/distributor-parser.test.ts`
 
 Visual test harness (unchanged, Python-based, out of scope for `verify`):
+
 - `tests/visual/responsive.py` invoked via `bun run test:visual`
 
 Test command: `bun run test` → `vitest run`.
@@ -288,7 +298,7 @@ in `.prettierignore` and does not appear.
 
 All under `.workspace/skills/**`, spanning the `banner-design`, `brand`,
 `design`, `design-system`, `slides`, and `ui-styling` skill packs
-(SKILL.md, references/*.md, scripts/*.cjs, templates/*). Full list:
+(SKILL.md, references/_.md, scripts/_.cjs, templates/\*). Full list:
 
 ```
 .workspace/skills/banner-design/references/banner-sizes-and-styles.md
@@ -378,16 +388,16 @@ Each batch ≤ 20 files and estimated well under ~1,000 changed lines
 (formatter drift on this codebase is dominated by quote style, trailing
 commas, and line wrapping).
 
-| Batch | Task ID | Contents | Files | ~Lines (upper bound) |
-|---|---|---|---:|---:|
-| 1 | 0.1C-b | `src/lib` core + colocated tests: `parser.ts`, `parser.test.ts`, `ocr-parser.ts`, `ocr.ts`, `distributor-parser.ts`, `distributor-parser.test.ts`, `pdf-parser.ts`, `format.ts`, `ids.ts`, `types.ts` | 10 | ~2,100 |
-| 2 | 0.1C-c | Remaining `src/lib`: `db.ts`, `backup.ts`, `crypto.ts`, `user.ts`, `report.ts`, `brain/alerts.ts`, `brain/credits.ts`, `brain/fuzzy.ts`, `brain/stats.ts`, `brain/telecomFlow.ts` | 10 | ~2,050 |
-| 3 | 0.1C-d | Feature components (`src/components/*.tsx`, excludes `ui/`) | 12 | ~2,660 |
-| 4 | — | UI component library (`src/components/ui/*`) | 0 | — (no drift; batch skipped) |
-| 5 | 0.1C-e | Routes: all 13 `.tsx` under `src/routes/` + `src/routes/README.md` | 14 | ~2,500 |
-| 6 | 0.1C-f | Styles + external tests: `src/styles.css`, `tests/visual/README.md` | 2 | ~200 |
-| 7 | 0.1C-g | Ordinary docs + root files: `AGENTS.md`, `docs/README.md`, `PROJECT_STATUS.md`, `docs/baseline-report.md` (last, since this file will keep drifting until then) | 4 | ~600 |
-| 8 | 0.1C-h | Generated-file handling — add `.workspace/` glob to `.prettierignore` after approval. No source formatting. | 0 | — |
+| Batch | Task ID | Contents                                                                                                                                                                                              | Files |        ~Lines (upper bound) |
+| ----- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----: | --------------------------: |
+| 1     | 0.1C-b  | `src/lib` core + colocated tests: `parser.ts`, `parser.test.ts`, `ocr-parser.ts`, `ocr.ts`, `distributor-parser.ts`, `distributor-parser.test.ts`, `pdf-parser.ts`, `format.ts`, `ids.ts`, `types.ts` |    10 |                      ~2,100 |
+| 2     | 0.1C-c  | Remaining `src/lib`: `db.ts`, `backup.ts`, `crypto.ts`, `user.ts`, `report.ts`, `brain/alerts.ts`, `brain/credits.ts`, `brain/fuzzy.ts`, `brain/stats.ts`, `brain/telecomFlow.ts`                     |    10 |                      ~2,050 |
+| 3     | 0.1C-d  | Feature components (`src/components/*.tsx`, excludes `ui/`)                                                                                                                                           |    12 |                      ~2,660 |
+| 4     | —       | UI component library (`src/components/ui/*`)                                                                                                                                                          |     0 | — (no drift; batch skipped) |
+| 5     | 0.1C-e  | Routes: all 13 `.tsx` under `src/routes/` + `src/routes/README.md`                                                                                                                                    |    14 |                      ~2,500 |
+| 6     | 0.1C-f  | Styles + external tests: `src/styles.css`, `tests/visual/README.md`                                                                                                                                   |     2 |                        ~200 |
+| 7     | 0.1C-g  | Ordinary docs + root files: `AGENTS.md`, `docs/README.md`, `PROJECT_STATUS.md`, `docs/baseline-report.md` (last, since this file will keep drifting until then)                                       |     4 |                        ~600 |
+| 8     | 0.1C-h  | Generated-file handling — add `.workspace/` glob to `.prettierignore` after approval. No source formatting.                                                                                           |     0 |                           — |
 
 ### Command results (this task)
 
@@ -401,6 +411,7 @@ commas, and line wrapping).
 No file other than `.prettierignore` and `docs/baseline-report.md` was
 modified. The three protected blueprint documents were not read, rewritten,
 or formatted.
+
 ## Task 0.1C-b — src/lib core formatting
 
 ### Files formatted (exactly 10)

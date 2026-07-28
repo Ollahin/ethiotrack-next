@@ -3,16 +3,16 @@
 ## Authoritative documents
 
 1. [Master Blueprint](./blueprint/01-master-blueprint.md)
-Defines the product, domain rules, current architecture, target
-architecture, business model and production goals.
+   Defines the product, domain rules, current architecture, target
+   architecture, business model and production goals.
 
 2. [Parser, OCR and Corpus Specification](./blueprint/02-parser-ocr-corpus-spec.md)
-Defines ingestion, OCR, parsing, corpus evaluation, confidence,
-review, overlap handling and identity matching.
+   Defines ingestion, OCR, parsing, corpus evaluation, confidence,
+   review, overlap handling and identity matching.
 
 3. [Production Execution Playbook](./blueprint/03-production-execution-playbook.md)
-Defines implementation phases, branch discipline, validation gates,
-migrations, release requirements and handoff procedures.
+   Defines implementation phases, branch discipline, validation gates,
+   migrations, release requirements and handoff procedures.
 
 ## Authority order
 
