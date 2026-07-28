@@ -139,7 +139,7 @@ async function deriveKey(pin: string, salt: Uint8Array, iterations: number) {
 }
 
 let _unlocked = false;
-let listeners = new Set<() => void>();
+const listeners = new Set<() => void>();
 function emit() {
   for (const l of listeners) l();
 }
