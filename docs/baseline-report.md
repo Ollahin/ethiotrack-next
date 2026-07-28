@@ -92,3 +92,56 @@ No source, configuration, dependency, lockfile, or generated file was modified. 
 ## Next step
 
 Task 0.1B will fix only the two confirmed TypeScript failures in `src/lib/ocr-parser.ts` (lines 193 and 223) without changing parser or OCR behavior.
+
+## Task 0.1B — Type refinement
+
+### Root cause
+
+`extractByDateAnchors` in `src/lib/ocr-parser.ts` always constructs rows with a
+concrete ISO `date` string and a concrete `party` string, but stored them in a
+`ParsedOk[]` where both fields are optional. Downstream code (`r.date.slice(...)`
+at line 193 and the `/bariso/i.test(r.party)` argument at line 223) treated them
+as required strings, producing TS18048 and TS2345.
+
+### Implementation
+
+Introduced a private internal refined type inside `src/lib/ocr-parser.ts`:
+
+```ts
+type CompleteOcrParsedRow = ParsedOk & {
+  date: string;
+  party: string;
+};
+```
+
+`extractByDateAnchors` now returns `CompleteOcrParsedRow[]` and its internal
+`results` array is typed the same. No values, regexes, extraction rules, or
+public `ParsedOk` fields were changed. No non-null assertions, casts,
+`@ts-ignore`, fallback dates, fallback parties, or row filtering were used.
+
+### Changed source file
+
+- `src/lib/ocr-parser.ts` — added `CompleteOcrParsedRow` type alias and refined
+  the return/`results` types of `extractByDateAnchors`.
+
+### Command results
+
+- `bun run typecheck` — **pass** (exit 0)
+- `bun run test` — **pass** (2 files, 35 tests)
+- `bun run build` — **pass** (exit 0)
+- `bun run lint` / `bun run format:check` — still failing due only to the
+  pre-existing formatting drift recorded in Task 0.1A.
+
+### Runtime behavior
+
+Type-only change. Extraction, deduplication, dates, amounts, parties, review
+flags, raw text, template strings, and row counts are identical to the prior
+baseline.
+
+### Remaining validation failures for Task 0.1C
+
+- `bun run lint` — prettier formatting drift across `src/routes/*`,
+  `src/components/*`, and `src/lib/*`.
+- `bun run format:check` — same underlying drift.
+
+These will be resolved by the formatting-only pass in Task 0.1C.
