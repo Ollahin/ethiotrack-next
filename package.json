@@ -10,9 +10,13 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "verify": "bun run typecheck && bun run lint && bun run format:check && bun run test && bun run build",
     "test": "vitest run",
     "test:visual": "python tests/visual/responsive.py"
   },
+  "packageManager": "bun@1.3.3",
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",
