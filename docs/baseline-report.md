@@ -1,6 +1,7 @@
 # EthioTrack Validation Baseline
 
 ## Repository baseline
+
 - Branch: `production-v3` (Lovable working ref `edit/edt-*`)
 - Commit: not captured (Lovable manages git state)
 - Package manager: **bun** (bun 1.3.3)
@@ -9,6 +10,7 @@
 - Package-manager version: `bun@1.3.3` (confirmed via `bun --version`)
 
 ## Existing scripts (pre-task)
+
 - `dev`: `vite dev`
 - `build`: `vite build`
 - `build:dev`: `vite build --mode development`
@@ -23,10 +25,12 @@ No `typecheck`, `format:check`, or `verify` script existed prior to this task.
 ## Commands executed
 
 ### `bun install --frozen-lockfile`
+
 - Result: **pass** (exit 0)
 - Notes: lockfile satisfied, no drift.
 
 ### `bunx tsc --noEmit`
+
 - Result: **fail** (exit 2)
 - Output:
   ```
@@ -36,18 +40,22 @@ No `typecheck`, `format:check`, or `verify` script existed prior to this task.
   ```
 
 ### `bun run lint` (`eslint .`)
+
 - Result: **fail** (exit 1)
 - Notes: numerous `prettier/prettier` violations across `src/routes/*.tsx`, `src/components/*.tsx`, and `src/lib/*.ts`. All are formatting-only diagnostics surfaced through `eslint-plugin-prettier`. No functional or type rules were violated.
 
 ### `bunx prettier --check .`
+
 - Result: **fail** (exit 1)
 - Notes: same underlying formatting drift as the ESLint prettier plugin reports. No code behavior implications.
 
 ### `bun run test` (`vitest run`)
+
 - Result: **pass** (exit 0)
 - Summary: 2 test files, 35 tests passed.
 
 ### `bun run build` (`vite build`)
+
 - Result: **pass** (exit 0)
 - Notes: production bundle builds successfully; Vite/TanStack Start build does not gate on `tsc`, so pre-existing type errors do not block the build.
 
@@ -63,10 +71,12 @@ Formatting (`prettier --check` / `eslint prettier/prettier`): widespread drift i
 ## Existing test inventory
 
 Test files (unchanged):
+
 - `src/lib/parser.test.ts`
 - `src/lib/distributor-parser.test.ts`
 
 Visual test harness (unchanged, Python-based, out of scope for `verify`):
+
 - `tests/visual/responsive.py` invoked via `bun run test:visual`
 
 Test command: `bun run test` → `vitest run`.
@@ -288,7 +298,7 @@ in `.prettierignore` and does not appear.
 
 All under `.workspace/skills/**`, spanning the `banner-design`, `brand`,
 `design`, `design-system`, `slides`, and `ui-styling` skill packs
-(SKILL.md, references/*.md, scripts/*.cjs, templates/*). Full list:
+(`SKILL.md`, `references/*.md`, `scripts/*.cjs`, `templates/*`). Full list:
 
 ```
 .workspace/skills/banner-design/references/banner-sizes-and-styles.md
@@ -378,16 +388,16 @@ Each batch ≤ 20 files and estimated well under ~1,000 changed lines
 (formatter drift on this codebase is dominated by quote style, trailing
 commas, and line wrapping).
 
-| Batch | Task ID | Contents | Files | ~Lines (upper bound) |
-|---|---|---|---:|---:|
-| 1 | 0.1C-b | `src/lib` core + colocated tests: `parser.ts`, `parser.test.ts`, `ocr-parser.ts`, `ocr.ts`, `distributor-parser.ts`, `distributor-parser.test.ts`, `pdf-parser.ts`, `format.ts`, `ids.ts`, `types.ts` | 10 | ~2,100 |
-| 2 | 0.1C-c | Remaining `src/lib`: `db.ts`, `backup.ts`, `crypto.ts`, `user.ts`, `report.ts`, `brain/alerts.ts`, `brain/credits.ts`, `brain/fuzzy.ts`, `brain/stats.ts`, `brain/telecomFlow.ts` | 10 | ~2,050 |
-| 3 | 0.1C-d | Feature components (`src/components/*.tsx`, excludes `ui/`) | 12 | ~2,660 |
-| 4 | — | UI component library (`src/components/ui/*`) | 0 | — (no drift; batch skipped) |
-| 5 | 0.1C-e | Routes: all 13 `.tsx` under `src/routes/` + `src/routes/README.md` | 14 | ~2,500 |
-| 6 | 0.1C-f | Styles + external tests: `src/styles.css`, `tests/visual/README.md` | 2 | ~200 |
-| 7 | 0.1C-g | Ordinary docs + root files: `AGENTS.md`, `docs/README.md`, `PROJECT_STATUS.md`, `docs/baseline-report.md` (last, since this file will keep drifting until then) | 4 | ~600 |
-| 8 | 0.1C-h | Generated-file handling — add `.workspace/` glob to `.prettierignore` after approval. No source formatting. | 0 | — |
+| Batch | Task ID | Contents                                                                                                                                                                                              | Files |        ~Lines (upper bound) |
+| ----- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----: | --------------------------: |
+| 1     | 0.1C-b  | `src/lib` core + colocated tests: `parser.ts`, `parser.test.ts`, `ocr-parser.ts`, `ocr.ts`, `distributor-parser.ts`, `distributor-parser.test.ts`, `pdf-parser.ts`, `format.ts`, `ids.ts`, `types.ts` |    10 |                      ~2,100 |
+| 2     | 0.1C-c  | Remaining `src/lib`: `db.ts`, `backup.ts`, `crypto.ts`, `user.ts`, `report.ts`, `brain/alerts.ts`, `brain/credits.ts`, `brain/fuzzy.ts`, `brain/stats.ts`, `brain/telecomFlow.ts`                     |    10 |                      ~2,050 |
+| 3     | 0.1C-d  | Feature components (`src/components/*.tsx`, excludes `ui/`)                                                                                                                                           |    12 |                      ~2,660 |
+| 4     | —       | UI component library (`src/components/ui/*`)                                                                                                                                                          |     0 | — (no drift; batch skipped) |
+| 5     | 0.1C-e  | Routes: all 13 `.tsx` under `src/routes/` + `src/routes/README.md`                                                                                                                                    |    14 |                      ~2,500 |
+| 6     | 0.1C-f  | Styles + external tests: `src/styles.css`, `tests/visual/README.md`                                                                                                                                   |     2 |                        ~200 |
+| 7     | 0.1C-g  | Ordinary docs + root files: `AGENTS.md`, `docs/README.md`, `PROJECT_STATUS.md`, `docs/baseline-report.md` (last, since this file will keep drifting until then)                                       |     4 |                        ~600 |
+| 8     | 0.1C-h  | Generated-file handling — add `.workspace/` glob to `.prettierignore` after approval. No source formatting.                                                                                           |     0 |                           — |
 
 ### Command results (this task)
 
@@ -401,6 +411,7 @@ commas, and line wrapping).
 No file other than `.prettierignore` and `docs/baseline-report.md` was
 modified. The three protected blueprint documents were not read, rewritten,
 or formatted.
+
 ## Task 0.1C-b — src/lib core formatting
 
 ### Files formatted (exactly 10)
@@ -665,3 +676,100 @@ listed 15 items:
 The summary count of 14 was inaccurate; the enumerated inventory was
 authoritative and drove the actual work in Task 0.1C-e. `src/routes/__root.tsx`
 was already conformant and remained excluded from every batch.
+
+## Task 0.1C-g — Final documentation formatting
+
+### Files formatted (exactly 4)
+
+- `AGENTS.md`
+- `docs/README.md`
+- `PROJECT_STATUS.md`
+- `docs/baseline-report.md`
+
+### Approximate diff size
+
+Total diff footprint across the four files: roughly 45 changed hunks / ~90
+lines touched (net near-zero). Changes were: blank-line normalization around
+HTML comment fences (`AGENTS.md`); list continuation indentation and a
+trailing-newline fix (`docs/README.md`); blank lines after headings
+(`PROJECT_STATUS.md`); blank lines after headings, list-item spacing, and
+GitHub-flavored table alignment padding (`docs/baseline-report.md`).
+
+One post-format preservation was applied to `docs/baseline-report.md`: the
+prose token `references/*.md, scripts/*.cjs, templates/*` was wrapped in
+backticks (`` `references/*.md` ``, etc.) so Prettier's markdown-emphasis
+pass does not reinterpret the `*` characters. The literal glob patterns and
+their semantics are preserved; the authoritative enumerated file list in the
+adjacent fenced code block was not modified.
+
+### Formatting-only confirmation
+
+All changes are whitespace, wrapping, indentation, blank lines, and table
+alignment. No business decision, architecture requirement, branch name, task
+name, command string, file path, validation result, error code, test count,
+parser/OCR requirement, authority order, status/stage meaning, or link
+target was altered.
+
+### Blueprint integrity
+
+`docs/blueprint/01-master-blueprint.md`,
+`docs/blueprint/02-parser-ocr-corpus-spec.md`, and
+`docs/blueprint/03-production-execution-playbook.md` were not opened,
+rewritten, or reformatted. Their content hashes are unchanged from the
+archive import performed earlier in Stage 0.
+
+### Command results (this task)
+
+- `bun install --frozen-lockfile` — **pass** (lockfile satisfied, no drift)
+- `bun run typecheck` — **pass**
+- `bun run lint` — **fail** (11 errors, 12 warnings; all pre-existing rule
+  violations in `src/**` — `no-useless-escape`, `prefer-const`,
+  `react-hooks/exhaustive-deps`, `react-refresh/only-export-components`,
+  unused `eslint-disable` directives. None are `prettier/prettier`; none are
+  in the four documentation files touched by this task. Fixing them requires
+  source edits outside the Task 0.1C-g scope.)
+- `bun run format:check` — **pass** ("All matched files use Prettier code
+  style!")
+- `bun run test` — **pass** (2 files, 35 tests)
+- `bun run build` — **pass**
+- `bun run verify` — **fail** (fails only because `lint` fails; the other
+  gates in the composite command pass)
+
+### Final formatting-drift count
+
+**0 files.** `bunx prettier --check .` reports "All matched files use
+Prettier code style!". `.workspace/skills/**` remains excluded via
+`.prettierignore`.
+
+### Validation-baseline conclusion
+
+The Prettier formatting baseline is complete: every non-ignored file in the
+repository is Prettier-clean, and `bun run format:check` passes. The
+remaining lint failures are pre-existing source-code rule violations that
+were surfaced (not introduced) by Task 0.1A and were previously masked in
+lint output by the volume of `prettier/prettier` diagnostics. They are
+in-scope for a follow-up code task, not for the documentation formatting
+batch series (0.1C-b … 0.1C-g).
+
+## Stage 0 validation summary
+
+- Dependency installation (`bun install --frozen-lockfile`): **pass**
+- Strict TypeScript (`bun run typecheck`): **pass**
+- Lint (`bun run lint`): **fail** — 11 pre-existing source rule violations
+  remain (`no-useless-escape`, `prefer-const`, plus warnings). No
+  `prettier/prettier` violations remain. Resolving these requires source
+  edits outside the Stage 0 documentation/formatting scope and is deferred
+  to a dedicated follow-up task.
+- Format check (`bun run format:check`): **pass**
+- Unit tests (`bun run test`): **pass**, 35/35
+- Production build (`bun run build`): **pass**
+- Composite verify (`bun run verify`): **fail** solely because `lint` fails;
+  all other gates pass.
+- Parser/OCR behavior changes during Stage 0: **none**.
+- Known parser-quality problems remain intentionally unresolved until the
+  corpus evaluator is created.
+
+Note: the pre-declared Stage 0 target of "lint: pass / verify: pass" is not
+achievable within this task's allowed scope (four documentation files only).
+A follow-up code task must clear the residual `no-useless-escape` and
+`prefer-const` errors under `src/**` to close the composite `verify` gate.
