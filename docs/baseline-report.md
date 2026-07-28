@@ -546,3 +546,70 @@ graph changed.
   - Styles + external tests (batch 0.1C-f) — 2 files (`src/styles.css`, `tests/visual/README.md`)
   - Ordinary docs (batch 0.1C-g) — up to 4 files (this file will re-drift on append)
   - No `src/components` files remain in the drift set.
+
+## Task 0.1C-e — Route formatting
+
+### Recorded-batch discrepancy
+
+The batch summary in Task 0.1C-a said "14 files (13 `.tsx` + README)", but
+the full enumerated inventory in the same section listed 14 `.tsx` route
+files (all of `src/routes/*.tsx` except `__root.tsx`) plus `README.md` —
+i.e. 15 items. The "13 `.tsx`" number was a miscount; the enumerated list
+is authoritative. `src/routes/__root.tsx` was already conformant and never
+appeared in Prettier's drift set, so it is intentionally excluded here.
+
+Formatting the enumerated set (14 route `.tsx` + `README.md` = 15 files)
+matches the batch's intent and the pre-task drift bucket. Proceeded on that
+basis; no other batch is affected.
+
+### Files formatted
+
+```
+src/routes/account.tsx
+src/routes/agents.tsx
+src/routes/alerts.tsx
+src/routes/banks.tsx
+src/routes/capture.tsx
+src/routes/close.tsx
+src/routes/distributors.tsx
+src/routes/exports.tsx
+src/routes/history.tsx
+src/routes/index.tsx
+src/routes/reconcile.tsx
+src/routes/reports.tsx
+src/routes/settings.tsx
+src/routes/unlock.tsx
+src/routes/README.md
+```
+
+Excluded (already conformant): `src/routes/__root.tsx`. None overlap with
+earlier batches.
+
+### Diff nature
+
+Formatter-only: whitespace, indentation, JSX/Markdown wrapping, attribute
+wrapping, quote style, trailing commas, semicolons, formatter-added
+parentheses. Total lines 2,491 → 3,199 (+708 net) — under the 1,000-line
+safety limit. No route paths, `createFileRoute` strings, loaders, actions,
+redirects, search-parameter handling, hooks, dependency arrays, database
+queries, navigation targets, component props, displayed strings, className
+values, or accessibility attributes were changed.
+
+### Command results
+
+- `bun run typecheck` — **pass**
+- `bun run test` — **pass** (2 files, 35 tests)
+- `bun run build` — **pass**
+- `bun run lint` — **fail** (expected; styles + docs remain)
+- `bun run format:check` — **fail** (expected)
+
+### Remaining drift
+
+- Count: **6 files** (down from 22).
+- Buckets remaining:
+  - Styles + external tests (batch 0.1C-f) — 2 files:
+    `src/styles.css`, `tests/visual/README.md`
+  - Ordinary docs (batch 0.1C-g) — 4 files:
+    `AGENTS.md`, `docs/README.md`, `PROJECT_STATUS.md`,
+    `docs/baseline-report.md` (this file re-drifts on each append)
+  - No `src/routes` files remain in the drift set.
