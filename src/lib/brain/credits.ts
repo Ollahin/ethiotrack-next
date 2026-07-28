@@ -1,10 +1,7 @@
 import type { Transaction } from "../types";
 
 /** Open (unsettled) credits for an agent, oldest first. */
-export function openCreditsFor(
-  agentId: string,
-  txns: Transaction[],
-): Transaction[] {
+export function openCreditsFor(agentId: string, txns: Transaction[]): Transaction[] {
   return txns
     .filter(
       (t) =>

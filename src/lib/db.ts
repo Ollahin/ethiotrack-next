@@ -49,8 +49,7 @@ class EthioTrackDB extends Dexie {
       banks: "id, name, channel",
       dailyOpenings: "id, date",
       dailyClosings: "id, date, openingId",
-      transactions:
-        "id, date, type, partyId, channel, isSettled, isPersonal, statementImportId",
+      transactions: "id, date, type, partyId, channel, isSettled, isPersonal, statementImportId",
       statementImports: "id, distributorId, importedAt",
       meta: "key",
     });
@@ -62,8 +61,7 @@ class EthioTrackDB extends Dexie {
       dailyClosings: "id, date, openingId",
       periodOpenings: "id, weekStart",
       periodClosings: "id, weekStart, openingId",
-      transactions:
-        "id, date, type, partyId, channel, isSettled, isPersonal, statementImportId",
+      transactions: "id, date, type, partyId, channel, isSettled, isPersonal, statementImportId",
       statementImports: "id, distributorId, importedAt",
       meta: "key",
     });
@@ -77,8 +75,7 @@ class EthioTrackDB extends Dexie {
         dailyClosings: "id, date, openingId",
         periodOpenings: "id, weekStart",
         periodClosings: "id, weekStart, openingId",
-        transactions:
-          "id, date, type, partyId, channel, isSettled, isPersonal, statementImportId",
+        transactions: "id, date, type, partyId, channel, isSettled, isPersonal, statementImportId",
         statementImports: "id, distributorId, importedAt",
         meta: "key",
       })
@@ -104,8 +101,7 @@ class EthioTrackDB extends Dexie {
         dailyClosings: "id, date, openingId",
         periodOpenings: "id, weekStart",
         periodClosings: "id, weekStart, openingId",
-        transactions:
-          "id, date, type, partyId, channel, isSettled, isPersonal, statementImportId",
+        transactions: "id, date, type, partyId, channel, isSettled, isPersonal, statementImportId",
         statementImports: "id, distributorId, importedAt",
         meta: "key",
       })
@@ -131,9 +127,7 @@ function splitEvenly(total: number, ids: string[]): Record<string, number> {
   if (!ids.length || total <= 0) return Object.fromEntries(ids.map((id) => [id, 0]));
   const share = Math.floor(total / ids.length);
   const remainder = total - share * ids.length;
-  return Object.fromEntries(
-    ids.map((id, i) => [id, share + (i === 0 ? remainder : 0)]),
-  );
+  return Object.fromEntries(ids.map((id, i) => [id, share + (i === 0 ? remainder : 0)]));
 }
 
 /** Fill in per-bank & per-distributor maps from legacy aggregate totals. Mutates rec. Returns true if changed. */
@@ -218,11 +212,7 @@ export function useTransactions(): Transaction[] {
   return (
     useLiveQuery(async () => {
       const cutoff = activeCutoffISO();
-      const all = await db()
-        .transactions
-        .where("date")
-        .aboveOrEqual(cutoff)
-        .toArray();
+      const all = await db().transactions.where("date").aboveOrEqual(cutoff).toArray();
       all.sort((a, b) => (a.date < b.date ? 1 : -1));
       return all;
     }, []) ?? []
@@ -256,8 +246,7 @@ export function useArchivedTransactions(): Transaction[] {
       const active = activeCutoffISO();
       const retention = retentionCutoffISO();
       const rows = await db()
-        .transactions
-        .where("date")
+        .transactions.where("date")
         .between(retention, active, true, false)
         .toArray();
       rows.sort((a, b) => (a.date < b.date ? 1 : -1));
@@ -271,11 +260,7 @@ export function useArchivedCount(): number {
     useLiveQuery(async () => {
       const active = activeCutoffISO();
       const retention = retentionCutoffISO();
-      return db()
-        .transactions
-        .where("date")
-        .between(retention, active, true, false)
-        .count();
+      return db().transactions.where("date").between(retention, active, true, false).count();
     }, []) ?? 0
   );
 }
@@ -288,10 +273,7 @@ export async function purgeExpiredRecords(): Promise<{
   const cutoff = retentionCutoffISO();
   const d = db();
   const txDeleted = await d.transactions.where("date").below(cutoff).delete();
-  const impDeleted = await d.statementImports
-    .where("importedAt")
-    .below(cutoff)
-    .delete();
+  const impDeleted = await d.statementImports.where("importedAt").below(cutoff).delete();
   return { transactions: txDeleted, statementImports: impDeleted };
 }
 
@@ -300,9 +282,7 @@ export function useAgents(): Agent[] {
 }
 
 export function useDistributors(): Distributor[] {
-  return (
-    useLiveQuery(() => db().distributors.orderBy("name").toArray(), []) ?? []
-  );
+  return useLiveQuery(() => db().distributors.orderBy("name").toArray(), []) ?? [];
 }
 
 export function useBanks(): Bank[] {
@@ -311,25 +291,16 @@ export function useBanks(): Bank[] {
 
 export function useStatementImports(): StatementImport[] {
   return (
-    useLiveQuery(
-      () => db().statementImports.orderBy("importedAt").reverse().toArray(),
-      [],
-    ) ?? []
+    useLiveQuery(() => db().statementImports.orderBy("importedAt").reverse().toArray(), []) ?? []
   );
 }
 
 export function useDailyOpening(date: string): DailyOpening | undefined {
-  return useLiveQuery(
-    () => db().dailyOpenings.where("date").equals(date).first(),
-    [date],
-  );
+  return useLiveQuery(() => db().dailyOpenings.where("date").equals(date).first(), [date]);
 }
 
 export function useDailyClosing(date: string): DailyClosing | undefined {
-  return useLiveQuery(
-    () => db().dailyClosings.where("date").equals(date).first(),
-    [date],
-  );
+  return useLiveQuery(() => db().dailyClosings.where("date").equals(date).first(), [date]);
 }
 
 // -- weekly periods ----------------------------------------------------------
@@ -374,8 +345,7 @@ export function usePreviousPeriodExpected(weekStart: string):
   | undefined {
   return useLiveQuery(async () => {
     const prev = await db()
-      .periodOpenings
-      .where("weekStart")
+      .periodOpenings.where("weekStart")
       .below(weekStart)
       .reverse()
       .sortBy("weekStart");
@@ -385,8 +355,7 @@ export function usePreviousPeriodExpected(weekStart: string):
     const prevWeekEnd = getWeekEnd(prevWeekStart);
     // include everything strictly before the new weekStart
     const txns = await db()
-      .transactions
-      .where("date")
+      .transactions.where("date")
       .between(prevWeekStart, weekStart, true, false)
       .toArray();
     let cash = prevRec.cashOnHandSantim;
@@ -426,12 +395,7 @@ export function usePeriodClosing(weekStart: string): PeriodClosing | undefined |
 }
 
 export function useAllPeriodClosings(): PeriodClosing[] {
-  return (
-    useLiveQuery(
-      () => db().periodClosings.orderBy("weekStart").reverse().toArray(),
-      [],
-    ) ?? []
-  );
+  return useLiveQuery(() => db().periodClosings.orderBy("weekStart").reverse().toArray(), []) ?? [];
 }
 
 export async function openPeriod(
@@ -481,7 +445,11 @@ export async function addTransactionsBulk(
   inserted: number;
   skipped: number;
   ids: string[];
-  skippedRows: Array<{ index: number; input: Omit<Transaction, "id" | "createdAt">; reason: "reference" | "heuristic" }>;
+  skippedRows: Array<{
+    index: number;
+    input: Omit<Transaction, "id" | "createdAt">;
+    reason: "reference" | "heuristic";
+  }>;
 }> {
   const existing = await db().transactions.toArray();
   const seen = new Map<string, number[]>();
@@ -496,7 +464,11 @@ export async function addTransactionsBulk(
     }
   }
   const inserted: Transaction[] = [];
-  const skippedRows: Array<{ index: number; input: Omit<Transaction, "id" | "createdAt">; reason: "reference" | "heuristic" }> = [];
+  const skippedRows: Array<{
+    index: number;
+    input: Omit<Transaction, "id" | "createdAt">;
+    reason: "reference" | "heuristic";
+  }> = [];
   let skipped = 0;
   for (let i = 0; i < inputs.length; i++) {
     const input = inputs[i];
@@ -522,9 +494,7 @@ export async function addTransactionsBulk(
     }
     const k = duplicateKey(input);
     const ts = new Date(input.date).getTime();
-    const near = (seen.get(k) ?? []).some(
-      (p) => Math.abs(p - ts) <= DUPLICATE_WINDOW_MS,
-    );
+    const near = (seen.get(k) ?? []).some((p) => Math.abs(p - ts) <= DUPLICATE_WINDOW_MS);
     if (near) {
       skipped++;
       skippedRows.push({ index: i, input, reason: "heuristic" });
@@ -571,20 +541,28 @@ export async function forceInsertTransactions(
 
 // -- master data -------------------------------------------------------------
 
-export async function upsertAgent(a: Omit<Agent, "id" | "createdAt"> & { id?: string }): Promise<Agent> {
+export async function upsertAgent(
+  a: Omit<Agent, "id" | "createdAt"> & { id?: string },
+): Promise<Agent> {
   const rec: Agent = {
     id: a.id ?? makeId(),
     name: a.name.trim(),
     phone: a.phone?.trim() || undefined,
     creditLimitSantim: a.creditLimitSantim,
-    createdAt: a.id ? (await db().agents.get(a.id))?.createdAt ?? new Date().toISOString() : new Date().toISOString(),
+    createdAt: a.id
+      ? ((await db().agents.get(a.id))?.createdAt ?? new Date().toISOString())
+      : new Date().toISOString(),
   };
   await db().agents.put(rec);
   return rec;
 }
-export async function deleteAgent(id: string) { await db().agents.delete(id); }
+export async function deleteAgent(id: string) {
+  await db().agents.delete(id);
+}
 
-export async function upsertDistributor(a: Omit<Distributor, "id" | "createdAt"> & { id?: string }): Promise<Distributor> {
+export async function upsertDistributor(
+  a: Omit<Distributor, "id" | "createdAt"> & { id?: string },
+): Promise<Distributor> {
   const rec: Distributor = {
     id: a.id ?? makeId(),
     name: a.name.trim(),
@@ -592,26 +570,36 @@ export async function upsertDistributor(a: Omit<Distributor, "id" | "createdAt">
     statementFormat: a.statementFormat,
     telecoms: a.telecoms && a.telecoms.length ? a.telecoms : ["ethiotelecom", "safaricom"],
     forms: a.forms && a.forms.length ? a.forms : ["evd", "float"],
-    createdAt: a.id ? (await db().distributors.get(a.id))?.createdAt ?? new Date().toISOString() : new Date().toISOString(),
+    createdAt: a.id
+      ? ((await db().distributors.get(a.id))?.createdAt ?? new Date().toISOString())
+      : new Date().toISOString(),
   };
   await db().distributors.put(rec);
   return rec;
 }
-export async function deleteDistributor(id: string) { await db().distributors.delete(id); }
+export async function deleteDistributor(id: string) {
+  await db().distributors.delete(id);
+}
 
-export async function upsertBank(a: Omit<Bank, "id" | "createdAt"> & { id?: string }): Promise<Bank> {
+export async function upsertBank(
+  a: Omit<Bank, "id" | "createdAt"> & { id?: string },
+): Promise<Bank> {
   const rec: Bank = {
     id: a.id ?? makeId(),
     name: a.name.trim(),
     accountNumber: a.accountNumber?.trim() || undefined,
     channel: a.channel,
     openingBalanceSantim: a.openingBalanceSantim ?? 0,
-    createdAt: a.id ? (await db().banks.get(a.id))?.createdAt ?? new Date().toISOString() : new Date().toISOString(),
+    createdAt: a.id
+      ? ((await db().banks.get(a.id))?.createdAt ?? new Date().toISOString())
+      : new Date().toISOString(),
   };
   await db().banks.put(rec);
   return rec;
 }
-export async function deleteBank(id: string) { await db().banks.delete(id); }
+export async function deleteBank(id: string) {
+  await db().banks.delete(id);
+}
 
 // -- day open / close --------------------------------------------------------
 
@@ -621,7 +609,9 @@ export async function openDay(input: Omit<DailyOpening, "id" | "openedAt">): Pro
   return rec;
 }
 
-export async function closeDay(input: Omit<DailyClosing, "id" | "closedAt">): Promise<DailyClosing> {
+export async function closeDay(
+  input: Omit<DailyClosing, "id" | "closedAt">,
+): Promise<DailyClosing> {
   const rec: DailyClosing = { ...input, id: makeId(), closedAt: new Date().toISOString() };
   await db().dailyClosings.put(rec);
   return rec;
@@ -669,54 +659,100 @@ export interface Backup {
 
 export async function exportBackup(): Promise<Backup> {
   const d = db();
-  const [agents, distributors, banks, dailyOpenings, dailyClosings, periodOpenings, periodClosings, transactions, statementImports] =
-    await Promise.all([
-      d.agents.toArray(),
-      d.distributors.toArray(),
-      d.banks.toArray(),
-      d.dailyOpenings.toArray(),
-      d.dailyClosings.toArray(),
-      d.periodOpenings.toArray(),
-      d.periodClosings.toArray(),
-      d.transactions.toArray(),
-      d.statementImports.toArray(),
-    ]);
+  const [
+    agents,
+    distributors,
+    banks,
+    dailyOpenings,
+    dailyClosings,
+    periodOpenings,
+    periodClosings,
+    transactions,
+    statementImports,
+  ] = await Promise.all([
+    d.agents.toArray(),
+    d.distributors.toArray(),
+    d.banks.toArray(),
+    d.dailyOpenings.toArray(),
+    d.dailyClosings.toArray(),
+    d.periodOpenings.toArray(),
+    d.periodClosings.toArray(),
+    d.transactions.toArray(),
+    d.statementImports.toArray(),
+  ]);
   return {
     version: 2,
     exportedAt: new Date().toISOString(),
-    agents, distributors, banks, dailyOpenings, dailyClosings, periodOpenings, periodClosings, transactions, statementImports,
+    agents,
+    distributors,
+    banks,
+    dailyOpenings,
+    dailyClosings,
+    periodOpenings,
+    periodClosings,
+    transactions,
+    statementImports,
   };
 }
 
 export async function importBackup(b: Backup): Promise<void> {
   const d = db();
-  await d.transaction("rw", [d.agents, d.distributors, d.banks, d.dailyOpenings, d.dailyClosings, d.periodOpenings, d.periodClosings, d.transactions, d.statementImports], async () => {
-    if (b.agents) await d.agents.bulkPut(b.agents);
-    if (b.distributors) await d.distributors.bulkPut(b.distributors);
-    if (b.banks) await d.banks.bulkPut(b.banks);
-    if (b.dailyOpenings) await d.dailyOpenings.bulkPut(b.dailyOpenings);
-    if (b.dailyClosings) await d.dailyClosings.bulkPut(b.dailyClosings);
-    if (b.periodOpenings) await d.periodOpenings.bulkPut(b.periodOpenings);
-    if (b.periodClosings) await d.periodClosings.bulkPut(b.periodClosings);
-    if (b.transactions) await d.transactions.bulkPut(b.transactions);
-    if (b.statementImports) await d.statementImports.bulkPut(b.statementImports);
-  });
+  await d.transaction(
+    "rw",
+    [
+      d.agents,
+      d.distributors,
+      d.banks,
+      d.dailyOpenings,
+      d.dailyClosings,
+      d.periodOpenings,
+      d.periodClosings,
+      d.transactions,
+      d.statementImports,
+    ],
+    async () => {
+      if (b.agents) await d.agents.bulkPut(b.agents);
+      if (b.distributors) await d.distributors.bulkPut(b.distributors);
+      if (b.banks) await d.banks.bulkPut(b.banks);
+      if (b.dailyOpenings) await d.dailyOpenings.bulkPut(b.dailyOpenings);
+      if (b.dailyClosings) await d.dailyClosings.bulkPut(b.dailyClosings);
+      if (b.periodOpenings) await d.periodOpenings.bulkPut(b.periodOpenings);
+      if (b.periodClosings) await d.periodClosings.bulkPut(b.periodClosings);
+      if (b.transactions) await d.transactions.bulkPut(b.transactions);
+      if (b.statementImports) await d.statementImports.bulkPut(b.statementImports);
+    },
+  );
 }
 
 export async function clearAll(): Promise<void> {
   const d = db();
-  await d.transaction("rw", [d.agents, d.distributors, d.banks, d.dailyOpenings, d.dailyClosings, d.periodOpenings, d.periodClosings, d.transactions, d.statementImports, d.meta], async () => {
-    await Promise.all([
-      d.agents.clear(),
-      d.distributors.clear(),
-      d.banks.clear(),
-      d.dailyOpenings.clear(),
-      d.dailyClosings.clear(),
-      d.periodOpenings.clear(),
-      d.periodClosings.clear(),
-      d.transactions.clear(),
-      d.statementImports.clear(),
-      // keep meta so PIN stays; caller decides
-    ]);
-  });
+  await d.transaction(
+    "rw",
+    [
+      d.agents,
+      d.distributors,
+      d.banks,
+      d.dailyOpenings,
+      d.dailyClosings,
+      d.periodOpenings,
+      d.periodClosings,
+      d.transactions,
+      d.statementImports,
+      d.meta,
+    ],
+    async () => {
+      await Promise.all([
+        d.agents.clear(),
+        d.distributors.clear(),
+        d.banks.clear(),
+        d.dailyOpenings.clear(),
+        d.dailyClosings.clear(),
+        d.periodOpenings.clear(),
+        d.periodClosings.clear(),
+        d.transactions.clear(),
+        d.statementImports.clear(),
+        // keep meta so PIN stays; caller decides
+      ]);
+    },
+  );
 }

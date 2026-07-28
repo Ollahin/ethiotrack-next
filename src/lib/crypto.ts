@@ -25,7 +25,10 @@ const MAX_LOCK_MS = 15 * 60 * 1000;
 
 export type PinKind = "user" | "master";
 
-interface LockoutEntry { failures: number; lockedUntil: number }
+interface LockoutEntry {
+  failures: number;
+  lockedUntil: number;
+}
 type LockoutMap = Partial<Record<PinKind, LockoutEntry>>;
 
 const lockoutListeners = new Set<() => void>();
@@ -33,7 +36,9 @@ export function subscribeLockout(l: () => void) {
   lockoutListeners.add(l);
   return () => lockoutListeners.delete(l);
 }
-function emitLockout() { for (const l of lockoutListeners) l(); }
+function emitLockout() {
+  for (const l of lockoutListeners) l();
+}
 
 async function readLockouts(): Promise<LockoutMap> {
   return (await metaGet<LockoutMap>(LOCKOUT_META_KEY)) ?? {};
@@ -87,7 +92,10 @@ async function recordFailure(kind: PinKind) {
 
 async function clearFailures(kind: PinKind) {
   const map = await readLockouts();
-  if (map[kind]) { delete map[kind]; await writeLockouts(map); }
+  if (map[kind]) {
+    delete map[kind];
+    await writeLockouts(map);
+  }
 }
 
 // One "month" of access granted per master-PIN renewal.
@@ -120,25 +128,33 @@ function fromB64(s: string): Uint8Array {
 
 async function deriveKey(pin: string, salt: Uint8Array, iterations: number) {
   const enc = new TextEncoder();
-  const baseKey = await crypto.subtle.importKey(
-    "raw", enc.encode(pin), { name: "PBKDF2" }, false, ["deriveBits"],
-  );
+  const baseKey = await crypto.subtle.importKey("raw", enc.encode(pin), { name: "PBKDF2" }, false, [
+    "deriveBits",
+  ]);
   return crypto.subtle.deriveBits(
     { name: "PBKDF2", salt: salt as BufferSource, iterations, hash: "SHA-256" },
-    baseKey, 256,
+    baseKey,
+    256,
   );
 }
 
 let _unlocked = false;
 let listeners = new Set<() => void>();
-function emit() { for (const l of listeners) l(); }
+function emit() {
+  for (const l of listeners) l();
+}
 
 export function subscribeUnlock(l: () => void) {
   listeners.add(l);
   return () => listeners.delete(l);
 }
-export function isUnlocked() { return _unlocked; }
-export function lock() { _unlocked = false; emit(); }
+export function isUnlocked() {
+  return _unlocked;
+}
+export function lock() {
+  _unlocked = false;
+  emit();
+}
 
 /** Mark the app as unlocked without a PIN (e.g. after biometric assertion). */
 export function markUnlocked() {
@@ -179,8 +195,13 @@ export async function verifyPin(pin: string): Promise<boolean> {
     for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
     good = diff === 0;
   }
-  if (good) { _unlocked = true; emit(); await clearFailures("user"); }
-  else { await recordFailure("user"); }
+  if (good) {
+    _unlocked = true;
+    emit();
+    await clearFailures("user");
+  } else {
+    await recordFailure("user");
+  }
   return good;
 }
 

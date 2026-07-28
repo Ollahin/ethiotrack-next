@@ -28,10 +28,7 @@ function paymentDaysFor(agentId: string, txns: Transaction[]): number[] {
     const settledAt = c.settledAt ?? c.date;
     return Math.max(
       0,
-      Math.round(
-        (new Date(settledAt).getTime() - new Date(c.date).getTime()) /
-          86_400_000,
-      ),
+      Math.round((new Date(settledAt).getTime() - new Date(c.date).getTime()) / 86_400_000),
     );
   });
 }
@@ -43,17 +40,15 @@ function mean(xs: number[]): number | null {
 function stddev(xs: number[]): number | null {
   if (xs.length < 2) return null;
   const m = mean(xs)!;
-  return Math.sqrt(
-    xs.reduce((s, x) => s + (x - m) * (x - m), 0) / (xs.length - 1),
-  );
+  return Math.sqrt(xs.reduce((s, x) => s + (x - m) * (x - m), 0) / (xs.length - 1));
 }
 
-export function computeAgentStats(
-  agent: Agent,
-  txns: Transaction[],
-): AgentStats {
+export function computeAgentStats(agent: Agent, txns: Transaction[]): AgentStats {
   const mine = txns.filter((t) => t.partyId === agent.id);
-  let totalOut = 0, totalIn = 0, openCredit = 0, unsettled = 0;
+  let totalOut = 0,
+    totalIn = 0,
+    openCredit = 0,
+    unsettled = 0;
   let last: string | null = null;
   const distributionAmounts: number[] = [];
   for (const t of mine) {
@@ -62,13 +57,15 @@ export function computeAgentStats(
     if (t.type === "airtime_evd" || t.type === "airtime_float") {
       totalOut += t.amountSantim;
       distributionAmounts.push(t.amountSantim);
-      if (!t.isSettled) { openCredit += t.amountSantim; unsettled++; }
+      if (!t.isSettled) {
+        openCredit += t.amountSantim;
+        unsettled++;
+      }
     }
   }
   const payDays = paymentDaysFor(agent.id, txns);
   const openCredits = mine.filter(
-    (t) =>
-      (t.type === "airtime_evd" || t.type === "airtime_float") && !t.isSettled,
+    (t) => (t.type === "airtime_evd" || t.type === "airtime_float") && !t.isSettled,
   );
   const oldest = openCredits.map((t) => new Date(t.date).getTime()).sort((a, b) => a - b)[0];
   const oldestDays = oldest ? Math.round((Date.now() - oldest) / 86_400_000) : null;
