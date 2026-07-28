@@ -497,3 +497,52 @@ files (upper bound; pure layout).
   - Styles + external tests (batch 0.1C-f) — 2 files
   - Ordinary docs (batch 0.1C-g) — up to 4 files (this file re-drifts)
   - No `src/lib` files remain in the drift set.
+
+## Task 0.1C-d — Feature component formatting
+
+### Files formatted (exactly 12)
+
+```
+src/components/AppShell.tsx
+src/components/DashboardTiles.tsx
+src/components/GlobalSearch.tsx
+src/components/LicenseExpiryBanner.tsx
+src/components/LicenseStatus.tsx
+src/components/LockGate.tsx
+src/components/OpenDayModal.tsx
+src/components/OpenPeriodModal.tsx
+src/components/PasteImport.tsx
+src/components/StatementImport.tsx
+src/components/TransactionForm.tsx
+src/components/WeekBreakdown.tsx
+```
+
+None overlap with earlier batches. `src/components/ui/**` was not touched
+(no drift there).
+
+### Diff nature
+
+Formatter-only: whitespace, indentation, JSX attribute wrapping, quote
+style, trailing commas, semicolons, formatter-added parentheses. Total file
+size grew from 2,659 → 3,094 lines (+435 net) — well under the 1,000-line
+safety limit for churn. No component props, defaults, hooks, dependency
+arrays, event handlers, className values, displayed strings, accessibility
+attributes, conditional rendering, form behavior, parser calls, or import
+graph changed.
+
+### Command results
+
+- `bun run typecheck` — **pass**
+- `bun run test` — **pass** (2 files, 35 tests)
+- `bun run build` — **pass**
+- `bun run lint` — **fail** (expected; routes/styles/docs remain)
+- `bun run format:check` — **fail** (expected)
+
+### Remaining drift
+
+- Count: **22 files** (down from 34).
+- Buckets remaining:
+  - Routes (batch 0.1C-e) — 14 files (`src/routes/*.tsx` + `src/routes/README.md`)
+  - Styles + external tests (batch 0.1C-f) — 2 files (`src/styles.css`, `tests/visual/README.md`)
+  - Ordinary docs (batch 0.1C-g) — up to 4 files (this file will re-drift on append)
+  - No `src/components` files remain in the drift set.

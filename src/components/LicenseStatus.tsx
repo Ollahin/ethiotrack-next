@@ -6,8 +6,11 @@ type Variant = "dark" | "card";
 
 function fmtDate(ts: number) {
   return new Date(ts).toLocaleString(undefined, {
-    year: "numeric", month: "short", day: "numeric",
-    hour: "2-digit", minute: "2-digit",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
@@ -34,9 +37,14 @@ export function LicenseStatus({
 
   useEffect(() => {
     refresh();
-    const off = subscribeUnlock(() => { refresh(); });
+    const off = subscribeUnlock(() => {
+      refresh();
+    });
     const t = setInterval(() => setNow(Date.now()), 60_000);
-    return () => { off(); clearInterval(t); };
+    return () => {
+      off();
+      clearInterval(t);
+    };
   }, []);
 
   if (lic === undefined) return null;
@@ -72,15 +80,28 @@ export function LicenseStatus({
   const remainingMs = lic.expiresAt - now;
   const active = remainingMs > 0;
   const days = daysBetween(Math.abs(remainingMs));
-  const pct = active
-    ? Math.max(0, Math.min(100, (remainingMs / LICENSE_PERIOD_MS) * 100))
-    : 0;
+  const pct = active ? Math.max(0, Math.min(100, (remainingMs / LICENSE_PERIOD_MS) * 100)) : 0;
 
   const tone = !active
-    ? { icon: <ShieldAlert className="h-4 w-4 text-red-500" />, label: "Expired", chip: "bg-red-500/15 text-red-400", bar: "bg-red-500" }
+    ? {
+        icon: <ShieldAlert className="h-4 w-4 text-red-500" />,
+        label: "Expired",
+        chip: "bg-red-500/15 text-red-400",
+        bar: "bg-red-500",
+      }
     : days <= 5
-      ? { icon: <Timer className="h-4 w-4 text-amber-500" />, label: "Expiring soon", chip: "bg-amber-500/15 text-amber-400", bar: "bg-amber-500" }
-      : { icon: <ShieldCheck className="h-4 w-4 text-emerald-500" />, label: "Active", chip: "bg-emerald-500/15 text-emerald-400", bar: "bg-emerald-500" };
+      ? {
+          icon: <Timer className="h-4 w-4 text-amber-500" />,
+          label: "Expiring soon",
+          chip: "bg-amber-500/15 text-amber-400",
+          bar: "bg-amber-500",
+        }
+      : {
+          icon: <ShieldCheck className="h-4 w-4 text-emerald-500" />,
+          label: "Active",
+          chip: "bg-emerald-500/15 text-emerald-400",
+          bar: "bg-emerald-500",
+        };
 
   return (
     <div className={wrap}>
@@ -89,7 +110,9 @@ export function LicenseStatus({
           {tone.icon}
           <span>License status</span>
         </div>
-        <span className={`text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${tone.chip}`}>
+        <span
+          className={`text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${tone.chip}`}
+        >
           {tone.label}
         </span>
       </div>
@@ -100,7 +123,10 @@ export function LicenseStatus({
             {active ? "Days remaining" : "Expired for"}
           </div>
           <div className="text-xl font-bold tabular-nums">
-            {days}<span className={`ml-1 text-xs font-medium ${subText}`}>day{days === 1 ? "" : "s"}</span>
+            {days}
+            <span className={`ml-1 text-xs font-medium ${subText}`}>
+              day{days === 1 ? "" : "s"}
+            </span>
           </div>
         </div>
         <div className="text-right">
@@ -111,13 +137,17 @@ export function LicenseStatus({
         </div>
       </div>
 
-      <div className={`mt-3 h-1.5 w-full rounded-full overflow-hidden ${dark ? "bg-white/10" : "bg-muted"}`}>
+      <div
+        className={`mt-3 h-1.5 w-full rounded-full overflow-hidden ${dark ? "bg-white/10" : "bg-muted"}`}
+      >
         <div className={`h-full ${tone.bar} transition-all`} style={{ width: `${pct}%` }} />
       </div>
 
       <div className={`mt-3 flex items-center justify-between text-[11px] ${subText}`}>
         <span>Activated {fmtDate(lic.activatedAt)}</span>
-        <span>{lic.renewals} renewal{lic.renewals === 1 ? "" : "s"}</span>
+        <span>
+          {lic.renewals} renewal{lic.renewals === 1 ? "" : "s"}
+        </span>
       </div>
     </div>
   );

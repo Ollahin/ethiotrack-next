@@ -30,7 +30,11 @@ export function LicenseExpiryBanner({
     refresh();
     const off = subscribeUnlock(refresh);
     const t = setInterval(() => setNow(Date.now()), 60_000);
-    return () => { alive = false; off(); clearInterval(t); };
+    return () => {
+      alive = false;
+      off();
+      clearInterval(t);
+    };
   }, []);
 
   if (!lic) return null;
@@ -40,12 +44,12 @@ export function LicenseExpiryBanner({
 
   const dark = variant === "dark";
   const wrap = expired
-    ? (dark
-        ? "border-red-400/30 bg-red-500/15 text-red-100"
-        : "border-red-300 bg-red-50 text-red-900")
-    : (dark
-        ? "border-amber-400/30 bg-amber-500/15 text-amber-100"
-        : "border-amber-300 bg-amber-50 text-amber-900");
+    ? dark
+      ? "border-red-400/30 bg-red-500/15 text-red-100"
+      : "border-red-300 bg-red-50 text-red-900"
+    : dark
+      ? "border-amber-400/30 bg-amber-500/15 text-amber-100"
+      : "border-amber-300 bg-amber-50 text-amber-900";
 
   const message = expired
     ? "Your license has expired. Enter the master PIN to renew for 30 days."
@@ -57,9 +61,7 @@ export function LicenseExpiryBanner({
     <div className={`flex items-start gap-3 rounded-xl border p-3 text-sm ${wrap}`} role="status">
       <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
       <div className="flex-1">
-        <div className="font-semibold">
-          {expired ? "License expired" : "License expiring soon"}
-        </div>
+        <div className="font-semibold">{expired ? "License expired" : "License expiring soon"}</div>
         <div className="text-xs opacity-90 mt-0.5">{message}</div>
       </div>
       {showAction && (

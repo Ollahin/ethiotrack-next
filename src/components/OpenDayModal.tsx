@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,7 +46,9 @@ export function OpenDayModal({
       });
       toast.success("Day opened");
       onOpened();
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -55,7 +63,12 @@ export function OpenDayModal({
         <div className="space-y-3">
           <div>
             <Label>Cash on hand (ETB)</Label>
-            <Input inputMode="decimal" value={cash} onChange={(e) => setCash(e.target.value)} placeholder="0.00" />
+            <Input
+              inputMode="decimal"
+              value={cash}
+              onChange={(e) => setCash(e.target.value)}
+              placeholder="0.00"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

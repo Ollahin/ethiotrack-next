@@ -18,7 +18,12 @@ import {
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { lock } from "@/lib/crypto";
-import { ensurePeriodOpeningsMigrated, purgeExpiredRecords, useBanks, useDistributors } from "@/lib/db";
+import {
+  ensurePeriodOpeningsMigrated,
+  purgeExpiredRecords,
+  useBanks,
+  useDistributors,
+} from "@/lib/db";
 import { GlobalSearchHotkey, GlobalSearchIconButton } from "@/components/GlobalSearch";
 import { firstName, useUserName } from "@/lib/user";
 import {
@@ -62,7 +67,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const userName = useUserName();
   const first = firstName(userName);
-  useEffect(() => { setMoreOpen(false); }, [pathname]);
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
   // Backfill legacy period openings whenever banks/distributors change,
   // so aggregate stock totals get split across current distributors
   // and zero rows appear for newly-added accounts.
@@ -114,7 +121,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </nav>
         <button
-          onClick={() => { lock(); location.href = "/unlock"; }}
+          onClick={() => {
+            lock();
+            location.href = "/unlock";
+          }}
           className="mx-3 mb-3 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-muted-foreground hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Lock className="h-3.5 w-3.5" /> Lock
@@ -138,8 +148,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {first ? `Welcome back, ${first}` : "Welcome back,"}
               </div>
               <div className="text-base font-semibold tracking-tight leading-tight text-foreground">
-              Ethio<span className="text-primary">Track</span>
-            </div>
+                Ethio<span className="text-primary">Track</span>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -157,9 +167,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <main className="flex-1 pb-36 md:pb-8 fade-rise">{children}</main>
 
         {/* Mobile bottom tabs */}
-        <nav
-          className="md:hidden fixed bottom-3 inset-x-3 z-30 rounded-2xl border border-border/60 bg-card/90 backdrop-blur-md shadow-[0_10px_30px_-15px_rgba(0,0,0,0.6)] grid grid-cols-5"
-        >
+        <nav className="md:hidden fixed bottom-3 inset-x-3 z-30 rounded-2xl border border-border/60 bg-card/90 backdrop-blur-md shadow-[0_10px_30px_-15px_rgba(0,0,0,0.6)] grid grid-cols-5">
           {TABS.map((t) => {
             const active = pathname === t.to;
             const Icon = t.icon;
@@ -211,7 +219,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {/* Mobile "More" sheet — mirrors every desktop side-rail entry */}
         <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
-          <SheetContent side="bottom" className="md:hidden rounded-t-2xl border-border/60 bg-card/95 backdrop-blur-md">
+          <SheetContent
+            side="bottom"
+            className="md:hidden rounded-t-2xl border-border/60 bg-card/95 backdrop-blur-md"
+          >
             <SheetHeader className="text-left">
               <SheetTitle>All sections</SheetTitle>
               <SheetDescription>Everything from the desktop side rail.</SheetDescription>
@@ -239,7 +250,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               })}
             </div>
             <button
-              onClick={() => { lock(); location.href = "/unlock"; }}
+              onClick={() => {
+                lock();
+                location.href = "/unlock";
+              }}
               className="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border/60 bg-background/40 px-3 py-3 text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Lock className="h-4 w-4" /> Lock app

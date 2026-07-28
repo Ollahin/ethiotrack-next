@@ -47,7 +47,12 @@ const PAGES: {
   { to: "/close", label: "Close week", hint: "End-of-week reconciliation", icon: CalendarCheck },
   { to: "/reports", label: "Reports", hint: "Export & analytics", icon: FileText },
   { to: "/account", label: "Account", hint: "Name, license, PIN, master PIN", icon: SettingsIcon },
-  { to: "/exports", label: "Exports & backups", hint: "JSON / CSV download and restore", icon: SettingsIcon },
+  {
+    to: "/exports",
+    label: "Exports & backups",
+    hint: "JSON / CSV download and restore",
+    icon: SettingsIcon,
+  },
   { to: "/settings", label: "Settings", hint: "Account & exports hub", icon: SettingsIcon },
 ];
 
@@ -182,9 +187,7 @@ function GlobalSearchDialog({
               onSelect={() => go("/history", { q: query, archive: false })}
             >
               <Search className="mr-2 h-4 w-4" />
-              <span>
-                Search “{query}” in active history
-              </span>
+              <span>Search “{query}” in active history</span>
             </CommandItem>
             <CommandItem
               value={`search-archive-${q}`}
@@ -198,11 +201,7 @@ function GlobalSearchDialog({
 
         <CommandGroup heading="Pages">
           {PAGES.map((p) => (
-            <CommandItem
-              key={p.to}
-              value={`page ${p.label} ${p.hint}`}
-              onSelect={() => go(p.to)}
-            >
+            <CommandItem key={p.to} value={`page ${p.label} ${p.hint}`} onSelect={() => go(p.to)}>
               <p.icon className="mr-2 h-4 w-4" />
               <span className="flex-1">{p.label}</span>
               <span className="text-[11px] text-muted-foreground">{p.hint}</span>

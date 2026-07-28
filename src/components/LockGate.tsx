@@ -14,7 +14,9 @@ export function LockGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsub = subscribeUnlock(() => force((n) => n + 1));
-    return () => { unsub(); };
+    return () => {
+      unsub();
+    };
   }, []);
 
   useEffect(() => {
@@ -28,7 +30,9 @@ export function LockGate({ children }: { children: ReactNode }) {
       }
       setChecked(true);
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [pathname, nav]);
 
   if (!checked && pathname !== "/unlock") return null;

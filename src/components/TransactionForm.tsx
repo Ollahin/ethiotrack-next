@@ -4,11 +4,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { addTransaction, useAgents, useBanks, useDistributors } from "@/lib/db";
 import { parseEtbToSantim } from "@/lib/format";
-import { CHANNELS, TELECOM_LABEL, TYPE_LABEL, type PartyType, type Telecom, type TxnType } from "@/lib/types";
+import {
+  CHANNELS,
+  TELECOM_LABEL,
+  TYPE_LABEL,
+  type PartyType,
+  type Telecom,
+  type TxnType,
+} from "@/lib/types";
 import { toast } from "sonner";
 
 const TYPES: TxnType[] = ["in", "out", "airtime_evd", "airtime_float", "expense", "personal"];
@@ -31,10 +42,13 @@ export function TransactionForm() {
   const [showAllDistributors, setShowAllDistributors] = useState(false);
 
   const partyOptions =
-    partyType === "agent" ? agents.map((a) => ({ id: a.id, name: a.name }))
-    : partyType === "distributor" ? distributors.map((d) => ({ id: d.id, name: d.name }))
-    : partyType === "bank" ? banks.map((b) => ({ id: b.id, name: b.name }))
-    : [];
+    partyType === "agent"
+      ? agents.map((a) => ({ id: a.id, name: a.name }))
+      : partyType === "distributor"
+        ? distributors.map((d) => ({ id: d.id, name: d.name }))
+        : partyType === "bank"
+          ? banks.map((b) => ({ id: b.id, name: b.name }))
+          : [];
 
   const isAirtime = type === "airtime_evd" || type === "airtime_float";
   const isMoney = type === "in" || type === "out" || type === "expense" || type === "personal";
@@ -53,9 +67,7 @@ export function TransactionForm() {
     : distributors;
   const eligibleDistributors =
     airtimeForm && showAllDistributors ? distributors : filteredDistributors;
-  const hiddenCount = airtimeForm
-    ? distributors.length - filteredDistributors.length
-    : 0;
+  const hiddenCount = airtimeForm ? distributors.length - filteredDistributors.length : 0;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -83,7 +95,11 @@ export function TransactionForm() {
       source: "manual",
     });
     toast.success("Saved");
-    setAmount(""); setReference(""); setNote(""); setPartyName(""); setPartyId("");
+    setAmount("");
+    setReference("");
+    setNote("");
+    setPartyName("");
+    setPartyId("");
   }
 
   function onBankChange(id: string) {
@@ -93,26 +109,48 @@ export function TransactionForm() {
   }
 
   return (
-    <form onSubmit={submit} className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-3">
+    <form
+      onSubmit={submit}
+      className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-3"
+    >
       <div className="font-semibold">Manual entry</div>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label>Type</Label>
           <Select value={type} onValueChange={(v) => setType(v as TxnType)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
-              {TYPES.map((t) => <SelectItem key={t} value={t}>{TYPE_LABEL[t]}</SelectItem>)}
+              {TYPES.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {TYPE_LABEL[t]}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
         <div>
           <Label>Amount (ETB)</Label>
-          <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+          <Input
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0.00"
+          />
         </div>
         <div>
           <Label>Party type</Label>
-          <Select value={partyType} onValueChange={(v) => { setPartyType(v as PartyType); setPartyId(""); }}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+          <Select
+            value={partyType}
+            onValueChange={(v) => {
+              setPartyType(v as PartyType);
+              setPartyId("");
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="agent">Agent</SelectItem>
               <SelectItem value="distributor">Distributor</SelectItem>
@@ -125,21 +163,37 @@ export function TransactionForm() {
           <Label>Party</Label>
           {partyOptions.length && partyType !== "other" ? (
             <Select value={partyId} onValueChange={setPartyId}>
-              <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder="Select…" />
+              </SelectTrigger>
               <SelectContent>
-                {partyOptions.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                {partyOptions.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           ) : (
-            <Input value={partyName} onChange={(e) => setPartyName(e.target.value)} placeholder="Name" />
+            <Input
+              value={partyName}
+              onChange={(e) => setPartyName(e.target.value)}
+              placeholder="Name"
+            />
           )}
         </div>
         <div>
           <Label>Channel</Label>
           <Select value={channel} onValueChange={setChannel}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
-              {CHANNELS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              {CHANNELS.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -152,24 +206,42 @@ export function TransactionForm() {
             <Label>Bank / wallet {needsBank && <span className="text-money-out">*</span>}</Label>
             {banks.length ? (
               <Select value={bankId} onValueChange={onBankChange}>
-                <SelectTrigger><SelectValue placeholder={channel === "Cash" ? "None (cash)" : "Select account…"} /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={channel === "Cash" ? "None (cash)" : "Select account…"}
+                  />
+                </SelectTrigger>
                 <SelectContent>
                   {banks.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>{b.name} · {b.channel}</SelectItem>
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.name} · {b.channel}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             ) : (
-              <p className="text-xs text-ink-soft">Add a bank / wallet in Banks to attribute this transaction.</p>
+              <p className="text-xs text-ink-soft">
+                Add a bank / wallet in Banks to attribute this transaction.
+              </p>
             )}
           </div>
         )}
         {isAirtime && (
           <>
             <div className="col-span-2">
-              <Label>Telecom <span className="text-money-out">*</span></Label>
-              <Select value={telecom} onValueChange={(v) => { setTelecom(v as Telecom); setDistributorId(""); }}>
-                <SelectTrigger><SelectValue placeholder="Select telecom…" /></SelectTrigger>
+              <Label>
+                Telecom <span className="text-money-out">*</span>
+              </Label>
+              <Select
+                value={telecom}
+                onValueChange={(v) => {
+                  setTelecom(v as Telecom);
+                  setDistributorId("");
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select telecom…" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ethiotelecom">{TELECOM_LABEL.ethiotelecom}</SelectItem>
                   <SelectItem value="safaricom">{TELECOM_LABEL.safaricom}</SelectItem>
@@ -177,61 +249,69 @@ export function TransactionForm() {
               </Select>
             </div>
             <div className="col-span-2">
-            <Label>Airtime distributor <span className="text-money-out">*</span></Label>
-            <div className="flex flex-wrap items-center gap-1.5 mb-2">
-              <span className="text-[11px] text-ink-soft">Filtering by:</span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-airtime/15 text-airtime px-2 py-0.5 text-[11px] font-semibold uppercase">
-                {airtimeForm === "evd" ? "EVD" : "Float"}
-              </span>
-              {telecom ? (
-                <button
-                  type="button"
-                  onClick={() => { setTelecom(""); setDistributorId(""); }}
-                  className="inline-flex items-center gap-1 rounded-full bg-credit/15 text-credit px-2 py-0.5 text-[11px] font-semibold hover:bg-credit/25"
-                  aria-label="Clear telecom filter"
-                >
-                  {TELECOM_LABEL[telecom]} <span aria-hidden>×</span>
-                </button>
-              ) : (
-                <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] text-ink-soft">
-                  Any telecom
+              <Label>
+                Airtime distributor <span className="text-money-out">*</span>
+              </Label>
+              <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                <span className="text-[11px] text-ink-soft">Filtering by:</span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-airtime/15 text-airtime px-2 py-0.5 text-[11px] font-semibold uppercase">
+                  {airtimeForm === "evd" ? "EVD" : "Float"}
                 </span>
+                {telecom ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTelecom("");
+                      setDistributorId("");
+                    }}
+                    className="inline-flex items-center gap-1 rounded-full bg-credit/15 text-credit px-2 py-0.5 text-[11px] font-semibold hover:bg-credit/25"
+                    aria-label="Clear telecom filter"
+                  >
+                    {TELECOM_LABEL[telecom]} <span aria-hidden>×</span>
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] text-ink-soft">
+                    Any telecom
+                  </span>
+                )}
+                {(hiddenCount > 0 || showAllDistributors) && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllDistributors((v) => !v)}
+                    className="ml-auto text-[11px] font-semibold text-primary hover:underline"
+                  >
+                    {showAllDistributors ? "Apply filter" : `Show all (${distributors.length})`}
+                  </button>
+                )}
+              </div>
+              {eligibleDistributors.length ? (
+                <Select value={distributorId} onValueChange={setDistributorId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select distributor…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {eligibleDistributors.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name}
+                        {d.telecoms?.length
+                          ? ` · ${d.telecoms.map((t) => (t === "ethiotelecom" ? "Ethio" : "Safaricom")).join("/")}`
+                          : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-xs text-ink-soft">
+                  No distributors supply {airtimeForm === "evd" ? "EVD" : "Float"}
+                  {telecom ? ` for ${TELECOM_LABEL[telecom]}` : ""} yet. Add one in Distributors.
+                </p>
               )}
-              {(hiddenCount > 0 || showAllDistributors) && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllDistributors((v) => !v)}
-                  className="ml-auto text-[11px] font-semibold text-primary hover:underline"
-                >
-                  {showAllDistributors
-                    ? "Apply filter"
-                    : `Show all (${distributors.length})`}
-                </button>
+              {showAllDistributors && hiddenCount > 0 && (
+                <p className="text-[11px] text-ink-soft mt-1">
+                  Showing all distributors — {hiddenCount} don't match the current telecom/form
+                  tags.
+                </p>
               )}
-            </div>
-            {eligibleDistributors.length ? (
-              <Select value={distributorId} onValueChange={setDistributorId}>
-                <SelectTrigger><SelectValue placeholder="Select distributor…" /></SelectTrigger>
-                <SelectContent>
-                  {eligibleDistributors.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.name}
-                      {d.telecoms?.length ? ` · ${d.telecoms.map((t) => t === "ethiotelecom" ? "Ethio" : "Safaricom").join("/")}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <p className="text-xs text-ink-soft">
-                No distributors supply {airtimeForm === "evd" ? "EVD" : "Float"}
-                {telecom ? ` for ${TELECOM_LABEL[telecom]}` : ""} yet. Add one in Distributors.
-              </p>
-            )}
-            {showAllDistributors && hiddenCount > 0 && (
-              <p className="text-[11px] text-ink-soft mt-1">
-                Showing all distributors — {hiddenCount} don't match the current telecom/form tags.
-              </p>
-            )}
             </div>
           </>
         )}
@@ -240,7 +320,9 @@ export function TransactionForm() {
         <Label>Note</Label>
         <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
       </div>
-      <Button type="submit" className="w-full">Save transaction</Button>
+      <Button type="submit" className="w-full">
+        Save transaction
+      </Button>
     </form>
   );
 }
