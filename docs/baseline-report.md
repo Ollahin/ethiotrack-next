@@ -884,3 +884,95 @@ Superseding the interim entry above:
 
 The earlier historical record showing that lint previously failed is
 preserved above and is not rewritten.
+
+## Task 0.1E — Continuous integration
+
+### Workflow file
+
+`.github/workflows/ci.yml`
+
+### Workflow summary
+
+```yaml
+name: CI
+on:
+  pull_request:
+  push:
+    branches:
+      - production-v3
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.3
+      - run: bun install --frozen-lockfile
+      - run: bun run verify
+```
+
+### Triggers
+
+- `pull_request` (all branches)
+- `push` to `production-v3`
+- `workflow_dispatch`
+
+### Permissions
+
+`contents: read` only. No write permissions are granted.
+
+### Tool versions
+
+- Bun: `1.3.3`
+- Install command: `bun install --frozen-lockfile`
+- Validation command: `bun run verify`
+
+### Local validation results
+
+- `bun install --frozen-lockfile`: **pass**
+- `bun run verify`: **pass**
+  - `bun run typecheck`: pass
+  - `bun run lint`: pass (0 errors, 12 pre-existing warnings)
+  - `bun run format:check`: pass
+  - `bun run test`: pass (35/35)
+  - `bun run build`: pass
+
+### YAML validation result
+
+YAML syntax validated with the available Node.js `yaml` parser. The parsed
+structure matches the intended triggers, permissions, concurrency, job, and
+step configuration.
+
+### Hosted run observation
+
+No actual GitHub-hosted workflow run was observed inside the Lovable sandbox.
+The workflow will run on the next push to `production-v3` or on any pull
+request once this file is in the repository.
+
+### Remaining non-blocking warnings
+
+The same 12 ESLint warnings recorded in Task 0.1D remain (react-hooks
+exhaustive-deps, react-refresh only-export-components, and unused
+eslint-disable directives). They do not fail the `lint` script or `verify`.
+
+### Files changed in this task
+
+- `.github/workflows/ci.yml` — new workflow
+- `docs/baseline-report.md` — this entry
+- `PROJECT_STATUS.md` — status and next-task update
+
+### Confirmations
+
+- `packageManager` remains `bun@1.3.3`.
+- No change to `package.json`, `bun.lock`, dependencies, source code, tests,
+  parser/OCR behavior, database code, routes, components, ESLint/Prettier/TypeScript
+  configuration, or blueprint documents.
+- The local `bun run verify` gate passes and the CI workflow runs the exact
+  same command.
