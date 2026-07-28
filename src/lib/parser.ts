@@ -69,15 +69,28 @@ function last4(s: string | undefined): string | undefined {
 }
 
 const MONTHS: Record<string, number> = {
-  jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-  jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11,
+  jan: 0,
+  feb: 1,
+  mar: 2,
+  apr: 3,
+  may: 4,
+  jun: 5,
+  jul: 6,
+  aug: 7,
+  sep: 8,
+  sept: 8,
+  oct: 9,
+  nov: 10,
+  dec: 11,
 };
 
 /** Parse the many date shapes bank SMS use. Returns ISO string or undefined. */
 function parseDate(raw: string): string | undefined {
   const m1 = raw.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?\b/);
   if (m1) {
-    const dt = new Date(Date.UTC(+m1[3], +m1[2] - 1, +m1[1], +(m1[4] ?? 0), +(m1[5] ?? 0), +(m1[6] ?? 0)));
+    const dt = new Date(
+      Date.UTC(+m1[3], +m1[2] - 1, +m1[1], +(m1[4] ?? 0), +(m1[5] ?? 0), +(m1[6] ?? 0)),
+    );
     if (!isNaN(dt.getTime())) return dt.toISOString();
   }
   const m2 = raw.match(/\bON\s+(\d{1,2})\s+([A-Za-z]{3,4})\s+(\d{4})(?:\s+(\d{1,2}):(\d{2}))?\b/i);
@@ -99,136 +112,215 @@ function parseDate(raw: string): string | undefined {
 /** High-precision templates for known Ethiopian bank/wallet SMS. */
 function matchTemplates(raw: string): TemplateFields | null {
   // -------- CBE --------
-  let m = raw.match(/Account\s+([\d*]+)\s+has been credited by\s+(.+?)\s+with ETB\s*([\d,]+(?:\.\d+)?)\.?\s*Your Current Balance is ETB\s*([\d,]+(?:\.\d+)?)/i);
-  if (m) return {
-    channel: "CBE", type: "in",
-    amountSantim: toSantim(m[3]), party: m[2].trim(),
-    accountTail: last4(m[1]), balanceSantim: toSantim(m[4]),
-    reference: raw.match(/id=(?:FT|TT)?([A-Z0-9]{8,})/i)?.[1],
-    template: "cbe.credit.by",
-  };
-  m = raw.match(/Account\s+([\d*]+)\s+has been Credited with ETB\s*([\d,]+(?:\.\d+)?)\.?\s*Your Current Balance is ETB\s*([\d,]+(?:\.\d+)?)/i);
-  if (m) return {
-    channel: "CBE", type: "in",
-    amountSantim: toSantim(m[2]), party: "Deposit",
-    accountTail: last4(m[1]), balanceSantim: toSantim(m[3]),
-    reference: raw.match(/id=(?:FT|TT)?([A-Z0-9]{8,})/i)?.[1],
-    template: "cbe.credit",
-  };
-  m = raw.match(/Account\s+([\d*]+)\s+has been debited with ETB\s*([\d,]+(?:\.\d+)?)\s*\.?\s*Service charge of ETB\s*([\d,]+(?:\.\d+)?)\s*and VAT.*?of ETB\s*([\d,]+(?:\.\d+)?)/i);
+  let m = raw.match(
+    /Account\s+([\d*]+)\s+has been credited by\s+(.+?)\s+with ETB\s*([\d,]+(?:\.\d+)?)\.?\s*Your Current Balance is ETB\s*([\d,]+(?:\.\d+)?)/i,
+  );
+  if (m)
+    return {
+      channel: "CBE",
+      type: "in",
+      amountSantim: toSantim(m[3]),
+      party: m[2].trim(),
+      accountTail: last4(m[1]),
+      balanceSantim: toSantim(m[4]),
+      reference: raw.match(/id=(?:FT|TT)?([A-Z0-9]{8,})/i)?.[1],
+      template: "cbe.credit.by",
+    };
+  m = raw.match(
+    /Account\s+([\d*]+)\s+has been Credited with ETB\s*([\d,]+(?:\.\d+)?)\.?\s*Your Current Balance is ETB\s*([\d,]+(?:\.\d+)?)/i,
+  );
+  if (m)
+    return {
+      channel: "CBE",
+      type: "in",
+      amountSantim: toSantim(m[2]),
+      party: "Deposit",
+      accountTail: last4(m[1]),
+      balanceSantim: toSantim(m[3]),
+      reference: raw.match(/id=(?:FT|TT)?([A-Z0-9]{8,})/i)?.[1],
+      template: "cbe.credit",
+    };
+  m = raw.match(
+    /Account\s+([\d*]+)\s+has been debited with ETB\s*([\d,]+(?:\.\d+)?)\s*\.?\s*Service charge of ETB\s*([\d,]+(?:\.\d+)?)\s*and VAT.*?of ETB\s*([\d,]+(?:\.\d+)?)/i,
+  );
   if (m) {
     const balM = raw.match(/Current Balance is ETB\s*([\d,]+(?:\.\d+)?)/i);
     return {
-      channel: "CBE", type: "out",
-      amountSantim: toSantim(m[2]), party: "Bank charge / transfer",
+      channel: "CBE",
+      type: "out",
+      amountSantim: toSantim(m[2]),
+      party: "Bank charge / transfer",
       accountTail: last4(m[1]),
-      feeSantim: toSantim(m[3]), vatSantim: toSantim(m[4]),
+      feeSantim: toSantim(m[3]),
+      vatSantim: toSantim(m[4]),
       balanceSantim: balM ? toSantim(balM[1]) : undefined,
       reference: raw.match(/id=(?:FT|TT)?([A-Z0-9]{8,})/i)?.[1],
       template: "cbe.debit.fees",
     };
   }
-  m = raw.match(/Account\s+([\d*]+)\s+has been debited with ETB\s*([\d,]+(?:\.\d+)?)\.?\s*Your Current Balance is ETB\s*([\d,]+(?:\.\d+)?)/i);
-  if (m) return {
-    channel: "CBE", type: "out",
-    amountSantim: toSantim(m[2]), party: "Withdrawal / payment",
-    accountTail: last4(m[1]), balanceSantim: toSantim(m[3]),
-    reference: raw.match(/id=(?:FT|TT)?([A-Z0-9]{8,})/i)?.[1],
-    template: "cbe.debit",
-  };
+  m = raw.match(
+    /Account\s+([\d*]+)\s+has been debited with ETB\s*([\d,]+(?:\.\d+)?)\.?\s*Your Current Balance is ETB\s*([\d,]+(?:\.\d+)?)/i,
+  );
+  if (m)
+    return {
+      channel: "CBE",
+      type: "out",
+      amountSantim: toSantim(m[2]),
+      party: "Withdrawal / payment",
+      accountTail: last4(m[1]),
+      balanceSantim: toSantim(m[3]),
+      reference: raw.match(/id=(?:FT|TT)?([A-Z0-9]{8,})/i)?.[1],
+      template: "cbe.debit",
+    };
 
   // -------- Bank of Abyssinia --------
-  m = raw.match(/your account\s+([\d*]+)\s+was credited with ETB\s*([\d,]+(?:\.\d+)?)\s+by\s+(.+?)\.\s*Available Balance:\s*ETB\s*([\d,]+(?:\.\d+)?)/i);
-  if (m) return {
-    channel: "Abyssinia", type: "in",
-    amountSantim: toSantim(m[2]), party: m[3].trim(),
-    accountTail: last4(m[1]), balanceSantim: toSantim(m[4]),
-    reference: raw.match(/trx=([A-Z0-9]{6,})/i)?.[1],
-    template: "boa.credit",
-  };
-  m = raw.match(/your account\s+([\d*]+)\s+was debited with ETB\s*([\d,]+(?:\.\d+)?)\.\s*Available Balance:\s*ETB\s*([\d,]+(?:\.\d+)?)/i);
-  if (m) return {
-    channel: "Abyssinia", type: "out",
-    amountSantim: toSantim(m[2]), party: "Withdrawal / payment",
-    accountTail: last4(m[1]), balanceSantim: toSantim(m[3]),
-    reference: raw.match(/trx=([A-Z0-9]{6,})/i)?.[1],
-    template: "boa.debit",
-  };
+  m = raw.match(
+    /your account\s+([\d*]+)\s+was credited with ETB\s*([\d,]+(?:\.\d+)?)\s+by\s+(.+?)\.\s*Available Balance:\s*ETB\s*([\d,]+(?:\.\d+)?)/i,
+  );
+  if (m)
+    return {
+      channel: "Abyssinia",
+      type: "in",
+      amountSantim: toSantim(m[2]),
+      party: m[3].trim(),
+      accountTail: last4(m[1]),
+      balanceSantim: toSantim(m[4]),
+      reference: raw.match(/trx=([A-Z0-9]{6,})/i)?.[1],
+      template: "boa.credit",
+    };
+  m = raw.match(
+    /your account\s+([\d*]+)\s+was debited with ETB\s*([\d,]+(?:\.\d+)?)\.\s*Available Balance:\s*ETB\s*([\d,]+(?:\.\d+)?)/i,
+  );
+  if (m)
+    return {
+      channel: "Abyssinia",
+      type: "out",
+      amountSantim: toSantim(m[2]),
+      party: "Withdrawal / payment",
+      accountTail: last4(m[1]),
+      balanceSantim: toSantim(m[3]),
+      reference: raw.match(/trx=([A-Z0-9]{6,})/i)?.[1],
+      template: "boa.debit",
+    };
 
   // -------- Coop Bank of Oromia --------
-  m = raw.match(/Account\s+([\d*]+)\s+has been Credited with ETB\s*([\d,]+(?:\.\d+)?)\s+Ref:\s*([A-Z0-9]+).*?Your Current Balance is ETB\s*([\d,]+(?:\.\d+)?)/i);
+  m = raw.match(
+    /Account\s+([\d*]+)\s+has been Credited with ETB\s*([\d,]+(?:\.\d+)?)\s+Ref:\s*([A-Z0-9]+).*?Your Current Balance is ETB\s*([\d,]+(?:\.\d+)?)/i,
+  );
   if (m) {
     const bySelf = /\bby self\b/i.test(raw);
-    const byM = raw.match(/BY\s+([A-Z][A-Z0-9 .'\/-]{1,60}?)(?:\s+ON\s+\d|\s*\.\s*Your Current Balance)/i);
+    const byM = raw.match(
+      /BY\s+([A-Z][A-Z0-9 .'\/-]{1,60}?)(?:\s+ON\s+\d|\s*\.\s*Your Current Balance)/i,
+    );
     return {
-      channel: "Coop", type: "in",
+      channel: "Coop",
+      type: "in",
       amountSantim: toSantim(m[2]),
-      party: bySelf ? "Self deposit" : (byM?.[1]?.trim() || "Deposit"),
-      accountTail: last4(m[1]), balanceSantim: toSantim(m[4]),
-      reference: m[3], template: "coop.credit",
+      party: bySelf ? "Self deposit" : byM?.[1]?.trim() || "Deposit",
+      accountTail: last4(m[1]),
+      balanceSantim: toSantim(m[4]),
+      reference: m[3],
+      template: "coop.credit",
     };
   }
-  m = raw.match(/Account\s+([\d*]+)\s+has been Debited with ETB\s*-?([\d,]+(?:\.\d+)?)\s+Ref:\s*([A-Z0-9]+).*?(?:TO\s+([A-Z][A-Z0-9 .'\/-]{1,60}?))?\.\s*Your Current Balance is ETB\s*([\d,]+(?:\.\d+)?)/i);
-  if (m) return {
-    channel: "Coop", type: "out",
-    amountSantim: toSantim(m[2]),
-    party: m[4]?.trim() || "Payment",
-    accountTail: last4(m[1]), balanceSantim: toSantim(m[5]),
-    reference: m[3], template: "coop.debit",
-  };
+  m = raw.match(
+    /Account\s+([\d*]+)\s+has been Debited with ETB\s*-?([\d,]+(?:\.\d+)?)\s+Ref:\s*([A-Z0-9]+).*?(?:TO\s+([A-Z][A-Z0-9 .'\/-]{1,60}?))?\.\s*Your Current Balance is ETB\s*([\d,]+(?:\.\d+)?)/i,
+  );
+  if (m)
+    return {
+      channel: "Coop",
+      type: "out",
+      amountSantim: toSantim(m[2]),
+      party: m[4]?.trim() || "Payment",
+      accountTail: last4(m[1]),
+      balanceSantim: toSantim(m[5]),
+      reference: m[3],
+      template: "coop.debit",
+    };
 
   // -------- Telebirr --------
-  m = raw.match(/You have transferred ETB\s*([\d,]+(?:\.\d+)?)\s+to\s+(.+?)\s*\(([\d*]+)\)\s+on\s+([^.]+)\.\s*Your transaction number is\s+([A-Z0-9]+)/i);
+  m = raw.match(
+    /You have transferred ETB\s*([\d,]+(?:\.\d+)?)\s+to\s+(.+?)\s*\(([\d*]+)\)\s+on\s+([^.]+)\.\s*Your transaction number is\s+([A-Z0-9]+)/i,
+  );
   if (m) {
     const feeM = raw.match(/service fee is ETB\s*([\d,]+(?:\.\d+)?)/i);
     const vatM = raw.match(/VAT[^E]*ETB\s*([\d,]+(?:\.\d+)?)/i);
     const balM = raw.match(/E-Money Account balance is ETB\s*([\d,]+(?:\.\d+)?)/i);
     return {
-      channel: "Telebirr", type: "out",
-      amountSantim: toSantim(m[1]), party: m[2].trim(),
-      counterpartyPhone: m[3], reference: m[5],
+      channel: "Telebirr",
+      type: "out",
+      amountSantim: toSantim(m[1]),
+      party: m[2].trim(),
+      counterpartyPhone: m[3],
+      reference: m[5],
       feeSantim: feeM ? toSantim(feeM[1]) : undefined,
       vatSantim: vatM ? toSantim(vatM[1]) : undefined,
       balanceSantim: balM ? toSantim(balM[1]) : undefined,
       template: "telebirr.transfer.out",
     };
   }
-  m = raw.match(/transferred ETB\s*([\d,]+(?:\.\d+)?)\s+successfully from your telebirr account\s+([\d*]+)\s+to\s+(.+?)\s+account number\s+([\d*]+).*?telebirr transaction number is\s+([A-Z0-9]+)/i);
-  if (m) return {
-    channel: "Telebirr", type: "out",
-    amountSantim: toSantim(m[1]),
-    party: `${m[3].trim()} (${last4(m[4]) ?? m[4]})`,
-    accountTail: last4(m[2]),
-    reference: m[5], template: "telebirr.transfer.bank",
-  };
-  m = raw.match(/You have received ETB\s*([\d,]+(?:\.\d+)?)\s+from\s+(.+?)\s*\(([\d*]+)\)[^.]*\.\s*Your transaction number is\s+([A-Z0-9]+)(?:.*?E-Money Account balance is ETB\s*([\d,]+(?:\.\d+)?))?/i);
-  if (m) return {
-    channel: "Telebirr", type: "in",
-    amountSantim: toSantim(m[1]), party: m[2].trim(),
-    counterpartyPhone: m[3], reference: m[4],
-    balanceSantim: m[5] ? toSantim(m[5]) : undefined,
-    template: "telebirr.receive.person",
-  };
-  m = raw.match(/You have received ETB\s*([\d,]+(?:\.\d+)?)\s+airtime\s+from\s+([\d*+]+)\s+on\s+([^.]+)\.\s*Your transaction number is\s+([A-Z0-9]+)/i);
-  if (m) return {
-    channel: "Telebirr", type: "airtime_evd",
-    amountSantim: toSantim(m[1]), party: m[2],
-    counterpartyPhone: m[2], reference: m[4],
-    template: "telebirr.receive.airtime",
-  };
-  m = raw.match(/You have received\s+ETB\s*([\d,]+(?:\.\d+)?)\s+by transaction number\s+([A-Z0-9]+)\s+on\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(?::\d{2})?\s+from\s+(.+?)\s+to your\s+tele[- ]?birr\s+Account\s+([\d*]+)(?:\s*-\s*[^.]+)?\.?(?:.*?current balance is ETB\s*([\d,]+(?:\.\d+)?))?/i);
-  if (m) return {
-    channel: "Telebirr", type: "in",
-    amountSantim: toSantim(m[1]), party: m[3].trim(),
-    reference: m[2], accountTail: last4(m[4]),
-    balanceSantim: m[5] ? toSantim(m[5]) : undefined,
-    template: "telebirr.receive.bank",
-  };
-  m = raw.match(/You have paid ETB\s*([\d,]+(?:\.\d+)?)\s+for\s+([a-zA-Z ]+?)\s+purchased from\s+(\d+)\s*-\s*(.+?)(?:\s+for plate number\s+(\S+))?\s+on\s+([^.]+)\.\s*Your transaction number is\s+([A-Z0-9]+)/i);
+  m = raw.match(
+    /transferred ETB\s*([\d,]+(?:\.\d+)?)\s+successfully from your telebirr account\s+([\d*]+)\s+to\s+(.+?)\s+account number\s+([\d*]+).*?telebirr transaction number is\s+([A-Z0-9]+)/i,
+  );
+  if (m)
+    return {
+      channel: "Telebirr",
+      type: "out",
+      amountSantim: toSantim(m[1]),
+      party: `${m[3].trim()} (${last4(m[4]) ?? m[4]})`,
+      accountTail: last4(m[2]),
+      reference: m[5],
+      template: "telebirr.transfer.bank",
+    };
+  m = raw.match(
+    /You have received ETB\s*([\d,]+(?:\.\d+)?)\s+from\s+(.+?)\s*\(([\d*]+)\)[^.]*\.\s*Your transaction number is\s+([A-Z0-9]+)(?:.*?E-Money Account balance is ETB\s*([\d,]+(?:\.\d+)?))?/i,
+  );
+  if (m)
+    return {
+      channel: "Telebirr",
+      type: "in",
+      amountSantim: toSantim(m[1]),
+      party: m[2].trim(),
+      counterpartyPhone: m[3],
+      reference: m[4],
+      balanceSantim: m[5] ? toSantim(m[5]) : undefined,
+      template: "telebirr.receive.person",
+    };
+  m = raw.match(
+    /You have received ETB\s*([\d,]+(?:\.\d+)?)\s+airtime\s+from\s+([\d*+]+)\s+on\s+([^.]+)\.\s*Your transaction number is\s+([A-Z0-9]+)/i,
+  );
+  if (m)
+    return {
+      channel: "Telebirr",
+      type: "airtime_evd",
+      amountSantim: toSantim(m[1]),
+      party: m[2],
+      counterpartyPhone: m[2],
+      reference: m[4],
+      template: "telebirr.receive.airtime",
+    };
+  m = raw.match(
+    /You have received\s+ETB\s*([\d,]+(?:\.\d+)?)\s+by transaction number\s+([A-Z0-9]+)\s+on\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(?::\d{2})?\s+from\s+(.+?)\s+to your\s+tele[- ]?birr\s+Account\s+([\d*]+)(?:\s*-\s*[^.]+)?\.?(?:.*?current balance is ETB\s*([\d,]+(?:\.\d+)?))?/i,
+  );
+  if (m)
+    return {
+      channel: "Telebirr",
+      type: "in",
+      amountSantim: toSantim(m[1]),
+      party: m[3].trim(),
+      reference: m[2],
+      accountTail: last4(m[4]),
+      balanceSantim: m[5] ? toSantim(m[5]) : undefined,
+      template: "telebirr.receive.bank",
+    };
+  m = raw.match(
+    /You have paid ETB\s*([\d,]+(?:\.\d+)?)\s+for\s+([a-zA-Z ]+?)\s+purchased from\s+(\d+)\s*-\s*(.+?)(?:\s+for plate number\s+(\S+))?\s+on\s+([^.]+)\.\s*Your transaction number is\s+([A-Z0-9]+)/i,
+  );
   if (m) {
     const balM = raw.match(/current balance is ETB\s*([\d,]+(?:\.\d+)?)/i);
     return {
-      channel: "Telebirr", type: "out",
+      channel: "Telebirr",
+      type: "out",
       amountSantim: toSantim(m[1]),
       party: `${m[4].trim()}${m[5] ? ` · ${m[5]}` : ""}`,
       reference: m[7],
@@ -236,19 +328,30 @@ function matchTemplates(raw: string): TemplateFields | null {
       template: "telebirr.merchant",
     };
   }
-  m = raw.match(/successfully made a tax payment ETB\s*([\d,]+(?:\.\d+)?)\s+for\s+(.+?)\s+on\s+([^.]+)\.\s*Your transaction number is\s+([A-Z0-9]+)/i);
-  if (m) return {
-    channel: "Telebirr", type: "out",
-    amountSantim: toSantim(m[1]), party: `Tax · ${m[2].trim()}`,
-    reference: m[4], template: "telebirr.tax",
-  };
-  m = raw.match(/You have recharged ETB\s*([\d,]+(?:\.\d+)?)\s+airtime\s+for\s+([\d*+]+)\s+on\s+([^.]+)\.\s*Your transaction number is\s+([A-Z0-9]+)/i);
+  m = raw.match(
+    /successfully made a tax payment ETB\s*([\d,]+(?:\.\d+)?)\s+for\s+(.+?)\s+on\s+([^.]+)\.\s*Your transaction number is\s+([A-Z0-9]+)/i,
+  );
+  if (m)
+    return {
+      channel: "Telebirr",
+      type: "out",
+      amountSantim: toSantim(m[1]),
+      party: `Tax · ${m[2].trim()}`,
+      reference: m[4],
+      template: "telebirr.tax",
+    };
+  m = raw.match(
+    /You have recharged ETB\s*([\d,]+(?:\.\d+)?)\s+airtime\s+for\s+([\d*+]+)\s+on\s+([^.]+)\.\s*Your transaction number is\s+([A-Z0-9]+)/i,
+  );
   if (m) {
     const balM = raw.match(/current balance is ETB\s*([\d,]+(?:\.\d+)?)/i);
     return {
-      channel: "Telebirr", type: "airtime_evd",
-      amountSantim: toSantim(m[1]), party: `Recharge · ${m[2]}`,
-      counterpartyPhone: m[2], reference: m[4],
+      channel: "Telebirr",
+      type: "airtime_evd",
+      amountSantim: toSantim(m[1]),
+      party: `Recharge · ${m[2]}`,
+      counterpartyPhone: m[2],
+      reference: m[4],
       balanceSantim: balM ? toSantim(balM[1]) : undefined,
       template: "telebirr.recharge",
     };
@@ -257,12 +360,15 @@ function matchTemplates(raw: string): TemplateFields | null {
   // -------- eBirr / CoopPay --------
   // Ex: "Transfer ID: FT252955B05V, You have successfully transfered ETB 5,000
   //      to ( 1035000006094 ) undefined bank account at 2025-10-22 14:01:51."
-  m = raw.match(/Transfer ID:\s*([A-Z0-9]+)[,\s]+You have successfully transfer(?:r)?ed\s+ETB\s*([\d,]+(?:\.\d+)?)\s+to\s*\(\s*([\d*]+)\s*\)\s*(.*?)\s+bank account\s+at\s+([\d\-: ]+)/i);
+  m = raw.match(
+    /Transfer ID:\s*([A-Z0-9]+)[,\s]+You have successfully transfer(?:r)?ed\s+ETB\s*([\d,]+(?:\.\d+)?)\s+to\s*\(\s*([\d*]+)\s*\)\s*(.*?)\s+bank account\s+at\s+([\d\-: ]+)/i,
+  );
   if (m) {
     const rawParty = m[4].trim();
     const cleanParty = !rawParty || /^undefined$/i.test(rawParty) ? "Unknown recipient" : rawParty;
     return {
-      channel: "CoopPay", type: "out",
+      channel: "CoopPay",
+      type: "out",
       amountSantim: toSantim(m[2]),
       party: `${cleanParty} (${last4(m[3]) ?? m[3]})`,
       accountTail: last4(m[3]),
@@ -270,12 +376,15 @@ function matchTemplates(raw: string): TemplateFields | null {
       template: "coopay.transfer.out",
     };
   }
-  m = raw.match(/Transfer ID:\s*([A-Z0-9]+)[,\s]+You have successfully received\s+ETB\s*([\d,]+(?:\.\d+)?)\s+from\s*\(\s*([\d*]+)\s*\)\s*(.*?)\s+(?:bank account\s+)?at\s+([\d\-: ]+)/i);
+  m = raw.match(
+    /Transfer ID:\s*([A-Z0-9]+)[,\s]+You have successfully received\s+ETB\s*([\d,]+(?:\.\d+)?)\s+from\s*\(\s*([\d*]+)\s*\)\s*(.*?)\s+(?:bank account\s+)?at\s+([\d\-: ]+)/i,
+  );
   if (m) {
     const rawParty = m[4].trim();
     const cleanParty = !rawParty || /^undefined$/i.test(rawParty) ? "Unknown sender" : rawParty;
     return {
-      channel: "CoopPay", type: "in",
+      channel: "CoopPay",
+      type: "in",
       amountSantim: toSantim(m[2]),
       party: `${cleanParty} (${last4(m[3]) ?? m[3]})`,
       accountTail: last4(m[3]),
@@ -387,8 +496,10 @@ const RULES: Array<{
     test: /(?:ETB|Birr|Br\.?)\s*([\d,]+(?:\.\d+)?)/i,
     parse: (m, raw) => {
       const t = raw.toLowerCase();
-      const inWords = /\b(received|credited|deposit(?:ed)?|refund(?:ed)?|incoming|transferred to your|added to your)\b/;
-      const outWords = /\b(paid|debited|withdrawn|withdrew|purchase(?:d)?|bought|sent|transfer(?:red)? to|payment to|charged|bill|utility|topped? up|recharge)\b/;
+      const inWords =
+        /\b(received|credited|deposit(?:ed)?|refund(?:ed)?|incoming|transferred to your|added to your)\b/;
+      const outWords =
+        /\b(paid|debited|withdrawn|withdrew|purchase(?:d)?|bought|sent|transfer(?:red)? to|payment to|charged|bill|utility|topped? up|recharge)\b/;
       const airWords = /\b(airtime|top[- ]?up|recharge|data bundle|mobile package)\b/;
       let type: ParserTxnType | undefined;
       let needsReview = false;
@@ -405,7 +516,9 @@ const RULES: Array<{
       }
       // Try to extract a party name from "to X" or "from X"
       let party = "Unknown";
-      const partyM = raw.match(/\b(?:to|from)\s+([A-Za-z0-9\u1200-\u137F.'-][A-Za-z0-9\u1200-\u137F .'-]{1,40}?)(?=\s+(?:on|Ref|Txn|TrxID|via)\b|[.,;\n]|$)/i);
+      const partyM = raw.match(
+        /\b(?:to|from)\s+([A-Za-z0-9\u1200-\u137F.'-][A-Za-z0-9\u1200-\u137F .'-]{1,40}?)(?=\s+(?:on|Ref|Txn|TrxID|via)\b|[.,;\n]|$)/i,
+      );
       if (partyM) party = partyM[1].trim();
       else needsReview = true;
       return {
@@ -427,19 +540,23 @@ const REF_RX = /\b(?:Ref|Transaction ID|Txn|TrxID)[:# ]*([A-Za-z0-9]{4,})/i;
  * under a specific bank instead of "Other".
  */
 export const CHANNEL_KEYWORDS: Array<{ channel: string; rx: RegExp }> = [
-  { channel: "CBE",       rx: /\b(CBE|Commercial\s+Bank\s+of\s+Ethiopia)\b/i },
+  { channel: "CBE", rx: /\b(CBE|Commercial\s+Bank\s+of\s+Ethiopia)\b/i },
   { channel: "Abyssinia", rx: /\b(BoA|Bank\s+of\s+Abyssinia|Abyssinia)\b/i },
-  { channel: "Coop",      rx: /\b(Coop(?:erative)?(?:\s+Bank(?:\s+of\s+Oromia)?)?|CBO)\b/i },
-  { channel: "Awash",     rx: /\bAwash(?:\s+Bank)?\b/i },
-  { channel: "Dashen",    rx: /\bDashen(?:\s+Bank)?\b/i },
-  { channel: "Wegagen",   rx: /\bWegagen(?:\s+Bank)?\b/i },
-  { channel: "Telebirr",  rx: /\b(telebirr|tele[- ]?birr|E[- ]?Money\s+Account)\b/i },
-  { channel: "CoopPay",   rx: /\b(coop[- ]?pay|coopay|e[- ]?birr|ebirr)\b/i },
-  { channel: "M-Pesa",    rx: /\b(M[- ]?Pesa|Safaricom(?:\s+M[- ]?Pesa)?)\b/i },
+  { channel: "Coop", rx: /\b(Coop(?:erative)?(?:\s+Bank(?:\s+of\s+Oromia)?)?|CBO)\b/i },
+  { channel: "Awash", rx: /\bAwash(?:\s+Bank)?\b/i },
+  { channel: "Dashen", rx: /\bDashen(?:\s+Bank)?\b/i },
+  { channel: "Wegagen", rx: /\bWegagen(?:\s+Bank)?\b/i },
+  { channel: "Telebirr", rx: /\b(telebirr|tele[- ]?birr|E[- ]?Money\s+Account)\b/i },
+  { channel: "CoopPay", rx: /\b(coop[- ]?pay|coopay|e[- ]?birr|ebirr)\b/i },
+  { channel: "M-Pesa", rx: /\b(M[- ]?Pesa|Safaricom(?:\s+M[- ]?Pesa)?)\b/i },
 ];
 
 export function detectChannel(raw: string): string | undefined {
-  if (/\b(?:to your\s+tele[- ]?birr\s+Account|from your\s+tele[- ]?birr\s+account|E[- ]?Money\s+Account|Thank you for using\s+tele[- ]?birr|Ethio telecom)\b/i.test(raw)) {
+  if (
+    /\b(?:to your\s+tele[- ]?birr\s+Account|from your\s+tele[- ]?birr\s+account|E[- ]?Money\s+Account|Thank you for using\s+tele[- ]?birr|Ethio telecom)\b/i.test(
+      raw,
+    )
+  ) {
     return "Telebirr";
   }
   for (const { channel, rx } of CHANNEL_KEYWORDS) {
@@ -483,8 +600,7 @@ export function parseOne(raw: string): ParsedRow {
       // real bank/wallet keyword shows up anywhere in the message.
       const kwChannel = detectChannel(line);
       const ruleChannel = partial.channel ?? rule.channel;
-      const channel =
-        ruleChannel === "Other" && kwChannel ? kwChannel : ruleChannel;
+      const channel = ruleChannel === "Other" && kwChannel ? kwChannel : ruleChannel;
       return {
         ok: true,
         raw: line,
@@ -654,7 +770,10 @@ export function parseOcrTransferList(text: string): ParsedRow[] {
     // Nearest sender line above the date (contains bariso/haji).
     let sender: string | undefined;
     for (let k = dateIdx - 1; k >= 0; k--) {
-      if (OCR_SENDER_HINT_RX.test(lines[k])) { sender = lines[k]; break; }
+      if (OCR_SENDER_HINT_RX.test(lines[k])) {
+        sender = lines[k];
+        break;
+      }
     }
 
     // Agent: alphabetic name within ±4 lines, not the sender.
@@ -679,8 +798,7 @@ export function parseOcrTransferList(text: string): ParsedRow[] {
     if (!agent) continue;
 
     const dateIso = parseDate(`ON ${dateMatch[0]}`) ?? new Date().toISOString();
-    const suspicious =
-      agent.trim().length < 3 || /\d/.test(agent);
+    const suspicious = agent.trim().length < 3 || /\d/.test(agent);
     const windowLines = [sender, dateLine, agent].filter(Boolean) as string[];
 
     rows.push({

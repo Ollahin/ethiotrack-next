@@ -35,12 +35,25 @@ export function formatDate(iso: string): string {
  */
 export function parseEthiopianDate(raw: string): Date | null {
   const MONTHS: Record<string, number> = {
-    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-    jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11,
+    jan: 0,
+    feb: 1,
+    mar: 2,
+    apr: 3,
+    may: 4,
+    jun: 5,
+    jul: 6,
+    aug: 7,
+    sep: 8,
+    sept: 8,
+    oct: 9,
+    nov: 10,
+    dec: 11,
   };
   const m1 = raw.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?\b/);
   if (m1) {
-    const dt = new Date(Date.UTC(+m1[3], +m1[2] - 1, +m1[1], +(m1[4] ?? 0), +(m1[5] ?? 0), +(m1[6] ?? 0)));
+    const dt = new Date(
+      Date.UTC(+m1[3], +m1[2] - 1, +m1[1], +(m1[4] ?? 0), +(m1[5] ?? 0), +(m1[6] ?? 0)),
+    );
     if (!isNaN(dt.getTime())) return dt;
   }
   const m2 = raw.match(/\bON\s+(\d{1,2})\s+([A-Za-z]{3,4})\s+(\d{4})(?:\s+(\d{1,2}):(\d{2}))?\b/i);
@@ -62,7 +75,13 @@ export function parseEthiopianDate(raw: string): Date | null {
     const ampm = m4[6].toUpperCase();
     if (ampm === "PM" && h !== 12) h += 12;
     if (ampm === "AM" && h === 12) h = 0;
-    const dt = new Date(parseInt(m4[1], 10), parseInt(m4[2], 10) - 1, parseInt(m4[3], 10), h, parseInt(m4[5], 10));
+    const dt = new Date(
+      parseInt(m4[1], 10),
+      parseInt(m4[2], 10) - 1,
+      parseInt(m4[3], 10),
+      h,
+      parseInt(m4[5], 10),
+    );
     if (!isNaN(dt.getTime())) return dt;
   }
   return null;

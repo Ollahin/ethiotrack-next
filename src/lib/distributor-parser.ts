@@ -45,7 +45,11 @@ function parseGenericLine(raw: string): StatementRow {
   if (!amtM) return { ok: false, raw: line, reason: "no amount" };
   const evd = /\b(EVD|E-?voucher|voucher)\b/i.test(line);
   const flt = /\b(float|balance transfer|B2B)\b/i.test(line);
-  const airtimeType: StatementRow["airtimeType"] = flt ? "airtime_float" : evd ? "airtime_evd" : "airtime_evd";
+  const airtimeType: StatementRow["airtimeType"] = flt
+    ? "airtime_float"
+    : evd
+      ? "airtime_evd"
+      : "airtime_evd";
   const phoneM = line.match(/\b(?:251)?0?9\d{8}\b/);
   const refM = line.match(/\b(?:Ref|Txn|TrxID|ID)[:# ]*([A-Za-z0-9]{4,})/i);
   let agentName = line
@@ -112,9 +116,10 @@ export function parseGeneric(text: string): StatementRow[] {
 // Amount tokens the OCR renders in the right column. We deliberately require
 // the token to be right-anchored on its line (or on its own line) so that we
 // never mistake an in-line date fragment (`5 Jul 2025`) for an amount.
-const AMOUNT_DOTTED = /(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{2})?)/;   // 20,000.00, 15000.00, or -50,000.00
+const AMOUNT_DOTTED = /(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{2})?)/; // 20,000.00, 15000.00, or -50,000.00
 const AMOUNT_BIRR_RIGHT = /(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)\s*Birr\s*$/i;
-const INLINE_NAME_AMOUNT_BIRR_RIGHT = /^(.+?)\s+(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)\s*Birr\s*$/i;
+const INLINE_NAME_AMOUNT_BIRR_RIGHT =
+  /^(.+?)\s+(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)\s*Birr\s*$/i;
 const DATE_DDMMMYYYY = /\b\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}\b/;
 const DATE_ISO = /\b\d{4}-\d{2}-\d{2}\b/;
 // Fragmented ISO date the OCR sometimes leaves behind after chopping the
@@ -124,7 +129,8 @@ const DATE_FRAGMENT = /^-?\d{1,4}[-/]\d{1,2}([-/]\d{1,2})?\b/;
 const TIME_AMPM = /\d{1,2}:\d{2}\s*(AM|PM)/i;
 // OCR frequently drops the ":" in a time, so "4:51 PM" arrives as "4 51 PM".
 const TIME_LOOSE = /\b\d{1,2}\s+\d{2}\s*(AM|PM)\b/i;
-const NOISE_RX = /^(transfers|received|sent|refill history|agents|add agent|refill|balance|home|amount|date|name|status|success|successful|pending|failed|completed|details|close|cancel|ok|back|next|previous|filter|search|total|subtotal|today|yesterday|this week|last week|all|history|export|share|print|download|menu|settings|logout|sign out|login|copy|copied)\s*$/i;
+const NOISE_RX =
+  /^(transfers|received|sent|refill history|agents|add agent|refill|balance|home|amount|date|name|status|success|successful|pending|failed|completed|details|close|cancel|ok|back|next|previous|filter|search|total|subtotal|today|yesterday|this week|last week|all|history|export|share|print|download|menu|settings|logout|sign out|login|copy|copied)\s*$/i;
 // Lines that contain no letters or digits at all (pure punctuation, icons,
 // dividers, unicode bullets) are always OCR chrome. Reject wholesale.
 const PURE_SYMBOL_RX = /^[^A-Za-z0-9\u1200-\u137F]+$/;
@@ -138,7 +144,8 @@ const TOO_SHORT_RX = /^[A-Za-z0-9]$/;
 //   » / › / ▸ / ▶ / → / ← / ↩ / ⇒                    — arrows
 //   © / ® / ™ / § / ¶ / † / ‡ / ¤ / ¬                — stray glyphs
 //   ~ / ` / ^ / | / \ / _  (and repeated punctuation) — divider artifacts
-const EDGE_NOISE_RX = /^[\s\u00A0\u2000-\u200F\u2028-\u202F•·●◦▪■◆★✓✔✕✗»›▸▶→←↩⇒©®™§¶†‡¤¬~`^|\\_]+|[\s\u00A0\u2000-\u200F\u2028-\u202F•·●◦▪■◆★✓✔✕✗»›▸▶→←↩⇒©®™§¶†‡¤¬~`^|\\_]+$/g;
+const EDGE_NOISE_RX =
+  /^[\s\u00A0\u2000-\u200F\u2028-\u202F•·●◦▪■◆★✓✔✕✗»›▸▶→←↩⇒©®™§¶†‡¤¬~`^|\\_]+|[\s\u00A0\u2000-\u200F\u2028-\u202F•·●◦▪■◆★✓✔✕✗»›▸▶→←↩⇒©®™§¶†‡¤¬~`^|\\_]+$/g;
 // Names on the distributor screenshots are always alphabetic (Latin or Ethiopic
 // script), with spaces / hyphens / apostrophes / dots. Any digit disqualifies
 // the line — that's how we stop dates and amounts leaking into the name slot.
@@ -147,21 +154,23 @@ const MONTHS_RX = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i;
 const REPEATED_SENDER_RX = /^([A-Za-z0-9._-]{3,})\s*[-–]\s*\1\b/i;
 
 function cleanLines(text: string): string[] {
-  return text
-    // Strip zero-width / bidi / narrow-nbsp characters before line splitting
-    // so they never leak into names or amounts.
-    .replace(/[\u200B-\u200F\u2028-\u202F\uFEFF]/g, "")
-    // Normalize non-breaking spaces to plain spaces.
-    .replace(/[\u00A0\u2007\u202F]/g, " ")
-    .split(/\r?\n/)
-    .map((l) => l.replace(EDGE_NOISE_RX, "").replace(/\s+/g, " ").trim())
-    .filter((l) => {
-      if (!l) return false;
-      if (NOISE_RX.test(l)) return false;
-      if (PURE_SYMBOL_RX.test(l)) return false;
-      if (TOO_SHORT_RX.test(l)) return false;
-      return true;
-    });
+  return (
+    text
+      // Strip zero-width / bidi / narrow-nbsp characters before line splitting
+      // so they never leak into names or amounts.
+      .replace(/[\u200B-\u200F\u2028-\u202F\uFEFF]/g, "")
+      // Normalize non-breaking spaces to plain spaces.
+      .replace(/[\u00A0\u2007\u202F]/g, " ")
+      .split(/\r?\n/)
+      .map((l) => l.replace(EDGE_NOISE_RX, "").replace(/\s+/g, " ").trim())
+      .filter((l) => {
+        if (!l) return false;
+        if (NOISE_RX.test(l)) return false;
+        if (PURE_SYMBOL_RX.test(l)) return false;
+        if (TOO_SHORT_RX.test(l)) return false;
+        return true;
+      })
+  );
 }
 
 /**
@@ -170,12 +179,17 @@ function cleanLines(text: string): string[] {
  * so a stray label doesn't disqualify an otherwise-valid alphabetic name.
  */
 function stripNameTrailers(line: string): string {
-  return line
-    // Trailing status/label tokens the OCR glues onto a name.
-    .replace(/\s+(Birr|ETB|EVD|Float|Review|Success(ful)?|Pending|Failed|Completed|Link\s+to\s+agent.*)$/i, "")
-    // Trailing bullets/arrows/ticks/punctuation OCR sprays after the name.
-    .replace(/[\s\u00A0•·●◦▪■◆★✓✔✕✗»›▸▶→←⇒&*+\-–—_=|\\/`'"“”‘’(){}\[\].,:;!?@#$%^~<>]+$/, "")
-    .trim();
+  return (
+    line
+      // Trailing status/label tokens the OCR glues onto a name.
+      .replace(
+        /\s+(Birr|ETB|EVD|Float|Review|Success(ful)?|Pending|Failed|Completed|Link\s+to\s+agent.*)$/i,
+        "",
+      )
+      // Trailing bullets/arrows/ticks/punctuation OCR sprays after the name.
+      .replace(/[\s\u00A0•·●◦▪■◆★✓✔✕✗»›▸▶→←⇒&*+\-–—_=|\\/`'"“”‘’(){}\[\].,:;!?@#$%^~<>]+$/, "")
+      .trim()
+  );
 }
 
 /**
@@ -250,7 +264,13 @@ function stripTransferOrdinal(line: string): string {
 }
 
 function looksLikeDateOrTime(line: string): boolean {
-  return DATE_ISO.test(line) || TIME_AMPM.test(line) || TIME_LOOSE.test(line) || DATE_DDMMMYYYY.test(line) || DATE_FRAGMENT.test(line);
+  return (
+    DATE_ISO.test(line) ||
+    TIME_AMPM.test(line) ||
+    TIME_LOOSE.test(line) ||
+    DATE_DDMMMYYYY.test(line) ||
+    DATE_FRAGMENT.test(line)
+  );
 }
 
 function parseRightAmount(line: string): string | undefined {
@@ -265,7 +285,10 @@ function looksLikeMjDateAmountLine(line: string): boolean {
   return Boolean(amountStr && DATE_DDMMMYYYY.test(line));
 }
 
-function findMjAgentAfter(lines: string[], dateAmountIndex: number): { agentName: string; index: number } | null {
+function findMjAgentAfter(
+  lines: string[],
+  dateAmountIndex: number,
+): { agentName: string; index: number } | null {
   for (let k = dateAmountIndex + 1; k <= Math.min(lines.length - 1, dateAmountIndex + 3); k++) {
     const line = stripTransferOrdinal(lines[k]);
     if (looksLikeMjDateAmountLine(line) || REPEATED_SENDER_RX.test(line)) break;
@@ -366,11 +389,17 @@ function parseMj(text: string): StatementRow[] {
   const out: StatementRow[] = [];
   let i = 0;
   while (i < lines.length) {
-    if (consumed.has(i)) { i++; continue; }
+    if (consumed.has(i)) {
+      i++;
+      continue;
+    }
     const line = stripTransferOrdinal(lines[i]);
     // Sender lines look like "barisohaji - barisohaji" (repeated handle).
     const senderM = line.match(REPEATED_SENDER_RX);
-    if (!senderM) { i++; continue; }
+    if (!senderM) {
+      i++;
+      continue;
+    }
     const sender = senderM[1];
     // Amount can be on the same line (right-aligned) or on the next 1-2 lines.
     let amountStr: string | undefined;
@@ -398,7 +427,9 @@ function parseMj(text: string): StatementRow[] {
         const wholeAmount = ln.match(new RegExp("^" + AMOUNT_DOTTED.source + "$"));
         const am = wholeAmount?.[1] ?? parseRightAmount(ln);
         if (am && !DATE_DDMMMYYYY.test(ln) && !DATE_ISO.test(ln)) {
-          amountStr = am; j++; continue;
+          amountStr = am;
+          j++;
+          continue;
         }
       }
       if (!agentName && looksLikeName(ln)) {
@@ -481,7 +512,6 @@ function parseRefillHistory(text: string): StatementRow[] {
 
   const out: StatementRow[] = [];
   for (let i = 0; i < lines.length; i++) {
-
     // Amounts must be right-aligned "<number> Birr" at end of line — never
     // mid-line, so a date fragment can't be misread as an amount.
     const amtM = lines[i].match(AMOUNT_BIRR_RIGHT);
@@ -528,13 +558,14 @@ function parseRefillHistory(text: string): StatementRow[] {
   return out;
 }
 
-const APP_TEMPLATES: Partial<Record<DistributorStatementFormat, (text: string) => StatementRow[]>> = {
-  mj: parseMj,
-  alami: parseRefillHistory,
-  yenus: parseRefillHistory,
-  tilanesh: parseRefillHistory,
-  "modern-app": parseRefillHistory,
-};
+const APP_TEMPLATES: Partial<Record<DistributorStatementFormat, (text: string) => StatementRow[]>> =
+  {
+    mj: parseMj,
+    alami: parseRefillHistory,
+    yenus: parseRefillHistory,
+    tilanesh: parseRefillHistory,
+    "modern-app": parseRefillHistory,
+  };
 
 /**
  * Parse extracted statement text with the best available strategy for the
@@ -575,18 +606,53 @@ export function detectStatementTemplate(
 ): TemplateMatch {
   if (format === "generic") {
     if (hasTransfersHeading(text)) {
-      return { label: "MJ transfers", kind: "mj", reason: 'Detected "Transfers" heading', forced: false, confidence: 0.95, rows: parseMj(text) };
+      return {
+        label: "MJ transfers",
+        kind: "mj",
+        reason: 'Detected "Transfers" heading',
+        forced: false,
+        confidence: 0.95,
+        rows: parseMj(text),
+      };
     }
     if (hasInlineRefillRows(text)) {
-      return { label: "Refill history", kind: "refill", reason: 'Detected inline "<name> <amount> Birr" row', forced: false, confidence: 0.9, rows: parseRefillHistory(text) };
+      return {
+        label: "Refill history",
+        kind: "refill",
+        reason: 'Detected inline "<name> <amount> Birr" row',
+        forced: false,
+        confidence: 0.9,
+        rows: parseRefillHistory(text),
+      };
     }
     if (isLikelyMjTransfers(text)) {
-      return { label: "MJ transfers", kind: "mj", reason: "Detected ≥2 MJ card rows (date + right-amount + agent)", forced: false, confidence: 0.8, rows: parseMj(text) };
+      return {
+        label: "MJ transfers",
+        kind: "mj",
+        reason: "Detected ≥2 MJ card rows (date + right-amount + agent)",
+        forced: false,
+        confidence: 0.8,
+        rows: parseMj(text),
+      };
     }
     if (isLikelyRefillHistory(text)) {
-      return { label: "Refill history", kind: "refill", reason: "Detected ≥2 name/date paired rows", forced: false, confidence: 0.75, rows: parseRefillHistory(text) };
+      return {
+        label: "Refill history",
+        kind: "refill",
+        reason: "Detected ≥2 name/date paired rows",
+        forced: false,
+        confidence: 0.75,
+        rows: parseRefillHistory(text),
+      };
     }
-    return { label: "Generic", kind: "generic", reason: "No layout heuristic matched — using line-scraper fallback", forced: false, confidence: 0.3, rows: parseGeneric(text) };
+    return {
+      label: "Generic",
+      kind: "generic",
+      reason: "No layout heuristic matched — using line-scraper fallback",
+      forced: false,
+      confidence: 0.3,
+      rows: parseGeneric(text),
+    };
   }
   const template = APP_TEMPLATES[format];
   if (template) {
@@ -602,5 +668,12 @@ export function detectStatementTemplate(
       rows,
     };
   }
-  return { label: "Generic", kind: "generic", reason: `Unknown format "${format}" — using generic scraper`, forced: true, confidence: 0.3, rows: parseGeneric(text) };
+  return {
+    label: "Generic",
+    kind: "generic",
+    reason: `Unknown format "${format}" — using generic scraper`,
+    forced: true,
+    confidence: 0.3,
+    rows: parseGeneric(text),
+  };
 }

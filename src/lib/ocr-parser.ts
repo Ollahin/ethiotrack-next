@@ -28,7 +28,13 @@ function parseDateLine(line: string): Date | null {
     const ampm = m1[6].toUpperCase();
     if (ampm === "PM" && h !== 12) h += 12;
     if (ampm === "AM" && h === 12) h = 0;
-    const d = new Date(parseInt(m1[1], 10), parseInt(m1[2], 10) - 1, parseInt(m1[3], 10), h, parseInt(m1[5], 10));
+    const d = new Date(
+      parseInt(m1[1], 10),
+      parseInt(m1[2], 10) - 1,
+      parseInt(m1[3], 10),
+      h,
+      parseInt(m1[5], 10),
+    );
     if (!isNaN(d.getTime())) return d;
   }
   // YYYY-MM-DDH:MM AM/PM (no space between date and time — mangled OCR)
@@ -38,13 +44,30 @@ function parseDateLine(line: string): Date | null {
     const ampm = m1b[6].toUpperCase();
     if (ampm === "PM" && h !== 12) h += 12;
     if (ampm === "AM" && h === 12) h = 0;
-    const d = new Date(parseInt(m1b[1], 10), parseInt(m1b[2], 10) - 1, parseInt(m1b[3], 10), h, parseInt(m1b[5], 10));
+    const d = new Date(
+      parseInt(m1b[1], 10),
+      parseInt(m1b[2], 10) - 1,
+      parseInt(m1b[3], 10),
+      h,
+      parseInt(m1b[5], 10),
+    );
     if (!isNaN(d.getTime())) return d;
   }
   // DD MMM YYYY
   const MONTHS: Record<string, number> = {
-    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-    jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11,
+    jan: 0,
+    feb: 1,
+    mar: 2,
+    apr: 3,
+    may: 4,
+    jun: 5,
+    jul: 6,
+    aug: 7,
+    sep: 8,
+    sept: 8,
+    oct: 9,
+    nov: 10,
+    dec: 11,
   };
   const m2 = line.match(/\b(\d{1,2})\s+([A-Za-z]{3,4})\s+(\d{4})\b/);
   if (m2) {
@@ -58,7 +81,9 @@ function parseDateLine(line: string): Date | null {
 }
 
 // ── Amount parsing ─────────────────────────────────────────────────────────
-function parseAmountLine(line: string): { amount: number; isNegative: boolean; raw: string } | null {
+function parseAmountLine(
+  line: string,
+): { amount: number; isNegative: boolean; raw: string } | null {
   // Match amount with optional negative sign, optional "Birr" or "ETB"
   const m = line.match(/(-?)(\d{1,3}(?:,\d{3})*(?:\.\d{2}))\s*(?:Birr|ETB)?/i);
   if (!m) return null;
@@ -92,7 +117,12 @@ function isAgentName(line: string): boolean {
   // Reject sender names, UI labels, pure numbers
   if (/\bbariso/i.test(clean)) return false;
   if (/\bhaji\b/i.test(clean)) return false;
-  if (/\b(Refill History|Agents|Add Agent|Refill|Review|Link to agent|EVD|Sent|Received|Transfers|Birr|ETB)\b/i.test(clean)) return false;
+  if (
+    /\b(Refill History|Agents|Add Agent|Refill|Review|Link to agent|EVD|Sent|Received|Transfers|Birr|ETB)\b/i.test(
+      clean,
+    )
+  )
+    return false;
   if (/^\d+$/.test(clean)) return false;
   if (/^\d{1,2}%$/.test(clean)) return false;
   if (/^\d{1,2}:\d{2}/.test(clean)) return false;
@@ -161,7 +191,9 @@ function extractByDateAnchors(
     if (!bestAgent) {
       const sameLine = lines[bestAmountIdx];
       // Remove the amount part and see if remainder is an agent name
-      const withoutAmount = sameLine.replace(/(-?)(\d{1,3}(?:,\d{3})*(?:\.\d{2}))\s*(?:Birr|ETB)?/i, "").trim();
+      const withoutAmount = sameLine
+        .replace(/(-?)(\d{1,3}(?:,\d{3})*(?:\.\d{2}))\s*(?:Birr|ETB)?/i, "")
+        .trim();
       const stripped = stripTrailingGarbage(withoutAmount);
       if (stripped && isAgentName(stripped)) {
         bestAgent = stripped;
@@ -221,7 +253,10 @@ export function looksLikeDistributorRefillOcr(text: string): boolean {
   const hasBirr = /\bbirr\b/i.test(text);
   const dateMatches = text.match(/\d{4}-\d{2}-\d{2}/g);
   const hasMultipleDates = dateMatches ? dateMatches.length >= 2 : false;
-  const hasSmsKeywords = /\b(credited|debited|your current balance|transaction number|account has been|transfer id)\b/i.test(text);
+  const hasSmsKeywords =
+    /\b(credited|debited|your current balance|transaction number|account has been|transfer id)\b/i.test(
+      text,
+    );
   return hasBirr && hasMultipleDates && !hasSmsKeywords && text.length > 80;
 }
 

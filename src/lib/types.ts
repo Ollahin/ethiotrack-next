@@ -1,12 +1,12 @@
 // EthioTrack v2 — entity-first domain model per the blueprint.
 
 export type TxnType =
-  | "in"            // money received (agent payment, deposit)
-  | "out"           // money paid out (to distributor, expense)
-  | "airtime_evd"   // EVD airtime distributed to agent (creates credit)
+  | "in" // money received (agent payment, deposit)
+  | "out" // money paid out (to distributor, expense)
+  | "airtime_evd" // EVD airtime distributed to agent (creates credit)
   | "airtime_float" // Float airtime distributed to agent (creates credit)
-  | "expense"       // business expense
-  | "personal";     // personal — excluded from business reports
+  | "expense" // business expense
+  | "personal"; // personal — excluded from business reports
 
 export type PartyType = "agent" | "distributor" | "bank" | "other";
 
@@ -102,7 +102,7 @@ export interface DailyClosing {
 export interface PeriodOpening {
   id: string;
   weekStart: string; // YYYY-MM-DD (Monday)
-  weekEnd: string;   // YYYY-MM-DD (Sunday)
+  weekEnd: string; // YYYY-MM-DD (Sunday)
   cashOnHandSantim: number;
   bankBalances: Record<string, number>;
   /** Per-distributor EVD airtime stock at week open. distributorId -> santim. */

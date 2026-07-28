@@ -13,5 +13,4 @@ docs/blueprint/02-parser-ocr-corpus-spec.md
 docs/blueprint/03-production-execution-playbook.md
 
 # Sandbox-injected workspace skills — reset on every message.
-.workspace/skills/ui-ux-pro-max/SKILL.md
-.workspace/skills/ui-ux-pro-max/references/pro-rules.md
+.workspace/skills/**

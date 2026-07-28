@@ -16,8 +16,7 @@ async function loadPdfjs() {
 
 export async function extractPdfText(file: File | ArrayBuffer): Promise<string> {
   const pdfjs = await loadPdfjs();
-  const data =
-    file instanceof ArrayBuffer ? file : new Uint8Array(await file.arrayBuffer());
+  const data = file instanceof ArrayBuffer ? file : new Uint8Array(await file.arrayBuffer());
   const doc = await pdfjs.getDocument({ data }).promise;
   const parts: string[] = [];
   for (let i = 1; i <= doc.numPages; i++) {

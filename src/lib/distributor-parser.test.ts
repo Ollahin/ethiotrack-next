@@ -64,11 +64,7 @@ describe("parseStatementText — MJ layout", () => {
 
 describe("parseStatementText — Refill History layout (Alami / Yenus / Modern App)", () => {
   it("parses name / date-time / amount triplet", () => {
-    const text = [
-      "Hana Girma",
-      "2025-07-05 10:22 AM",
-      "5,000 Birr",
-    ].join("\n");
+    const text = ["Hana Girma", "2025-07-05 10:22 AM", "5,000 Birr"].join("\n");
     const [r] = parseStatementText(text, "alami");
     expect(r.ok).toBe(true);
     expect(r.agentName).toBe("Hana Girma");
@@ -77,11 +73,7 @@ describe("parseStatementText — Refill History layout (Alami / Yenus / Modern A
   });
 
   it("rejects a numeric string as a name", () => {
-    const text = [
-      "2025-07-05",
-      "10:22 AM",
-      "5,000 Birr",
-    ].join("\n");
+    const text = ["2025-07-05", "10:22 AM", "5,000 Birr"].join("\n");
     const rows = parseStatementText(text, "yenus");
     // No alphabetic name in scope — parser must NOT accept the date as name.
     expect(rows[0]?.ok).toBeFalsy();
@@ -92,7 +84,7 @@ describe("parseStatementText — Refill History layout (Alami / Yenus / Modern A
       "Sara Bekele",
       "2025-07-06 03:15 PM",
       "12,500 Birr",
-      "Note: 5,000 Birr reserved earlier in day",   // mid-line, must be ignored
+      "Note: 5,000 Birr reserved earlier in day", // mid-line, must be ignored
     ].join("\n");
     const rows = parseStatementText(text, "modern-app");
     // Only the anchored line should produce a row.
@@ -150,11 +142,7 @@ describe("parseStatementText — junk-row guards (regression)", () => {
       "Zeddd",
     ]);
     expect(rows.map((r) => r.amountSantim)).toEqual([
-      2_000_000,
-      1_000_000,
-      25_730_000,
-      5_000_000,
-      2_162_000,
+      2_000_000, 1_000_000, 25_730_000, 5_000_000, 2_162_000,
     ]);
     expect(rows.map((r) => r.dateText)).toEqual([
       "25 Jul 2026",
@@ -196,11 +184,7 @@ describe("parseStatementText — junk-row guards (regression)", () => {
       "Gojeeeee",
     ]);
     expect(rows.map((r) => r.amountSantim)).toEqual([
-      1_500_000,
-      1_000_000,
-      500_000,
-      1_000_000,
-      2_500_000,
+      1_500_000, 1_000_000, 500_000, 1_000_000, 2_500_000,
     ]);
   });
 
@@ -230,11 +214,7 @@ describe("parseStatementText — junk-row guards (regression)", () => {
 
   it("strips trailing 'Birr' label from a name line", () => {
     // OCR often glues the currency label onto the name row.
-    const text = [
-      "Birukeee Birr",
-      "2026-07-22 4:51 PM",
-      "200,000.00 Birr",
-    ].join("\n");
+    const text = ["Birukeee Birr", "2026-07-22 4:51 PM", "200,000.00 Birr"].join("\n");
     const [r] = parseStatementText(text, "alami").filter((x) => x.ok);
     expect(r.agentName).toBe("Birukeee");
     expect(r.amountSantim).toBe(20_000_000);
@@ -242,20 +222,13 @@ describe("parseStatementText — junk-row guards (regression)", () => {
 
   it("never treats a 4-digit year rendered as '2,026' as an amount", () => {
     // Reproduces the bug where the year 2026 was parsed as ETB 2,026.00.
-    const text = [
-      "-07-22 4 51 PM",
-      "2,026.00 Birr",
-    ].join("\n");
+    const text = ["-07-22 4 51 PM", "2,026.00 Birr"].join("\n");
     const rows = parseStatementText(text, "yenus").filter((r) => r.ok);
     expect(rows).toHaveLength(0);
   });
 
   it("rejects a date-fragment / loose-time line as an agent name", () => {
-    const text = [
-      "-07-22 4 51 PM",
-      "2026-07-22 4:51 PM",
-      "20,000 Birr",
-    ].join("\n");
+    const text = ["-07-22 4 51 PM", "2026-07-22 4:51 PM", "20,000 Birr"].join("\n");
     const rows = parseStatementText(text, "modern-app").filter((r) => r.ok);
     // No valid alphabetic name in scope → nothing should commit.
     expect(rows).toHaveLength(0);
@@ -303,14 +276,7 @@ describe("parseStatementText — junk-row guards (regression)", () => {
       "Birukeee",
     ]);
     expect(rows.map((r) => r.amountSantim)).toEqual([
-      20_000_000,
-      2_000_000,
-      2_000_000,
-      3_000_000,
-      3_000_000,
-      2_162_000,
-      7_567_500,
-      20_000_000,
+      20_000_000, 2_000_000, 2_000_000, 3_000_000, 3_000_000, 2_162_000, 7_567_500, 20_000_000,
       160_000,
     ]);
     expect(rows.map((r) => r.dateText)).toEqual([
@@ -366,11 +332,7 @@ describe("parseStatementText — junk-row guards (regression)", () => {
   });
 
   it("keeps legitimate 2,026 Birr refill rows when the agent is on the same line", () => {
-    const text = [
-      "Refill History",
-      "Mulugeta 2,026 Birr",
-      "2026-07-22 4:51 PM",
-    ].join("\n");
+    const text = ["Refill History", "Mulugeta 2,026 Birr", "2026-07-22 4:51 PM"].join("\n");
 
     const rows = parseStatementText(text, "generic").filter((r) => r.ok);
     expect(rows).toHaveLength(1);
@@ -381,11 +343,11 @@ describe("parseStatementText — junk-row guards (regression)", () => {
 
   it("strips OCR chrome (bullets, arrows, ticks, NBSP, zero-width) from MJ cards", () => {
     const text = [
-      "•",                                 // bullet-only chrome line
-     "» barisohaji - barisohaji",         // arrow leader
+      "•", // bullet-only chrome line
+      "» barisohaji - barisohaji", // arrow leader
       "\u200B 5 Jul 2025           20,000.00", // zero-width + date+amount
-      "✓ Birukeee ✓",                     // status ticks around the name
-      "———",                              // divider noise
+      "✓ Birukeee ✓", // status ticks around the name
+      "———", // divider noise
     ].join("\n");
 
     const rows = parseStatementText(text, "mj").filter((r) => r.ok);
@@ -412,11 +374,7 @@ describe("parseStatementText — junk-row guards (regression)", () => {
   });
 
   it("normalizes non-breaking spaces inside amounts and names", () => {
-    const text = [
-      "Refill History",
-      "Mulu\u00A0geta 1,500 Birr",
-      "2026-07-22 4:51 PM",
-    ].join("\n");
+    const text = ["Refill History", "Mulu\u00A0geta 1,500 Birr", "2026-07-22 4:51 PM"].join("\n");
 
     const rows = parseStatementText(text, "generic").filter((r) => r.ok);
     expect(rows).toHaveLength(1);
