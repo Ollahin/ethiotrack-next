@@ -6,3 +6,12 @@ pnpm-lock.yaml
 package-lock.json
 bun.lock
 routeTree.gen.ts
+
+# Protected archived blueprint documents — preserve byte-for-byte.
+docs/blueprint/01-master-blueprint.md
+docs/blueprint/02-parser-ocr-corpus-spec.md
+docs/blueprint/03-production-execution-playbook.md
+
+# Sandbox-injected workspace skills — reset on every message.
+.workspace/skills/ui-ux-pro-max/SKILL.md
+.workspace/skills/ui-ux-pro-max/references/pro-rules.md
