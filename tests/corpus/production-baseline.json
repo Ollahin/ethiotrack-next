@@ -8,7 +8,7 @@
       "executionStatus": "ok",
       "errorCode": null,
       "expectedRowCount": 5,
-      "actualRowCount": 2,
+      "actualRowCount": 5,
       "actualRows": [
         {
           "emittedOrder": 0,
@@ -18,22 +18,40 @@
         },
         {
           "emittedOrder": 1,
-          "agentText": "E Sample Agent Epsilon",
+          "agentText": "Sample Agent Beta",
+          "signedAmountMinor": 2100000,
+          "date": null
+        },
+        {
+          "emittedOrder": 2,
+          "agentText": "Sample Agent Gamma",
+          "signedAmountMinor": 2100000,
+          "date": null
+        },
+        {
+          "emittedOrder": 3,
+          "agentText": "Sample Agent Delta",
+          "signedAmountMinor": 1150000,
+          "date": null
+        },
+        {
+          "emittedOrder": 4,
+          "agentText": "Sample Agent Epsilon",
           "signedAmountMinor": 465000,
           "date": null
         }
       ],
-      "exactRowMatches": 1,
-      "missingRows": 4,
-      "unexpectedRows": 1,
-      "exactAgentMultisetMatches": 1,
-      "exactAmountMultisetMatches": 2,
-      "exactDateMultisetMatches": 2,
+      "exactRowMatches": 5,
+      "missingRows": 0,
+      "unexpectedRows": 0,
+      "exactAgentMultisetMatches": 5,
+      "exactAmountMultisetMatches": 5,
+      "exactDateMultisetMatches": 5,
       "expectedNegativeRows": 0,
       "actualNegativeRows": 0,
       "forbiddenAgentHits": 0,
       "inventedDateRows": 0,
-      "exactOrderedSequence": false
+      "exactOrderedSequence": true
     },
     {
       "fixtureId": "ocr.mj.sent.photo-38",
@@ -42,38 +60,50 @@
       "executionStatus": "ok",
       "errorCode": null,
       "expectedRowCount": 5,
-      "actualRowCount": 3,
+      "actualRowCount": 5,
       "actualRows": [
         {
           "emittedOrder": 0,
+          "agentText": "Sample Agent Zeta",
+          "signedAmountMinor": 2600000,
+          "date": null
+        },
+        {
+          "emittedOrder": 1,
           "agentText": "Sample Agent Eta",
           "signedAmountMinor": 475000,
           "date": null
         },
         {
-          "emittedOrder": 1,
+          "emittedOrder": 2,
+          "agentText": "Sample Agent Theta",
+          "signedAmountMinor": 5630000,
+          "date": null
+        },
+        {
+          "emittedOrder": 3,
           "agentText": "Sample Agent Iota",
           "signedAmountMinor": 1950000,
           "date": null
         },
         {
-          "emittedOrder": 2,
-          "agentText": "wl",
+          "emittedOrder": 4,
+          "agentText": "Sample Agent Eta",
           "signedAmountMinor": 360000,
           "date": null
         }
       ],
-      "exactRowMatches": 2,
-      "missingRows": 3,
-      "unexpectedRows": 1,
-      "exactAgentMultisetMatches": 2,
-      "exactAmountMultisetMatches": 3,
-      "exactDateMultisetMatches": 3,
+      "exactRowMatches": 5,
+      "missingRows": 0,
+      "unexpectedRows": 0,
+      "exactAgentMultisetMatches": 5,
+      "exactAmountMultisetMatches": 5,
+      "exactDateMultisetMatches": 5,
       "expectedNegativeRows": 0,
       "actualNegativeRows": 0,
-      "forbiddenAgentHits": 1,
+      "forbiddenAgentHits": 0,
       "inventedDateRows": 0,
-      "exactOrderedSequence": false
+      "exactOrderedSequence": true
     },
     {
       "fixtureId": "ocr.mj.sent.photo-2",
@@ -82,18 +112,18 @@
       "executionStatus": "ok",
       "errorCode": null,
       "expectedRowCount": 5,
-      "actualRowCount": 3,
+      "actualRowCount": 5,
       "actualRows": [
         {
           "emittedOrder": 0,
-          "agentText": null,
-          "signedAmountMinor": null,
+          "agentText": "Sample Agent Kappa",
+          "signedAmountMinor": 3125000,
           "date": null
         },
         {
           "emittedOrder": 1,
-          "agentText": null,
-          "signedAmountMinor": null,
+          "agentText": "Sample Agent Lambda Meridian",
+          "signedAmountMinor": 1675000,
           "date": null
         },
         {
@@ -101,19 +131,31 @@
           "agentText": "Sample Agent Mu",
           "signedAmountMinor": 2240000,
           "date": null
+        },
+        {
+          "emittedOrder": 3,
+          "agentText": "Sample Agent Nu",
+          "signedAmountMinor": 4850000,
+          "date": null
+        },
+        {
+          "emittedOrder": 4,
+          "agentText": "Sample Agent Xi",
+          "signedAmountMinor": 5275000,
+          "date": null
         }
       ],
-      "exactRowMatches": 1,
-      "missingRows": 4,
-      "unexpectedRows": 2,
-      "exactAgentMultisetMatches": 1,
-      "exactAmountMultisetMatches": 1,
-      "exactDateMultisetMatches": 3,
+      "exactRowMatches": 5,
+      "missingRows": 0,
+      "unexpectedRows": 0,
+      "exactAgentMultisetMatches": 5,
+      "exactAmountMultisetMatches": 5,
+      "exactDateMultisetMatches": 5,
       "expectedNegativeRows": 0,
       "actualNegativeRows": 0,
       "forbiddenAgentHits": 0,
       "inventedDateRows": 0,
-      "exactOrderedSequence": false
+      "exactOrderedSequence": true
     },
     {
       "fixtureId": "ocr.mj.sent.photo-9",
@@ -122,38 +164,50 @@
       "executionStatus": "ok",
       "errorCode": null,
       "expectedRowCount": 5,
-      "actualRowCount": 3,
+      "actualRowCount": 5,
       "actualRows": [
         {
           "emittedOrder": 0,
-          "agentText": "fo",
-          "signedAmountMinor": 1364000,
+          "agentText": "Sample Agent Omicron",
+          "signedAmountMinor": 1250000,
           "date": null
         },
         {
           "emittedOrder": 1,
-          "agentText": "Sample Agent Sigma",
-          "signedAmountMinor": 1225000,
+          "agentText": "Sample Agent Pi",
+          "signedAmountMinor": 6725000,
           "date": null
         },
         {
           "emittedOrder": 2,
           "agentText": "Sample Agent Rho",
+          "signedAmountMinor": 1364000,
+          "date": null
+        },
+        {
+          "emittedOrder": 3,
+          "agentText": "Sample Agent Sigma",
+          "signedAmountMinor": 1225000,
+          "date": null
+        },
+        {
+          "emittedOrder": 4,
+          "agentText": "Sample Agent Rho",
           "signedAmountMinor": 1489000,
           "date": null
         }
       ],
-      "exactRowMatches": 2,
-      "missingRows": 3,
-      "unexpectedRows": 1,
-      "exactAgentMultisetMatches": 2,
-      "exactAmountMultisetMatches": 3,
-      "exactDateMultisetMatches": 3,
+      "exactRowMatches": 5,
+      "missingRows": 0,
+      "unexpectedRows": 0,
+      "exactAgentMultisetMatches": 5,
+      "exactAmountMultisetMatches": 5,
+      "exactDateMultisetMatches": 5,
       "expectedNegativeRows": 0,
       "actualNegativeRows": 0,
-      "forbiddenAgentHits": 1,
+      "forbiddenAgentHits": 0,
       "inventedDateRows": 0,
-      "exactOrderedSequence": false
+      "exactOrderedSequence": true
     },
     {
       "fixtureId": "ocr.mj.sent.photo-4",
@@ -162,12 +216,12 @@
       "executionStatus": "ok",
       "errorCode": null,
       "expectedRowCount": 5,
-      "actualRowCount": 3,
+      "actualRowCount": 5,
       "actualRows": [
         {
           "emittedOrder": 0,
-          "agentText": null,
-          "signedAmountMinor": null,
+          "agentText": "Sample Agent Psi",
+          "signedAmountMinor": -525000,
           "date": null
         },
         {
@@ -178,22 +232,34 @@
         },
         {
           "emittedOrder": 2,
-          "agentText": "samplewallet - samplewallet",
+          "agentText": "Sample Agent Omega",
           "signedAmountMinor": 30250000,
+          "date": null
+        },
+        {
+          "emittedOrder": 3,
+          "agentText": "Sample Agent Alder",
+          "signedAmountMinor": -897500,
+          "date": null
+        },
+        {
+          "emittedOrder": 4,
+          "agentText": "Sample Agent Birch",
+          "signedAmountMinor": 2025000,
           "date": null
         }
       ],
-      "exactRowMatches": 1,
-      "missingRows": 4,
-      "unexpectedRows": 2,
-      "exactAgentMultisetMatches": 1,
-      "exactAmountMultisetMatches": 2,
-      "exactDateMultisetMatches": 3,
+      "exactRowMatches": 5,
+      "missingRows": 0,
+      "unexpectedRows": 0,
+      "exactAgentMultisetMatches": 5,
+      "exactAmountMultisetMatches": 5,
+      "exactDateMultisetMatches": 5,
       "expectedNegativeRows": 2,
-      "actualNegativeRows": 0,
-      "forbiddenAgentHits": 1,
+      "actualNegativeRows": 2,
+      "forbiddenAgentHits": 0,
       "inventedDateRows": 0,
-      "exactOrderedSequence": false
+      "exactOrderedSequence": true
     },
     {
       "fixtureId": "ocr.mj.sent.photo-6",
@@ -202,7 +268,7 @@
       "executionStatus": "ok",
       "errorCode": null,
       "expectedRowCount": 5,
-      "actualRowCount": 3,
+      "actualRowCount": 5,
       "actualRows": [
         {
           "emittedOrder": 0,
@@ -212,28 +278,40 @@
         },
         {
           "emittedOrder": 1,
+          "agentText": "Sample Agent Upsilon",
+          "signedAmountMinor": 2275000,
+          "date": null
+        },
+        {
+          "emittedOrder": 2,
+          "agentText": "Sample Agent Phi",
+          "signedAmountMinor": 1248000,
+          "date": null
+        },
+        {
+          "emittedOrder": 3,
           "agentText": "Sample Agent Chi",
           "signedAmountMinor": 2390000,
           "date": null
         },
         {
-          "emittedOrder": 2,
+          "emittedOrder": 4,
           "agentText": "Sample Agent Tau",
           "signedAmountMinor": 273500,
           "date": null
         }
       ],
-      "exactRowMatches": 3,
-      "missingRows": 2,
+      "exactRowMatches": 5,
+      "missingRows": 0,
       "unexpectedRows": 0,
-      "exactAgentMultisetMatches": 3,
-      "exactAmountMultisetMatches": 3,
-      "exactDateMultisetMatches": 3,
+      "exactAgentMultisetMatches": 5,
+      "exactAmountMultisetMatches": 5,
+      "exactDateMultisetMatches": 5,
       "expectedNegativeRows": 0,
       "actualNegativeRows": 0,
       "forbiddenAgentHits": 0,
       "inventedDateRows": 0,
-      "exactOrderedSequence": false
+      "exactOrderedSequence": true
     },
     {
       "fixtureId": "ocr.refill.photo-64",
@@ -461,14 +539,14 @@
   "summary": {
     "fixtureCount": 9,
     "expectedRows": 56,
-    "actualRows": 43,
-    "exactRowMatches": 36,
-    "missingRows": 20,
-    "unexpectedRows": 7,
+    "actualRows": 56,
+    "exactRowMatches": 56,
+    "missingRows": 0,
+    "unexpectedRows": 0,
     "expectedNegativeRows": 2,
-    "actualNegativeRows": 0,
-    "forbiddenAgentHits": 3,
+    "actualNegativeRows": 2,
+    "forbiddenAgentHits": 0,
     "inventedDateRows": 0,
-    "exactFixtureCount": 3
+    "exactFixtureCount": 9
   }
 }
