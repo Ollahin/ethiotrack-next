@@ -39,17 +39,21 @@ material and are not committed.
 - Refill History row recall: 26 / 26, 100%.
 - 2 known reversal rows in the current catalog.
 
-## Activation status (Task 0.2C-b)
+## Activation status (Task 0.2C-c)
 
-- 8 active sanitized fixtures: all 6 MJ Transfers → Sent fixtures
+- All 9 screenshot fixtures are active and sanitized: 6 MJ Transfers → Sent
   (`ocr.mj.sent.photo-5`, `ocr.mj.sent.photo-38`, `ocr.mj.sent.photo-2`,
   `ocr.mj.sent.photo-9`, `ocr.mj.sent.photo-6`, `ocr.mj.sent.photo-4`) plus
-  2 Refill History fixtures (`ocr.refill.photo-64`, `ocr.refill.photo-49`).
-- 1 metadata-only Refill History catalog entry remains
-  (`ocr.refill.photo-51`).
-- 48 active expected rows (30 MJ + 18 Refill History).
-- 2 active expected reversals, all MJ.
-- 18 active Refill History rows, all positive EVD transfers.
+  3 Refill History (`ocr.refill.photo-64`, `ocr.refill.photo-49`,
+  `ocr.refill.photo-51`).
+- 0 catalogued or metadata-only entries remain.
+- All 56 expected rows are active (30 MJ + 26 Refill History).
+- 2 active expected reversals, both MJ.
+- 26 active Refill History rows, all positive EVD transfers.
+- Strict similar-name handling is represented: `Lumen`/`Lumenn` and
+  `Bramble`/`Brambel` remain distinct and unlinked under case- and
+  whitespace-only normalization.
+- Corpus construction is complete.
 - Same-timestamp Refill History coverage is active: two different visible rows
   legitimately share one minute-level timestamp and both remain present.
 - Timestamp-only deduplication is explicitly prohibited. Repeated agent names

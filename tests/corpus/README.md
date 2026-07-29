@@ -143,10 +143,10 @@ All six MJ Transfers → Sent fixtures are now active. Together they cover:
   repeated agents, repeated amounts, a multiword agent name and transactions
   spanning multiple calendar days.
 
-## Two active Refill History fixtures
+## Three active Refill History fixtures
 
-Two Refill History fixtures are now active: `ocr.refill.photo-64` and
-`ocr.refill.photo-49`.
+Three Refill History fixtures are now active: `ocr.refill.photo-64`,
+`ocr.refill.photo-49` and `ocr.refill.photo-51`.
 
 `ocr.refill.photo-49` adds same-timestamp coverage:
 
@@ -161,5 +161,26 @@ Two Refill History fixtures are now active: `ocr.refill.photo-64` and
 - Source-local minute timestamps remain unchanged: no timezone suffix, no UTC
   conversion and no seconds.
 
-The next Refill History fixture covers OCR name variations that must not be
-auto-linked to an existing agent.
+`ocr.refill.photo-51` adds OCR name-variation coverage:
+
+- Similar synthetic names such as `Sample Agent Lumen` versus
+  `Sample Agent Lumenn`, and `Sample Agent Bramble` versus
+  `Sample Agent Brambel`, remain **distinct and unlinked**.
+- Agent matching normalizes case and whitespace only. No fuzzy auto-linking,
+  no edit-distance merging and no alias inference.
+- A multiword name (`Sample Agent Granite Hill`) stays one agent.
+- A repeated amount (`52,000` on three rows) never merges rows.
+- UI chrome labels appear in the raw text but are never expected agents.
+
+## Corpus construction complete
+
+All nine screenshot fixtures are now active and sanitized: six MJ
+Transfers → Sent fixtures and three Refill History fixtures. All 56 expected
+rows are active — 30 MJ rows (including the 2 confirmed reversals) and 26
+Refill History rows.
+
+Production parser accuracy has **not** been recalculated. These fixtures
+validate expected meaning only; no production parser or OCR engine is invoked.
+
+See `docs/ai/EXECUTION_CONTRACT.md` for the permanent execution rules that
+govern corpus work.
