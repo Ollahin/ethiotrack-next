@@ -122,7 +122,10 @@ describe("parser corpus catalog", () => {
     expect(rh.length).toBe(3);
     const activeRh = rh.filter((e) => e.status === "active");
     expect(activeRh.length).toBe(2);
-    expect(activeRh.map((e) => e.id).sort()).toEqual(["ocr.refill.photo-49", "ocr.refill.photo-64"]);
+    expect(activeRh.map((e) => e.id).sort()).toEqual([
+      "ocr.refill.photo-49",
+      "ocr.refill.photo-64",
+    ]);
     for (const e of activeRh) {
       expect(e.privacyStatus).toBe("sanitized");
     }

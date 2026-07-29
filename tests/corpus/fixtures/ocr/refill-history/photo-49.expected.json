@@ -104,15 +104,6 @@
       "agentResolution": "unassigned"
     }
   ],
-  "forbiddenAgentCandidates": [
-    "Refill History",
-    "Agents",
-    "Add Agent",
-    "Refill"
-  ],
-  "expectedWarnings": [
-    "repeated-agent",
-    "same-timestamp",
-    "strict-agent-linking-required"
-  ]
+  "forbiddenAgentCandidates": ["Refill History", "Agents", "Add Agent", "Refill"],
+  "expectedWarnings": ["repeated-agent", "same-timestamp", "strict-agent-linking-required"]
 }
