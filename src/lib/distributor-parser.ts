@@ -117,7 +117,6 @@ export function parseGeneric(text: string): StatementRow[] {
 // Amount tokens the OCR renders in the right column. We deliberately require
 // the token to be right-anchored on its line (or on its own line) so that we
 // never mistake an in-line date fragment (`5 Jul 2025`) for an amount.
-const AMOUNT_DOTTED = /(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{2})?)/; // 20,000.00, 15000.00, or -50,000.00
 const AMOUNT_BIRR_RIGHT = /(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)\s*Birr\s*$/i;
 const INLINE_NAME_AMOUNT_BIRR_RIGHT =
   /^(.+?)\s+(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)\s*Birr\s*$/i;
@@ -152,7 +151,6 @@ const EDGE_NOISE_RX =
 // the line — that's how we stop dates and amounts leaking into the name slot.
 const NAME_RX = /^[A-Za-z\u1200-\u137F][A-Za-z\u1200-\u137F\s'.-]{1,58}$/;
 const MONTHS_RX = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i;
-const REPEATED_SENDER_RX = /^([A-Za-z0-9._-]{3,})\s*[-–]\s*\1\b/i;
 
 function cleanLines(text: string): string[] {
   return (
@@ -250,10 +248,6 @@ function normalizeName(line: string): string {
  * only that explicit ordinal shape, and only before alphabetic content, so
  * amounts/dates stay untouched.
  */
-function stripTransferOrdinal(line: string): string {
-  return line.replace(/^\d{1,2}\s+(?=[A-Za-z\u1200-\u137F])/, "").trim();
-}
-
 function looksLikeDateOrTime(line: string): boolean {
   return (
     DATE_ISO.test(line) ||
@@ -262,30 +256,6 @@ function looksLikeDateOrTime(line: string): boolean {
     DATE_DDMMMYYYY.test(line) ||
     DATE_FRAGMENT.test(line)
   );
-}
-
-function parseRightAmount(line: string): string | undefined {
-  const dateOnly = line.match(DATE_DDMMMYYYY);
-  if (dateOnly && line.trim().endsWith(dateOnly[0])) return undefined;
-  const match = line.match(new RegExp(AMOUNT_DOTTED.source + "\\s*$"));
-  return match?.[1];
-}
-
-function looksLikeMjDateAmountLine(line: string): boolean {
-  const amountStr = parseRightAmount(line);
-  return Boolean(amountStr && DATE_DDMMMYYYY.test(line));
-}
-
-function findMjAgentAfter(
-  lines: string[],
-  dateAmountIndex: number,
-): { agentName: string; index: number } | null {
-  for (let k = dateAmountIndex + 1; k <= Math.min(lines.length - 1, dateAmountIndex + 3); k++) {
-    const line = stripTransferOrdinal(lines[k]);
-    if (looksLikeMjDateAmountLine(line) || REPEATED_SENDER_RX.test(line)) break;
-    if (looksLikeName(line)) return { agentName: normalizeName(line), index: k };
-  }
-  return null;
 }
 
 function hasTransfersHeading(text: string): boolean {
@@ -318,16 +288,6 @@ function isLikelyRefillHistory(text: string): boolean {
 
 function hasInlineRefillRows(text: string): boolean {
   return cleanLines(text).some((line) => Boolean(parseInlineNameAmount(line)));
-}
-
-function isLikelyMjTransfers(text: string): boolean {
-  const lines = cleanLines(text);
-  const hasHeading = hasTransfersHeading(text);
-  let cardRows = 0;
-  for (let i = 0; i < lines.length; i++) {
-    if (looksLikeMjDateAmountLine(lines[i]) && findMjAgentAfter(lines, i)) cardRows++;
-  }
-  return cardRows >= 2 || (hasHeading && cardRows >= 1);
 }
 
 /**
