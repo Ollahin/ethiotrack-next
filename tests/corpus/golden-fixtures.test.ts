@@ -49,8 +49,8 @@ describe("golden OCR fixtures", () => {
     expect(active.length).toBeGreaterThan(0);
   });
 
-  it("has seven active fixtures", () => {
-    expect(active.length).toBe(7);
+  it("has eight active fixtures", () => {
+    expect(active.length).toBe(8);
   });
 
   it("does not commit original screenshot images", () => {
