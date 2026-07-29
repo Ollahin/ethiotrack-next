@@ -1499,3 +1499,50 @@ all pass.
 **Production parsing was neither executed nor changed.** No file under `src/`,
 no production parser/OCR/database code, dependency, lockfile, configuration or
 CI workflow was modified.
+
+## Task 0.2C-b — Refill History same-timestamp golden fixture
+
+Activated fixture: `ocr.refill.photo-49` (Refill History, `yunus_or_alami`).
+
+Files added:
+
+- `tests/corpus/fixtures/ocr/refill-history/photo-49.raw.txt`
+- `tests/corpus/fixtures/ocr/refill-history/photo-49.expected.json`
+
+Files updated: `tests/corpus/catalog.json`, `tests/corpus/catalog.test.ts`,
+`tests/corpus/golden-fixtures.test.ts`, `tests/corpus/README.md`,
+`docs/corpus-baseline.md`, `docs/baseline-report.md`, `PROJECT_STATUS.md`.
+
+Totals:
+
+- 8 active sanitized fixtures, 1 metadata-only catalogued fixture.
+- 48 active expected rows (30 MJ + 18 Refill History).
+- 2 active reversal rows, all MJ; Refill History reversals remain 0.
+- Full catalog unchanged: 9 fixtures, 56 expected rows, 40 currently parsed
+  rows, 2 reversal rows.
+
+Same-timestamp coverage: rows 7 and 8 share `2026-08-09T16:50` with different
+agents and different amounts. Both remain present; they are not merged,
+netted or treated as duplicates. Equal adjacent timestamps do not violate
+newest-to-oldest ordering. Timestamp-only deduplication is prohibited.
+
+Repeated-agent coverage: `Sample Agent Aspen` appears twice with different
+amounts and timestamps; `Sample Agent Copper Field` appears twice with
+different amounts and times and remains one complete multiword value.
+
+Strict agent linking: every expected row remains `agentResolution:
+unassigned`. No alias or existing-agent link is inferred and the layout is not
+classified specifically as Yunus or Alami.
+
+Test additions: focused `ocr.refill.photo-49` assertions (row/timestamp
+counts, ordering, positivity, unassigned agents, same-timestamp pair,
+repeated-agent pairs, single-occurrence agents, chrome-label noise) plus a
+cross-fixture "active Refill History fixture set" suite asserting 18 rows,
+zero reversals, minute precision, platform hint and the prohibition on
+single-dimension deduplication.
+
+Command results: `typecheck`, `lint`, `format:check`, `test`, `build` and
+`verify` all pass. Test count moved from 144 to 168.
+
+No production parser or OCR code was executed or changed. No original private
+corpus value, screenshot or raw OCR passage was committed.

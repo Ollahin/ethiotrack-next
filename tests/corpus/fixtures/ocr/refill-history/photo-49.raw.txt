@@ -1,0 +1,22 @@
+22:10 M ® Baal 67%=
+< Refill History
+Sample Agent Aspen 310,000 Birr
+2026-08-10 5:35 PM
+Sample Agent Willow 9,250 Birr
+2026-08-10 1:49 PM
+Sample Agent Copper Field 4,750 Birr
+2026-08-10 12:22 PM
+Sample Agent Copper Field 6,975 Birr
+2026-08-10 9:26 AM
+Sample Agent Larch 19,640 Birr
+2026-08-10 6:46 AM
+Sample Agent Moss 11,420 Birr
+2026-08-10 5:40 AM
+Sample Agent Fern 21,500 Birr
+2026-08-09 4:52 PM
+Sample Agent Birchwood 255,000 Birr
+2026-08-09 4:50 PM
+Sample Agent Aspen 410,000 Birr
+2026-08-09 4:50 PM
+i= + $ 9D
+Agents Add Agent Refill Refill History

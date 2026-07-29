@@ -34,14 +34,17 @@ Stage 1 — Corpus and ingestion baseline
 - First sanitized Refill History golden fixture
 - Source-local minute timestamp contract
 - Refill History repeated-row coverage
+- Two active sanitized Refill History fixtures
+- Same-timestamp transaction coverage
+- Timestamp-only deduplication prohibition
 
 ## Current task
 
-Task 0.2C-a — First sanitized Refill History golden fixture
+Task 0.2C-b — Refill History same-timestamp golden fixture
 
 ## Next task
 
-Task 0.2C-b — Refill History same-timestamp golden fixture
+Task 0.2C-c — Refill History OCR name-variation golden fixture
 
 ## Important rule
 
