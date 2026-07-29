@@ -1439,3 +1439,63 @@ the evaluator does not execute production parsing.
   `bun run test`, `bun run build` and `bun run verify` all pass.
 - Production parsing was neither executed nor changed. No file under `src/`,
   no dependency, configuration, CI workflow or blueprint was modified.
+
+## Task 0.2C-a — First Refill History golden fixture
+
+**Activated fixture:** `ocr.refill.photo-64` (Refill History, `yunus_or_alami`).
+
+**Files added**
+
+- `tests/corpus/fixtures/ocr/refill-history/photo-64.raw.txt`
+- `tests/corpus/fixtures/ocr/refill-history/photo-64.expected.json`
+- Removed the now-unnecessary `tests/corpus/fixtures/ocr/refill-history/.gitkeep`.
+
+**Schema family/platform extension**
+
+`GoldenOcrExpectationSchema` now accepts `sourceFamily` of `mj_transfers_sent`
+or `refill_history`, with a cross-field refinement pinning
+`mj_transfers_sent` → `mj` and `refill_history` → `yunus_or_alami`. Mismatched
+combinations are rejected.
+
+**Local timestamp representation**
+
+`ExpectedOcrRow` now validates the date shape against `datePrecision`:
+`unknown` → `null`, `day` → `YYYY-MM-DD`, `minute` → `YYYY-MM-DDTHH:mm`,
+`second` → `YYYY-MM-DDTHH:mm:ss`. No timezone suffix is permitted. Values are
+source-local wall-clock strings; no `Date` parsing, UTC conversion or machine
+timezone is used anywhere in validation. A corpus-only helper,
+`refillTimestampToLocalMinute`, performs deterministic string-based 12→24 hour
+conversion (12 AM → 00, 12 PM → 12) and is used to confirm each expected date
+matches the raw line immediately below its row.
+
+**Repeated-agent and repeated-amount coverage**
+
+Cedar ×5, Maple ×2, Juniper ×1, River Stone ×1 (multiword name preserved). The
+two Maple rows, the two 32,500 Cedar rows and the two 205,000 Cedar rows are
+each asserted to share an amount while remaining separate rows with distinct
+timestamps/dates. No fixture validation nets, merges or deduplicates rows.
+
+**Totals**
+
+- 7 active / 2 catalogued fixtures; 7 sanitized / 2 metadata_only.
+- 39 active expected rows (30 MJ + 9 Refill History).
+- 2 active expected reversals; 0 Refill History reversals.
+- Full catalog unchanged: 9 fixtures, 56 expected rows, 0 partial, 2 reversals,
+  40 currently parsed rows.
+
+**Tests:** 96 → 105 corpus tests (17 catalog + 88 golden). Added the timestamp
+helper suite, family-branched generic validation and focused `photo-64`
+assertions.
+
+**Privacy:** structural checks only — every expected agent begins with
+`Sample Agent `, all names/amounts/dates are synthetic, and the raw fixture is
+rejected for HTTP URLs, masked accounts, phone-like values, receipt references
+and raw SMS openings. No screenshot image is committed and no plaintext deny
+list exists.
+
+**Commands:** `typecheck`, `lint`, `format:check`, `test`, `build`, `verify` —
+all pass.
+
+**Production parsing was neither executed nor changed.** No file under `src/`,
+no production parser/OCR/database code, dependency, lockfile, configuration or
+CI workflow was modified.
