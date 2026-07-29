@@ -382,3 +382,46 @@ describe("parseStatementText — junk-row guards (regression)", () => {
     expect(rows[0].amountSantim).toBe(150_000);
   });
 });
+
+describe("parseStatementText — generic repeated-handle sender label", () => {
+  it("rejects a repeated-handle label as an agent (case- and whitespace-insensitive)", () => {
+    const text = [
+      "sampleagent - sampleagent",
+      "5 Jul 2025                          20,000.00",
+      "SampleAgent  -  SAMPLEAGENT",
+      "5 Jul 2025                          10,000.00",
+      "Real Agent Name",
+    ].join("\n");
+    const rows = parseStatementText(text, "mj").filter((r) => r.ok);
+    // Both cards share the single agent line that follows the last date/amount.
+    expect(rows.map((r) => r.agentName)).toEqual(["Real Agent Name", "Real Agent Name"]);
+    // The senders came from the repeated-handle labels above each date line.
+    expect(rows.map((r) => r.sender)).toEqual(["sampleagent", "SampleAgent"]);
+  });
+
+  it("retains a real agent immediately after a repeated-handle label", () => {
+    const text = [
+      "sampleagent - sampleagent",
+      "5 Jul 2025                          20,000.00",
+      "Kebede Alemu",
+    ].join("\n");
+    const [r] = parseStatementText(text, "mj").filter((x) => x.ok);
+    expect(r.agentName).toBe("Kebede Alemu");
+    expect(r.sender).toBe("sampleagent");
+  });
+
+  it("does not reject ordinary hyphenated names as repeated-handle labels", () => {
+    const text = ["Refill History", "Abebe-Kebede 3,000 Birr", "2026-07-22 4:51 PM"].join("\n");
+    const [r] = parseStatementText(text, "generic").filter((x) => x.ok);
+    expect(r.agentName).toBe("Abebe-Kebede");
+    expect(r.amountSantim).toBe(300_000);
+  });
+
+  it("does not treat '<A> - <B>' with different sides as a repeated-handle label", () => {
+    const text = ["Refill History", "Abebe - Kebede 2,500 Birr", "2026-07-22 4:51 PM"].join("\n");
+    const [r] = parseStatementText(text, "generic").filter((x) => x.ok);
+    // Not a repeated handle → allowed to be parsed as an inline refill row.
+    expect(r?.ok).toBe(true);
+    expect(r.agentName).toBe("Abebe - Kebede");
+  });
+});
