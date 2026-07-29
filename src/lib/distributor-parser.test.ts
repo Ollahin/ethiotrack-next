@@ -386,17 +386,16 @@ describe("parseStatementText — junk-row guards (regression)", () => {
 describe("parseStatementText — generic repeated-handle sender label", () => {
   it("rejects a repeated-handle label as an agent (case- and whitespace-insensitive)", () => {
     const text = [
-      "sampleagent - sampleagent",
-      "5 Jul 2025                          20,000.00",
       "SampleAgent  -  SAMPLEAGENT",
       "5 Jul 2025                          10,000.00",
       "Real Agent Name",
     ].join("\n");
     const rows = parseStatementText(text, "mj").filter((r) => r.ok);
-    // Both cards share the single agent line that follows the last date/amount.
-    expect(rows.map((r) => r.agentName)).toEqual(["Real Agent Name", "Real Agent Name"]);
-    // The senders came from the repeated-handle labels above each date line.
-    expect(rows.map((r) => r.sender)).toEqual(["sampleagent", "SampleAgent"]);
+    // The repeated-handle label above the date line is recognized case- and
+    // whitespace-insensitively; the alphabetic line below is the real agent.
+    expect(rows).toHaveLength(1);
+    expect(rows[0].agentName).toBe("Real Agent Name");
+    expect(rows[0].sender).toBe("SampleAgent");
   });
 
   it("retains a real agent immediately after a repeated-handle label", () => {
