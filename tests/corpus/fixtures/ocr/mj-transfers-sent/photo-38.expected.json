@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "ocr.mj.sent.photo-38",
+  "sourceFamily": "mj_transfers_sent",
+  "platformHint": "mj",
+  "expectedRows": [
+    {
+      "sourceOrder": 0,
+      "agentText": "Sample Agent Zeta",
+      "rawAmountText": "26,000.00",
+      "signedAmountMinor": 2600000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 1,
+      "agentText": "Sample Agent Eta",
+      "rawAmountText": "4,750.00",
+      "signedAmountMinor": 475000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 2,
+      "agentText": "Sample Agent Theta",
+      "rawAmountText": "56,300.00",
+      "signedAmountMinor": 5630000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 3,
+      "agentText": "Sample Agent Iota",
+      "rawAmountText": "19,500.00",
+      "signedAmountMinor": 1950000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 4,
+      "agentText": "Sample Agent Eta",
+      "rawAmountText": "3,600.00",
+      "signedAmountMinor": 360000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned"
+    }
+  ],
+  "forbiddenAgentCandidates": [
+    "samplewallet - samplewallet",
+    "wl"
+  ],
+  "expectedWarnings": [
+    "missing-date",
+    "false-agent-token-present"
+  ]
+}
