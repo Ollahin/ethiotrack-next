@@ -49,6 +49,7 @@ Stage 1 — Corpus and ingestion baseline
 - Sanitized parser failure report
 - MJ row-reconstruction design and test plan
 - Isolated MJ line classifier and amount-anchor helpers (not yet integrated)
+- Pure MJ agent filtering and row reconstruction helpers (not yet integrated)
 
 ## Current task
 
