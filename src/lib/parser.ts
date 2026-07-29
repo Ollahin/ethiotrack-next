@@ -688,9 +688,10 @@ export function parseMany(text: string): ParsedRow[] {
 // OCR "Sent transfers" list parser — mobile banking-app screenshots.
 //
 // Repeating 3-line blocks:
-//   <sender>              e.g. "barisohaji - barisohaji"
+//   <sender label>        the subdistributor account label, printed as a
+//                         repeated handle "<name> - <name>"
 //   <date> <amount>       e.g. "23 Jul 2026 50,000.00"
-//   <agent/recipient>     e.g. "Biruke"
+//   <agent/recipient>     the alphabetic agent name
 // Some OCR engines split date and amount onto adjacent lines — we look ±1
 // line to recover the amount.
 // ---------------------------------------------------------------------------
@@ -725,7 +726,12 @@ export function looksLikeOcrTransferList(text: string): boolean {
 const OCR_STRICT_AMOUNT_RX = /^-?(\d{1,3}(?:,\d{3})*(?:\.\d{2}))$/;
 /** Agent-name matcher: 3–40 letters/spaces, starts+ends with a letter. */
 const OCR_AGENT_NAME_RX = /^[A-Za-z][A-Za-z\s]{1,38}[A-Za-z]$/;
-const OCR_SENDER_HINT_RX = /bariso|haji/i;
+/**
+ * Repeated-handle sender-label detector. Matches "<name> - <name>" (also
+ * en-dash) case-insensitively via a backreference. No private literal is
+ * embedded — the rule is structural.
+ */
+const OCR_SENDER_LABEL_RX = /^([A-Za-z0-9._]{3,})\s*[-–]\s*\1\b/i;
 
 /**
  * Parse a mobile banking app "Sent" transfers screenshot (OCR text) into
