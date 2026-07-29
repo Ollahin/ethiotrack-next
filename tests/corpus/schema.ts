@@ -96,9 +96,12 @@ export const ExpectedOcrRow = z
     sourceOrder: nonNegInt,
     agentText: nonEmpty,
     rawAmountText: nonEmpty,
-    signedAmountMinor: z.number().int().refine((v) => v !== 0, {
-      message: "signedAmountMinor cannot be zero",
-    }),
+    signedAmountMinor: z
+      .number()
+      .int()
+      .refine((v) => v !== 0, {
+        message: "signedAmountMinor cannot be zero",
+      }),
     isReversal: z.boolean(),
     eventKind: ExpectedEventKind,
     date: z.string().min(1).nullable(),

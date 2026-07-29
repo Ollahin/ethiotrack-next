@@ -60,10 +60,6 @@
       "agentResolution": "unassigned"
     }
   ],
-  "forbiddenAgentCandidates": [
-    "samplewallet - samplewallet"
-  ],
-  "expectedWarnings": [
-    "missing-date"
-  ]
+  "forbiddenAgentCandidates": ["samplewallet - samplewallet"],
+  "expectedWarnings": ["missing-date"]
 }

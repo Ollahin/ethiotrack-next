@@ -60,12 +60,6 @@
       "agentResolution": "unassigned"
     }
   ],
-  "forbiddenAgentCandidates": [
-    "samplewallet - samplewallet",
-    "wl"
-  ],
-  "expectedWarnings": [
-    "missing-date",
-    "false-agent-token-present"
-  ]
+  "forbiddenAgentCandidates": ["samplewallet - samplewallet", "wl"],
+  "expectedWarnings": ["missing-date", "false-agent-token-present"]
 }

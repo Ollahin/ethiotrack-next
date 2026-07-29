@@ -96,17 +96,29 @@ describe("parser corpus catalog", () => {
     expect(rh.reduce((a, e) => a + e.currentBaseline.parsedRowCount, 0)).toBe(26);
   });
 
-  it("marks every entry as metadata_only and catalogued", () => {
-    for (const e of catalog) {
-      expect(e.privacyStatus).toBe("metadata_only");
-      expect(e.status).toBe("catalogued");
+  it("has 2 active and 7 catalogued entries", () => {
+    expect(catalog.filter((e) => e.status === "active").length).toBe(2);
+    expect(catalog.filter((e) => e.status === "catalogued").length).toBe(7);
+  });
+
+  it("has 2 sanitized and 7 metadata_only entries", () => {
+    expect(catalog.filter((e) => e.privacyStatus === "sanitized").length).toBe(2);
+    expect(catalog.filter((e) => e.privacyStatus === "metadata_only").length).toBe(7);
+  });
+
+  it("active entries carry both fixture paths", () => {
+    for (const e of catalog.filter((x) => x.status === "active")) {
+      expect(typeof e.rawFixturePath).toBe("string");
+      expect(typeof e.expectedFixturePath).toBe("string");
+      expect(e.privacyStatus).toBe("sanitized");
     }
   });
 
-  it("does not include raw or expected fixture paths yet", () => {
-    for (const e of catalog) {
+  it("catalogued entries carry neither fixture path", () => {
+    for (const e of catalog.filter((x) => x.status === "catalogued")) {
       expect(e.rawFixturePath).toBeUndefined();
       expect(e.expectedFixturePath).toBeUndefined();
+      expect(e.privacyStatus).toBe("metadata_only");
     }
   });
 
