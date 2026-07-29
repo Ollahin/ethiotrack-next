@@ -21,14 +21,17 @@ Stage 1 — Corpus and ingestion baseline
 - Repository corpus sanitization
 - Golden-fixture schema
 - First two sanitized MJ fixtures
+- Four active sanitized MJ golden fixtures
+- Repeated-agent fixture coverage
+- False-agent-token fixture coverage
 
 ## Current task
 
-Task 0.2B-a — Golden-fixture contract and first two MJ fixtures
+Task 0.2B-b — Additional positive-only MJ golden fixtures
 
 ## Next task
 
-Task 0.2B-b — Remaining positive-only MJ golden fixtures
+Task 0.2B-c — MJ OCR sign-noise golden fixture
 
 ## Important rule
 

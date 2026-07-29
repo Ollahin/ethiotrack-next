@@ -31,6 +31,10 @@ describe("golden OCR fixtures", () => {
     expect(active.length).toBeGreaterThan(0);
   });
 
+  it("has four active fixtures", () => {
+    expect(active.length).toBe(4);
+  });
+
   it("does not commit original screenshot images", () => {
     const dir = join(here, "fixtures");
     const walk = (p: string): string[] =>
@@ -99,4 +103,79 @@ describe("golden OCR fixtures", () => {
       });
     });
   }
+});
+
+function loadExpected(id: string) {
+  const entry = catalog.find((e) => e.id === id) as FixtureCatalogEntry;
+  const raw = readFileSync(join(repoRoot, entry.rawFixturePath as string), "utf8");
+  const expected = GoldenOcrExpectationSchema.parse(
+    JSON.parse(readFileSync(join(repoRoot, entry.expectedFixturePath as string), "utf8")),
+  );
+  return { raw, expected };
+}
+
+describe("ocr.mj.sent.photo-2 — punctuation noise and long agent name", () => {
+  const { raw, expected } = loadExpected("ocr.mj.sent.photo-2");
+
+  it("has exactly 5 expected rows", () => {
+    expect(expected.expectedRows.length).toBe(5);
+  });
+
+  it("has five distinct expected agents", () => {
+    const names = expected.expectedRows.map((r) => r.agentText);
+    expect(new Set(names).size).toBe(5);
+  });
+
+  it("keeps the long agent name as one complete value", () => {
+    const long = expected.expectedRows.find((r) => r.agentText.split(/\s+/).length === 4);
+    expect(long?.agentText).toBe("Sample Agent Lambda Meridian");
+    expect(raw).toContain("Sample Agent Lambda Meridian");
+  });
+
+  it("contains punctuation noise adjacent to an amount in the raw fixture", () => {
+    expect(raw).toMatch(/^\s*[:.\-;]\s*\d{1,3}(,\d{3})*\.\d{2}\s*$/m);
+  });
+
+  it("keeps every expected signed amount positive", () => {
+    for (const row of expected.expectedRows) {
+      expect(row.signedAmountMinor).toBeGreaterThan(0);
+      expect(row.isReversal).toBe(false);
+    }
+  });
+});
+
+describe("ocr.mj.sent.photo-9 — repeated agents and false agent token", () => {
+  const { raw, expected } = loadExpected("ocr.mj.sent.photo-9");
+
+  it("has exactly 5 expected rows", () => {
+    expect(expected.expectedRows.length).toBe(5);
+  });
+
+  it("contains the false OCR token in the raw fixture", () => {
+    expect(raw).toMatch(/^fo\)?$/m);
+  });
+
+  it("declares the false token as a forbidden agent candidate", () => {
+    expect(expected.forbiddenAgentCandidates).toContain("fo");
+  });
+
+  it("never uses the false token as an expected agent", () => {
+    for (const row of expected.expectedRows) {
+      expect(row.agentText).not.toBe("fo");
+    }
+  });
+
+  it("keeps both repeated legitimate agent rows", () => {
+    const rho = expected.expectedRows.filter((r) => r.agentText === "Sample Agent Rho");
+    expect(rho.length).toBe(2);
+    expect(rho[0].signedAmountMinor).not.toBe(rho[1].signedAmountMinor);
+    expect(rho[0].rawAmountText).not.toBe(rho[1].rawAmountText);
+  });
+
+  it("keeps every expected signed amount positive", () => {
+    for (const row of expected.expectedRows) {
+      expect(row.signedAmountMinor).toBeGreaterThan(0);
+      expect(row.isReversal).toBe(false);
+    }
+  });
 });
