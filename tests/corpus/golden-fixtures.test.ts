@@ -549,3 +549,160 @@ describe("ocr.refill.photo-64 — repeated agents, repeated amounts, minute time
     }
   });
 });
+
+describe("ocr.refill.photo-49 — same-timestamp rows must stay separate", () => {
+  const { raw, expected } = loadExpected("ocr.refill.photo-49");
+  const rows = expected.expectedRows;
+  const timestampLines = raw
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => /^\d{4}-\d{2}-\d{2} \d{1,2}:\d{2} (AM|PM)$/.test(l));
+
+  it("has exactly 9 expected rows and 9 raw timestamp lines", () => {
+    expect(rows.length).toBe(9);
+    expect(timestampLines.length).toBe(9);
+  });
+
+  it("has source orders 0 through 8", () => {
+    expect(rows.map((r) => r.sourceOrder)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8]);
+  });
+
+  it("keeps every amount positive with no reversals", () => {
+    for (const row of rows) {
+      expect(row.signedAmountMinor).toBeGreaterThan(0);
+      expect(row.isReversal).toBe(false);
+      expect(row.eventKind).toBe("evd_sent_to_agent");
+    }
+    expect(rows.filter((r) => r.isReversal).length).toBe(0);
+  });
+
+  it("uses minute-precision, timezone-free dates", () => {
+    for (const row of rows) {
+      expect(row.datePrecision).toBe("minute");
+      expect(row.date).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+      expect(row.date).not.toMatch(/[Zz+]|:\d{2}:\d{2}/);
+    }
+  });
+
+  it("keeps every agent unassigned", () => {
+    for (const row of rows) {
+      expect(row.agentResolution).toBe("unassigned");
+    }
+  });
+
+  it("matches each expected date to the raw line immediately below its row", () => {
+    expect(rows.map((r) => r.date)).toEqual(timestampLines.map(refillTimestampToLocalMinute));
+  });
+
+  it("orders rows newest to oldest, allowing equal adjacent timestamps", () => {
+    const dates = rows.map((r) => r.date as string);
+    for (let i = 1; i < dates.length; i += 1) {
+      expect(dates[i] <= dates[i - 1]).toBe(true);
+    }
+  });
+
+  it("keeps exactly two rows on the shared 2026-08-09T16:50 timestamp", () => {
+    const shared = rows.filter((r) => r.date === "2026-08-09T16:50");
+    expect(shared.length).toBe(2);
+    expect(shared.map((r) => r.sourceOrder)).toEqual([7, 8]);
+    expect(shared[0].agentText).not.toBe(shared[1].agentText);
+    expect(shared[0].signedAmountMinor).not.toBe(shared[1].signedAmountMinor);
+    expect(shared[0].rawAmountText).not.toBe(shared[1].rawAmountText);
+  });
+
+  it("never merges or deduplicates the same-timestamp rows", () => {
+    const key = (r: (typeof rows)[number]) => `${r.agentText}|${r.rawAmountText}|${r.date}`;
+    expect(new Set(rows.map(key)).size).toBe(9);
+    expect(new Set(rows.map((r) => r.sourceOrder)).size).toBe(9);
+    expect(rows.length).toBe(9);
+    // Timestamp alone is not a duplicate key.
+    expect(new Set(rows.map((r) => r.date)).size).toBe(8);
+  });
+
+  it("keeps both Sample Agent Aspen rows distinct", () => {
+    const aspen = rows.filter((r) => r.agentText === "Sample Agent Aspen");
+    expect(aspen.length).toBe(2);
+    expect(aspen[0].signedAmountMinor).not.toBe(aspen[1].signedAmountMinor);
+    expect(aspen[0].date).not.toBe(aspen[1].date);
+  });
+
+  it("keeps both Sample Agent Copper Field rows distinct and multiword", () => {
+    const copper = rows.filter((r) => r.agentText === "Sample Agent Copper Field");
+    expect(copper.length).toBe(2);
+    expect(copper[0].signedAmountMinor).not.toBe(copper[1].signedAmountMinor);
+    expect(copper[0].date).not.toBe(copper[1].date);
+    expect(copper[0].agentText.split(/\s+/).length).toBe(4);
+    expect(raw).toContain("Sample Agent Copper Field");
+  });
+
+  it("counts the single-occurrence agents exactly once each", () => {
+    const count = (name: string) => rows.filter((r) => r.agentText === name).length;
+    for (const name of ["Willow", "Larch", "Moss", "Fern", "Birchwood"]) {
+      expect(count(`Sample Agent ${name}`)).toBe(1);
+    }
+  });
+
+  it("treats chrome labels as noise, never as agents", () => {
+    for (const label of ["Refill History", "Agents", "Add Agent", "Refill"]) {
+      expect(raw).toContain(label);
+      expect(expected.forbiddenAgentCandidates).toContain(label);
+      expect(rows.some((r) => r.agentText === label)).toBe(false);
+    }
+  });
+});
+
+describe("active Refill History fixture set", () => {
+  const rh = active.filter((e) => e.sourceFamily === "refill_history");
+  const loaded = rh.map((e) => loadExpected(e.id).expected);
+  const allRows = loaded.flatMap((e) => e.expectedRows);
+
+  it("has exactly 2 active Refill History fixtures and 18 expected rows", () => {
+    expect(rh.length).toBe(2);
+    expect(allRows.length).toBe(18);
+  });
+
+  it("has zero reversals", () => {
+    expect(allRows.filter((r) => r.isReversal).length).toBe(0);
+    for (const row of allRows) {
+      expect(row.signedAmountMinor).toBeGreaterThan(0);
+      expect(row.eventKind).toBe("evd_sent_to_agent");
+    }
+  });
+
+  it("uses minute precision and the yunus_or_alami platform hint everywhere", () => {
+    for (const e of loaded) {
+      expect(e.platformHint).toBe("yunus_or_alami");
+    }
+    for (const row of allRows) {
+      expect(row.datePrecision).toBe("minute");
+      expect(row.date).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+    }
+  });
+
+  it("keeps every agent resolution unassigned", () => {
+    for (const row of allRows) {
+      expect(row.agentResolution).toBe("unassigned");
+    }
+  });
+
+  it("proves duplicate detection cannot rely on timestamp, agent or amount alone", () => {
+    const dates = allRows.map((r) => r.date as string);
+    const agents = allRows.map((r) => r.agentText);
+    const amounts = allRows.map((r) => r.rawAmountText);
+    // Each dimension repeats on its own, so none can be a deduplication key.
+    expect(new Set(dates).size).toBeLessThan(dates.length);
+    expect(new Set(agents).size).toBeLessThan(agents.length);
+    expect(new Set(amounts).size).toBeLessThan(amounts.length);
+    // Yet no row was removed: every fixture keeps its full expected row count.
+    for (const e of loaded) {
+      const entry = rh.find((x) => x.id === e.fixtureId) as FixtureCatalogEntry;
+      expect(e.expectedRows.length).toBe(entry.expected.completeRowCount);
+    }
+  });
+
+  it("keeps every expected agent synthetic", () => {
+    for (const row of allRows) {
+      expect(row.agentText.startsWith("Sample Agent ")).toBe(true);
+    }
+  });
+});
