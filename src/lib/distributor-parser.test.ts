@@ -514,12 +514,7 @@ describe("parseStatementText — MJ unresolved-window diagnostics", () => {
   });
 
   it("keeps repeated legitimate agents as separate resolved rows", () => {
-    const rows = mj([
-      "1,000.00",
-      "Sample Agent Alpha",
-      "2,000.00",
-      "Sample Agent Alpha",
-    ]);
+    const rows = mj(["1,000.00", "Sample Agent Alpha", "2,000.00", "Sample Agent Alpha"]);
     expect(rows).toHaveLength(2);
     expect(rows.every((r) => r.ok)).toBe(true);
     expect(rows.map((r) => r.agentName)).toEqual(["Sample Agent Alpha", "Sample Agent Alpha"]);
