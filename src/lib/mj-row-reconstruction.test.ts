@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -11,8 +12,10 @@ import {
   reconstructMjRows,
   signedMjAmountMinor,
   toMjAgentCandidate,
+  adaptMjTransfersSent,
   type MjLine,
 } from "./mj-row-reconstruction";
+import { parseStatementText } from "./distributor-parser";
 
 const FIXTURE_DIR = join(process.cwd(), "tests/corpus/fixtures/ocr/mj-transfers-sent");
 
@@ -77,6 +80,11 @@ interface ExpectedRow {
 function readExpectedRows(id: string): ExpectedRow[] {
   const json = JSON.parse(readFileSync(join(FIXTURE_DIR, `${id}.expected.json`), "utf8"));
   return json.expectedRows as ExpectedRow[];
+}
+
+function readForbidden(id: string): string[] {
+  const json = JSON.parse(readFileSync(join(FIXTURE_DIR, `${id}.expected.json`), "utf8"));
+  return (json.forbiddenAgentCandidates ?? []) as string[];
 }
 
 function classified(id: string): MjLine[] {
@@ -425,7 +433,7 @@ describe("adaptMjTransfersSent production-shape adapter", () => {
   it("adapts all six MJ fixtures to exactly 30 production-shaped rows", () => {
     let total = 0;
     for (const id of MJ_FIXTURES) {
-      const { rows, unresolved } = adaptMjTransfersSent(rawText(id));
+      const { rows, unresolved } = adaptMjTransfersSent(readFixture(id));
       expect(unresolved).toEqual([]);
       expect(rows).toHaveLength(EXPECTED_AGENTS[id].length);
       for (const row of rows) {
@@ -446,27 +454,27 @@ describe("adaptMjTransfersSent production-shape adapter", () => {
 
   it("matches expected agent, signed amount and order for every golden row", () => {
     for (const id of MJ_FIXTURES) {
-      const { rows } = adaptMjTransfersSent(rawText(id));
-      const expected = expectation(id);
-      expect(rows.map((r) => r.agentName)).toEqual(expected.expectedRows.map((r) => r.agentText));
+      const { rows } = adaptMjTransfersSent(readFixture(id));
+      const expected = readExpectedRows(id);
+      expect(rows.map((r) => r.agentName)).toEqual(expected.map((r) => r.agentText));
       expect(rows.map((r) => (r.isReversal ? -r.amountSantim! : r.amountSantim!))).toEqual(
-        expected.expectedRows.map((r) => r.signedAmountMinor),
+        expected.map((r) => r.signedAmountMinor),
       );
       expect(rows.map((r) => r.isReversal)).toEqual(
-        expected.expectedRows.map((r) => r.isReversal),
+        expected.map((r) => r.signedAmountMinor < 0),
       );
     }
   });
 
   it("emits exactly two negative rows for photo-4 and none for photo-6", () => {
-    const four = adaptMjTransfersSent(rawText("photo-4")).rows;
+    const four = adaptMjTransfersSent(readFixture("photo-4")).rows;
     expect(four.filter((r) => r.isReversal)).toHaveLength(2);
-    const six = adaptMjTransfersSent(rawText("photo-6")).rows;
+    const six = adaptMjTransfersSent(readFixture("photo-6")).rows;
     expect(six.filter((r) => r.isReversal)).toHaveLength(0);
   });
 
   it("keeps repeated agents as separate rows", () => {
-    const rows = adaptMjTransfersSent(rawText("photo-4")).rows;
+    const rows = adaptMjTransfersSent(readFixture("photo-4")).rows;
     const psi = rows.filter((r) => r.agentName === "Sample Agent Psi");
     expect(psi).toHaveLength(2);
     expect(psi[0].amountSantim).not.toBe(psi[1].amountSantim);
@@ -474,8 +482,8 @@ describe("adaptMjTransfersSent production-shape adapter", () => {
 
   it("never emits a forbidden sender label or OCR decoration token", () => {
     for (const id of MJ_FIXTURES) {
-      const forbidden = expectation(id).forbiddenAgentCandidates ?? [];
-      const { rows } = adaptMjTransfersSent(rawText(id));
+      const forbidden = readForbidden(id);
+      const { rows } = adaptMjTransfersSent(readFixture(id));
       for (const row of rows) {
         for (const bad of forbidden) {
           expect(row.agentName?.toLowerCase()).not.toContain(bad.toLowerCase());
@@ -503,7 +511,7 @@ describe("adaptMjTransfersSent production-shape adapter", () => {
 
   it("does not mutate its input and is deterministic", () => {
     for (const id of MJ_FIXTURES) {
-      const text = rawText(id);
+      const text = readFixture(id);
       const snapshot = `${text}`;
       const first = adaptMjTransfersSent(text);
       const second = adaptMjTransfersSent(text);
@@ -515,7 +523,7 @@ describe("adaptMjTransfersSent production-shape adapter", () => {
 
   it("leaves parseStatementText behavior unchanged", () => {
     for (const id of MJ_FIXTURES) {
-      const text = rawText(id);
+      const text = readFixture(id);
       const before = JSON.stringify(parseStatementText(text, "mj"));
       adaptMjTransfersSent(text);
       expect(JSON.stringify(parseStatementText(text, "mj"))).toBe(before);
