@@ -18,10 +18,11 @@ Stage 1 — Corpus and ingestion baseline
 - Validation baseline
 - Continuous integration
 - Corpus scaffold and metadata inventory
+- Repository corpus sanitization
 
 ## Current task
 
-Task 0.2A — Corpus scaffold and fixture inventory
+Task 0.2A-2 — Repository corpus sanitization
 
 ## Next task
 
