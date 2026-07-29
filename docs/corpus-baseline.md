@@ -99,3 +99,93 @@ Parser behavior must not be changed until sanitized golden fixtures and an
 evaluator that reads them exist. The current file is a metadata-only baseline;
 it does not authorize changes to `src/lib/parser.ts`, `src/lib/ocr-parser.ts`
 or `src/lib/distributor-parser.ts`.
+
+## Sanitized production-parser baseline
+
+Frozen in `tests/corpus/production-baseline.json` (Task 0.2D-a). Produced by
+`tests/corpus/evaluator.ts`, which calls the real production entry point on
+each active sanitized fixture. No parser code, fixture or expectation was
+changed to improve the score.
+
+### Adapter functions used
+
+- MJ Transfers → Sent: `parseStatementText(text, "mj")` from
+  `src/lib/distributor-parser.ts` (routes to the MJ card template).
+- Refill History: `parseStatementText(text, "alami")` from the same module
+  (routes to the Yunus/Alami Refill History template).
+
+Amounts are converted from the parser's documented unit (santim, absolute
+`amountSantim` plus the `isReversal` flag) into `signedAmountMinor`. Dates are
+converted by deterministic string arithmetic only; unparseable or absent
+values become `null`.
+
+### Measured summary
+
+| Metric               | Value |
+| -------------------- | ----: |
+| fixtureCount         |     9 |
+| expectedRows         |    56 |
+| actualRows           |    43 |
+| exactRowMatches      |    36 |
+| missingRows          |    20 |
+| unexpectedRows       |     7 |
+| expectedNegativeRows |     2 |
+| actualNegativeRows   |     0 |
+| forbiddenAgentHits   |     3 |
+| inventedDateRows     |     0 |
+| exactFixtureCount    |     3 |
+
+### Per fixture
+
+| Fixture ID           | Expected | Actual | Exact rows | Missing | Unexpected | Forbidden hits | Ordered |
+| -------------------- | -------: | -----: | ---------: | ------: | ---------: | -------------: | ------: |
+| ocr.mj.sent.photo-5  |        5 |      2 |          1 |       4 |          1 |              0 |      no |
+| ocr.mj.sent.photo-38 |        5 |      3 |          2 |       3 |          1 |              1 |      no |
+| ocr.mj.sent.photo-2  |        5 |      3 |          1 |       4 |          2 |              0 |      no |
+| ocr.mj.sent.photo-9  |        5 |      3 |          2 |       3 |          1 |              1 |      no |
+| ocr.mj.sent.photo-4  |        5 |      3 |          1 |       4 |          2 |              1 |      no |
+| ocr.mj.sent.photo-6  |        5 |      3 |          3 |       2 |          0 |              0 |      no |
+| ocr.refill.photo-64  |        9 |      9 |          9 |       0 |          0 |              0 |     yes |
+| ocr.refill.photo-49  |        9 |      9 |          9 |       0 |          0 |              0 |     yes |
+| ocr.refill.photo-51  |        8 |      8 |          8 |       0 |          0 |              0 |     yes |
+
+### Reversal and sign result
+
+Two MJ reversal rows are expected. The production parser emitted **zero**
+negative rows: `signedAmountMinor` was never negative in the frozen result.
+Reversal sign information is therefore currently lost on the sanitized MJ
+fixtures. No expected fixture was relaxed to hide this.
+
+### Forbidden agents and invented dates
+
+- 3 forbidden-agent hits: the parser emitted an agent value equal to a
+  fixture's forbidden candidate (account-label / repeated-handle noise) on
+  `photo-38`, `photo-9` and `photo-4`.
+- 0 invented dates: the parser produced no date value that is absent from the
+  fixture's expected dates. MJ rows emitted no usable date at all.
+
+### Major observed failure categories
+
+- MJ row loss: 30 expected MJ rows produced 17 emitted rows and only 10 exact
+  matches; flattened OCR cards are frequently skipped.
+- MJ amount-to-agent association errors, producing rows whose agent or amount
+  does not match any expected row.
+- Account-label and repeated-handle noise entering the agent slot.
+- Reversal signs dropped entirely on MJ.
+- MJ dates absent, so no MJ fixture reaches an exact ordered sequence.
+- Refill History is fully exact: 26 / 26 rows, correct order, correct minute
+  timestamps, repeated agents, repeated amounts and same-minute rows all
+  preserved without deduplication.
+
+### Relationship to the historical baseline
+
+The historical **original-screenshot** baseline recorded 40 / 56 parsed rows.
+That figure counted raw rows emitted from the original private screenshots and
+made no correctness claim about agent, amount, sign or date.
+
+The new **sanitized-fixture evaluator** baseline records 43 emitted rows and
+36 exact full-row matches out of 56 expected rows against synthetic OCR text.
+
+The two measurements are **not interchangeable**: different inputs (original
+versus sanitized), different definitions (rows emitted versus exact full-row
+identity) and different comparison rules. Neither number supersedes the other.
