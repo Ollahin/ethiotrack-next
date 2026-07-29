@@ -18,6 +18,7 @@
 
 export type MjLineKind =
   | "chrome"
+  | "chrome"
   | "account_label"
   | "amount"
   | "agent_candidate"
