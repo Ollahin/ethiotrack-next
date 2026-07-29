@@ -87,6 +87,7 @@ describe("parser corpus catalog", () => {
     expect(mj.length).toBe(6);
     expect(mj.reduce((a, e) => a + e.expected.completeRowCount, 0)).toBe(30);
     expect(mj.reduce((a, e) => a + e.currentBaseline.parsedRowCount, 0)).toBe(14);
+    expect(mj.reduce((a, e) => a + e.expected.reversalRowCount, 0)).toBe(2);
   });
 
   it("matches Refill History source totals", () => {
@@ -94,16 +95,35 @@ describe("parser corpus catalog", () => {
     expect(rh.length).toBe(3);
     expect(rh.reduce((a, e) => a + e.expected.completeRowCount, 0)).toBe(26);
     expect(rh.reduce((a, e) => a + e.currentBaseline.parsedRowCount, 0)).toBe(26);
+    expect(rh.reduce((a, e) => a + e.expected.reversalRowCount, 0)).toBe(0);
   });
 
-  it("has 5 active and 4 catalogued entries", () => {
-    expect(catalog.filter((e) => e.status === "active").length).toBe(5);
-    expect(catalog.filter((e) => e.status === "catalogued").length).toBe(4);
+  it("has 6 active and 3 catalogued entries", () => {
+    expect(catalog.filter((e) => e.status === "active").length).toBe(6);
+    expect(catalog.filter((e) => e.status === "catalogued").length).toBe(3);
   });
 
-  it("has 5 sanitized and 4 metadata_only entries", () => {
-    expect(catalog.filter((e) => e.privacyStatus === "sanitized").length).toBe(5);
-    expect(catalog.filter((e) => e.privacyStatus === "metadata_only").length).toBe(4);
+  it("has 6 sanitized and 3 metadata_only entries", () => {
+    expect(catalog.filter((e) => e.privacyStatus === "sanitized").length).toBe(6);
+    expect(catalog.filter((e) => e.privacyStatus === "metadata_only").length).toBe(3);
+  });
+
+  it("has all six MJ fixtures active and sanitized", () => {
+    const mj = catalog.filter((e) => e.sourceFamily === "mj_transfers_sent");
+    expect(mj.length).toBe(6);
+    for (const e of mj) {
+      expect(e.status, `expected active: ${e.id}`).toBe("active");
+      expect(e.privacyStatus).toBe("sanitized");
+    }
+  });
+
+  it("keeps all three Refill History fixtures catalogued", () => {
+    const rh = catalog.filter((e) => e.sourceFamily === "refill_history");
+    expect(rh.length).toBe(3);
+    for (const e of rh) {
+      expect(e.status, `expected catalogued: ${e.id}`).toBe("catalogued");
+      expect(e.privacyStatus).toBe("metadata_only");
+    }
   });
 
   it("active entries carry both fixture paths", () => {
