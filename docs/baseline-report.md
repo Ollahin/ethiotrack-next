@@ -1590,3 +1590,35 @@ three rows remain.
 Production parser accuracy has **not** been recalculated. No production
 parser, OCR engine, database, dependency, configuration or CI file changed.
 No original private data or screenshot was committed.
+
+## Task 0.2D-a — Production parser evaluator and frozen baseline
+
+Built a deterministic evaluator that runs the real production parser over the
+nine active sanitized fixtures and froze the measured result.
+
+### Changes
+
+- `tests/corpus/evaluator.ts` (new) — calls
+  `parseStatementText(text, "mj" | "alami")` from
+  `src/lib/distributor-parser.ts` and normalizes each emitted row to
+  `{ emittedOrder, agentText, signedAmountMinor, date }`.
+- `tests/corpus/production-baseline.json` (new) — frozen result, no timestamp,
+  path, git identity, random ID, stack trace or private data.
+- `tests/corpus/production-evaluator.test.ts` (new) — schema, coverage,
+  determinism, algebraic-consistency and no-write-back assertions.
+- `tests/corpus/schema.ts` — strict `ProductionBaselineSchema`,
+  `ProductionFixtureRecord`, `NormalizedParserRow` and summary schemas.
+- `docs/corpus-baseline.md`, `PROJECT_STATUS.md` — documentation and status.
+
+### Measured summary
+
+9 fixtures · 56 expected rows · 43 actual rows · 36 exact row matches ·
+20 missing · 7 unexpected · 2 expected negative rows · 0 actual negative rows ·
+3 forbidden-agent hits · 0 invented dates · 3 exact fixtures.
+
+MJ: 10 / 30 exact. Refill History: 26 / 26 exact.
+
+### Validation
+
+`bun run verify` — pass. No `src/**`, dependency, lockfile, configuration or CI
+change. The baseline is recorded as measured; nothing was tuned to improve it.

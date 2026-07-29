@@ -183,3 +183,91 @@ export const GoldenOcrExpectationSchema = z
     { message: "platformHint must match sourceFamily" },
   );
 export type GoldenOcrExpectation = z.infer<typeof GoldenOcrExpectationSchema>;
+
+// ── Frozen production-parser baseline ──────────────────────────────────────
+
+export const EvaluatorSourceFamily = z.enum(["mj_transfers_sent", "refill_history"]);
+export type EvaluatorSourceFamily = z.infer<typeof EvaluatorSourceFamily>;
+
+export const ExecutionStatus = z.enum(["ok", "error"]);
+export type ExecutionStatus = z.infer<typeof ExecutionStatus>;
+
+/** One production-parser row reduced to comparable fields. */
+export const NormalizedParserRow = z
+  .object({
+    emittedOrder: nonNegInt,
+    agentText: z.string().nullable(),
+    signedAmountMinor: z.number().int().nullable(),
+    date: z.string().nullable(),
+  })
+  .strict();
+export type NormalizedParserRow = z.infer<typeof NormalizedParserRow>;
+
+export const ProductionFixtureRecord = z
+  .object({
+    fixtureId: nonEmpty,
+    sourceFamily: EvaluatorSourceFamily,
+    adapterId: nonEmpty,
+    executionStatus: ExecutionStatus,
+    errorCode: z.string().min(1).nullable(),
+    expectedRowCount: nonNegInt,
+    actualRowCount: nonNegInt,
+    actualRows: z.array(NormalizedParserRow),
+    exactRowMatches: nonNegInt,
+    missingRows: nonNegInt,
+    unexpectedRows: nonNegInt,
+    exactAgentMultisetMatches: nonNegInt,
+    exactAmountMultisetMatches: nonNegInt,
+    exactDateMultisetMatches: nonNegInt,
+    expectedNegativeRows: nonNegInt,
+    actualNegativeRows: nonNegInt,
+    forbiddenAgentHits: nonNegInt,
+    inventedDateRows: nonNegInt,
+    exactOrderedSequence: z.boolean(),
+  })
+  .strict()
+  .refine((f) => f.actualRows.length === f.actualRowCount, {
+    message: "actualRowCount must equal actualRows.length",
+  })
+  .refine((f) => f.missingRows === f.expectedRowCount - f.exactRowMatches, {
+    message: "missingRows must equal expectedRowCount - exactRowMatches",
+  })
+  .refine((f) => f.unexpectedRows === f.actualRowCount - f.exactRowMatches, {
+    message: "unexpectedRows must equal actualRowCount - exactRowMatches",
+  })
+  .refine((f) => (f.executionStatus === "error" ? f.errorCode !== null : f.errorCode === null), {
+    message: "errorCode presence must agree with executionStatus",
+  })
+  .refine((f) => f.actualRows.every((r, i) => r.emittedOrder === i), {
+    message: "emittedOrder must be contiguous and zero-based",
+  });
+export type ProductionFixtureRecord = z.infer<typeof ProductionFixtureRecord>;
+
+export const ProductionBaselineSummary = z
+  .object({
+    fixtureCount: nonNegInt,
+    expectedRows: nonNegInt,
+    actualRows: nonNegInt,
+    exactRowMatches: nonNegInt,
+    missingRows: nonNegInt,
+    unexpectedRows: nonNegInt,
+    expectedNegativeRows: nonNegInt,
+    actualNegativeRows: nonNegInt,
+    forbiddenAgentHits: nonNegInt,
+    inventedDateRows: nonNegInt,
+    exactFixtureCount: nonNegInt,
+  })
+  .strict();
+export type ProductionBaselineSummary = z.infer<typeof ProductionBaselineSummary>;
+
+export const ProductionBaselineSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    fixtures: z.array(ProductionFixtureRecord).min(1),
+    summary: ProductionBaselineSummary,
+  })
+  .strict()
+  .refine((b) => b.summary.fixtureCount === b.fixtures.length, {
+    message: "fixtureCount must equal the number of fixture records",
+  });
+export type ProductionBaseline = z.infer<typeof ProductionBaselineSchema>;
