@@ -1254,3 +1254,73 @@ Production parsing was **not** executed and **not** changed. No file under
 rule, dependency, lockfile, `package.json`, build/lint configuration, CI
 workflow or blueprint document was modified. Parser accuracy against these
 fixtures is deliberately not measured in this task.
+
+## Task 0.2B-b — Additional positive-only MJ golden fixtures
+
+### Activated fixture IDs
+
+- `ocr.mj.sent.photo-2`
+- `ocr.mj.sent.photo-9`
+
+### Files added
+
+- `tests/corpus/fixtures/ocr/mj-transfers-sent/photo-2.raw.txt`
+- `tests/corpus/fixtures/ocr/mj-transfers-sent/photo-2.expected.json`
+- `tests/corpus/fixtures/ocr/mj-transfers-sent/photo-9.raw.txt`
+- `tests/corpus/fixtures/ocr/mj-transfers-sent/photo-9.expected.json`
+
+### Files changed
+
+- `tests/corpus/catalog.json`
+- `tests/corpus/catalog.test.ts`
+- `tests/corpus/golden-fixtures.test.ts`
+- `tests/corpus/README.md`
+- `docs/corpus-baseline.md`
+- `docs/baseline-report.md`
+- `PROJECT_STATUS.md`
+
+### Synthetic-data policy
+
+All agent names, wallet labels and amounts in both fixtures are synthetic. No
+original personal name, account-holder label, account number, reference,
+receipt identifier, URL, amount or complete OCR passage was committed. No
+screenshot image is committed. Privacy validation remains structural: pattern
+checks for HTTP URLs, masked accounts, phone-like values, receipt/reference
+identifiers and raw SMS openings, plus the `Sample Agent ` prefix rule and the
+synthetic repeated sender label. No plaintext private deny list was added.
+
+### Active fixture and row totals
+
+- 4 active sanitized fixtures, 5 metadata-only fixtures.
+- 20 active expected rows, 0 active reversal rows.
+- Full catalog unchanged: 9 fixtures, 56 expected rows, 0 partial rows,
+  2 reversal rows, 40 currently parsed rows.
+
+### Focused fixture assertions added
+
+`ocr.mj.sent.photo-2`: exactly 5 expected rows; five distinct agents;
+`Sample Agent Lambda Meridian` preserved as one complete value; punctuation
+noise present adjacent to an amount in the raw fixture; all expected signed
+amounts positive.
+
+`ocr.mj.sent.photo-9`: exactly 5 expected rows; the `fo` token appears in raw
+OCR; `fo` is a forbidden agent candidate; `fo` never appears as expected
+`agentText`; `Sample Agent Rho` occurs exactly twice with different amounts;
+both repeated-agent rows remain present; all expected signed amounts positive.
+
+No production parser, OCR engine or `parseMany` call is made by these tests.
+
+### Command results
+
+- `bun run typecheck` — pass
+- `bun run lint` — pass
+- `bun run format:check` — pass
+- `bun run test` — pass (80 tests, up from 62)
+- `bun run build` — pass
+- `bun run verify` — pass
+
+### Confirmation
+
+Production parsing was neither executed nor changed. No file under `src/`,
+no database code, dependency, lockfile, configuration, CI workflow or
+blueprint document was modified.
