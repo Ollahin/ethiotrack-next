@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "ocr.refill.photo-51",
+  "sourceFamily": "refill_history",
+  "platformHint": "yunus_or_alami",
+  "expectedRows": [
+    {
+      "sourceOrder": 0,
+      "agentText": "Sample Agent Lumen",
+      "rawAmountText": "31,000",
+      "signedAmountMinor": 3100000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": "2026-08-13T08:48",
+      "datePrecision": "minute",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 1,
+      "agentText": "Sample Agent Lumenn",
+      "rawAmountText": "52,000",
+      "signedAmountMinor": 5200000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": "2026-08-13T07:16",
+      "datePrecision": "minute",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 2,
+      "agentText": "Sample Agent Granite Hill",
+      "rawAmountText": "87,640",
+      "signedAmountMinor": 8764000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": "2026-08-13T05:12",
+      "datePrecision": "minute",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 3,
+      "agentText": "Sample Agent Solace",
+      "rawAmountText": "610,000",
+      "signedAmountMinor": 61000000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": "2026-08-12T19:00",
+      "datePrecision": "minute",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 4,
+      "agentText": "Sample Agent Bramble",
+      "rawAmountText": "52,000",
+      "signedAmountMinor": 5200000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": "2026-08-12T16:55",
+      "datePrecision": "minute",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 5,
+      "agentText": "Sample Agent Brambel",
+      "rawAmountText": "31,000",
+      "signedAmountMinor": 3100000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": "2026-08-12T08:08",
+      "datePrecision": "minute",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 6,
+      "agentText": "Sample Agent Kestrel",
+      "rawAmountText": "11,000",
+      "signedAmountMinor": 1100000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": "2026-08-12T06:02",
+      "datePrecision": "minute",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 7,
+      "agentText": "Sample Agent Nasrin",
+      "rawAmountText": "52,000",
+      "signedAmountMinor": 5200000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": "2026-08-12T05:37",
+      "datePrecision": "minute",
+      "agentResolution": "unassigned"
+    }
+  ],
+  "forbiddenAgentCandidates": ["Refill History", "Agents", "Add Agent", "Refill"],
+  "expectedWarnings": [
+    "ocr-name-variation",
+    "similar-names-remain-distinct",
+    "strict-agent-linking-required"
+  ]
+}
