@@ -142,3 +142,24 @@ All six MJ Transfers → Sent fixtures are now active. Together they cover:
 - The first active Refill History fixture (`ocr.refill.photo-64`) covers
   repeated agents, repeated amounts, a multiword agent name and transactions
   spanning multiple calendar days.
+
+## Two active Refill History fixtures
+
+Two Refill History fixtures are now active: `ocr.refill.photo-64` and
+`ocr.refill.photo-49`.
+
+`ocr.refill.photo-49` adds same-timestamp coverage:
+
+- Two different visible rows legitimately share one minute-level timestamp.
+- Equal timestamps do **not** prove duplication.
+- Separate visible rows remain separate financial events.
+- Timestamp-only deduplication is **prohibited**.
+- Repeated agent names and repeated amounts are also insufficient on their own
+  to merge or drop a row.
+- Agent matching remains strict: every expected row stays `unassigned` and no
+  alias or existing-agent link is inferred.
+- Source-local minute timestamps remain unchanged: no timezone suffix, no UTC
+  conversion and no seconds.
+
+The next Refill History fixture covers OCR name variations that must not be
+auto-linked to an existing agent.
