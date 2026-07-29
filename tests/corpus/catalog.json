@@ -78,12 +78,14 @@
     "inputKind": "ocr_screenshot",
     "sourceFamily": "mj_transfers_sent",
     "platformHint": "mj",
-    "status": "catalogued",
-    "privacyStatus": "metadata_only",
     "currentOcrConfidence": 0.61,
     "expected": { "completeRowCount": 5, "partialRowCount": 0, "reversalRowCount": 0 },
     "currentBaseline": { "parsedRowCount": 3 },
-    "tags": ["ocr-sign-noise", "missing-rows", "layout-association", "repeated-agent"]
+    "tags": ["ocr-sign-noise", "missing-rows", "layout-association", "repeated-agent"],
+    "status": "active",
+    "privacyStatus": "sanitized",
+    "rawFixturePath": "tests/corpus/fixtures/ocr/mj-transfers-sent/photo-6.raw.txt",
+    "expectedFixturePath": "tests/corpus/fixtures/ocr/mj-transfers-sent/photo-6.expected.json"
   },
   {
     "id": "ocr.refill.photo-64",

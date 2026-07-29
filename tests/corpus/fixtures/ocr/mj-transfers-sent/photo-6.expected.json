@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "ocr.mj.sent.photo-6",
+  "sourceFamily": "mj_transfers_sent",
+  "platformHint": "mj",
+  "expectedRows": [
+    {
+      "sourceOrder": 0,
+      "agentText": "Sample Agent Tau",
+      "rawAmountText": "3,875.00",
+      "signedAmountMinor": 387500,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned",
+      "amountEvidence": {
+        "observedText": "- 3,875.00",
+        "prefixDisposition": "ocr_noise"
+      }
+    },
+    {
+      "sourceOrder": 1,
+      "agentText": "Sample Agent Upsilon",
+      "rawAmountText": "22,750.00",
+      "signedAmountMinor": 2275000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 2,
+      "agentText": "Sample Agent Phi",
+      "rawAmountText": "12,480.00",
+      "signedAmountMinor": 1248000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 3,
+      "agentText": "Sample Agent Chi",
+      "rawAmountText": "23,900.00",
+      "signedAmountMinor": 2390000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 4,
+      "agentText": "Sample Agent Tau",
+      "rawAmountText": "2,735.00",
+      "signedAmountMinor": 273500,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned",
+      "amountEvidence": {
+        "observedText": ": 2,735.00",
+        "prefixDisposition": "ocr_noise"
+      }
+    }
+  ],
+  "forbiddenAgentCandidates": ["samplewallet - samplewallet"],
+  "expectedWarnings": ["missing-date", "ocr-sign-noise", "punctuation-noise", "repeated-agent"]
+}
