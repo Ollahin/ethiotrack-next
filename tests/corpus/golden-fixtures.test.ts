@@ -296,3 +296,92 @@ describe("ocr.mj.sent.photo-6 — OCR sign noise and repeated agents", () => {
     );
   });
 });
+
+describe("ocr.mj.sent.photo-4 — confirmed reversals versus OCR sign noise", () => {
+  const { raw, expected } = loadExpected("ocr.mj.sent.photo-4");
+  const rows = expected.expectedRows;
+  const withEvidence = rows.filter((r) => r.amountEvidence);
+
+  it("has exactly 5 expected rows", () => {
+    expect(rows.length).toBe(5);
+  });
+
+  it("has exactly 2 reversal rows and 3 positive rows", () => {
+    expect(rows.filter((r) => r.isReversal).length).toBe(2);
+    expect(rows.filter((r) => !r.isReversal).length).toBe(3);
+  });
+
+  it("places the reversals at source orders 0 and 3", () => {
+    expect(rows.filter((r) => r.isReversal).map((r) => r.sourceOrder)).toEqual([0, 3]);
+  });
+
+  it("carries exactly 3 evidence records, 2 confirmed reversals and 1 OCR noise", () => {
+    expect(withEvidence.length).toBe(3);
+    expect(
+      withEvidence.filter((r) => r.amountEvidence?.prefixDisposition === "confirmed_reversal")
+        .length,
+    ).toBe(2);
+    expect(
+      withEvidence.filter((r) => r.amountEvidence?.prefixDisposition === "ocr_noise").length,
+    ).toBe(1);
+  });
+
+  it("contains the observed amount strings verbatim in the raw fixture", () => {
+    expect(raw).toContain("-5,250.00");
+    expect(raw).toContain("- 302,500.00");
+    expect(raw).toContain("-8,975.00");
+  });
+
+  it("keeps row 2 a positive non-reversal transfer despite the dash prefix", () => {
+    const row = rows[2];
+    expect(row.signedAmountMinor).toBeGreaterThan(0);
+    expect(row.isReversal).toBe(false);
+    expect(row.eventKind).toBe("evd_sent_to_agent");
+  });
+
+  it("keeps both repeated-agent rows as separate immutable events", () => {
+    const psi = rows.filter((r) => r.agentText === "Sample Agent Psi");
+    expect(psi.length).toBe(2);
+    expect(psi.filter((r) => r.isReversal).length).toBe(1);
+    expect(psi.filter((r) => !r.isReversal).length).toBe(1);
+    expect(psi[0].signedAmountMinor).not.toBe(psi[1].signedAmountMinor);
+  });
+
+  it("forbids the repeated synthetic sender label as an agent", () => {
+    expect(expected.forbiddenAgentCandidates).toContain("samplewallet - samplewallet");
+    for (const row of rows) {
+      expect(row.agentText).not.toBe("samplewallet - samplewallet");
+    }
+  });
+});
+
+describe("MJ fixture set completion", () => {
+  const mj = active.filter((e) => e.sourceFamily === "mj_transfers_sent");
+  const loaded = mj.map((e) => loadExpected(e.id).expected);
+
+  it("has exactly 6 active MJ fixtures", () => {
+    expect(mj.length).toBe(6);
+  });
+
+  it("has exactly 30 active MJ expected rows and 2 reversal rows", () => {
+    expect(loaded.reduce((a, e) => a + e.expectedRows.length, 0)).toBe(30);
+    expect(
+      loaded.reduce((a, e) => a + e.expectedRows.filter((r) => r.isReversal).length, 0),
+    ).toBe(2);
+  });
+
+  it("keeps source orders contiguous within each fixture", () => {
+    for (const e of loaded) {
+      expect(e.expectedRows.map((r) => r.sourceOrder)).toEqual(e.expectedRows.map((_r, i) => i));
+    }
+  });
+
+  it("never invents a date or timestamp", () => {
+    for (const e of loaded) {
+      for (const row of e.expectedRows) {
+        expect(row.date).toBeNull();
+        expect(row.datePrecision).toBe("unknown");
+      }
+    }
+  });
+});

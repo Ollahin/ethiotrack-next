@@ -92,7 +92,7 @@ Ambiguous financial signs must be preserved for review rather than guessed.
 
 ## Coverage of active MJ fixtures
 
-The four active MJ Transfers → Sent fixtures currently cover:
+All six MJ Transfers → Sent fixtures are now active. Together they cover:
 
 - missing rows;
 - flattened amount-to-agent association;
@@ -101,7 +101,24 @@ The four active MJ Transfers → Sent fixtures currently cover:
 - punctuation adjacent to amounts;
 - long synthetic agent names;
 - repeated account-label noise;
-- OCR sign noise around amounts, with repeated legitimate agents.
+- OCR sign noise around amounts;
+- confirmed reversals;
+- missing dates.
 
-The true MJ reversal fixture — an independently confirmed negative amount — is
-the next corpus task.
+## Reversals versus OCR sign noise
+
+- `confirmed_reversal` represents a human-confirmed negative MJ transaction.
+  Its `rawAmountText` is negative, `signedAmountMinor` is negative,
+  `isReversal` is true and `eventKind` is `evd_reversal`.
+- `ocr_noise` represents misleading punctuation produced by flattened OCR. The
+  authoritative amount stays positive and the row stays `evd_sent_to_agent`.
+- A visible dash alone is **not** sufficient evidence of a reversal. The
+  authoritative sign must be supported by the golden annotation.
+- A reversal row and a positive row for the same agent remain separate,
+  immutable events. Fixture validation never nets a reversal against a
+  positive transfer and never deduplicates such rows.
+- Reversal business processing (inventory and balance effects) will be
+  implemented later in production code. No PIN is required for ordinary MJ
+  reversal capture under the approved business rules.
+- This task validates fixture meaning only. It does not implement reversal UI
+  or inventory behavior.
