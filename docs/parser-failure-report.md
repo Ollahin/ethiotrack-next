@@ -186,3 +186,21 @@ is inferred.
 Every step must keep the non-regression gate green
 (`tests/corpus/acceptance-gates.ts`); the release gate is the completion
 criterion for this repair sequence.
+
+## Resolution status (Task 0.3B-d)
+
+Production MJ parsing was routed through the deterministic amount-anchored
+reconstruction. Re-measured on the same sanitized corpus:
+
+- C1 (fragile repeated-sender anchor): resolved. Rows anchor on defensible
+  amounts, not on the account label.
+- C2 (list-index rejection in `looksLikeName`): resolved. Decoration prefixes
+  and suffixes are stripped before the name-substance test.
+- C6 (reversal sign lost through row discard): resolved. Both confirmed
+  reversals are emitted with the correct negative sign, and spaced-minus OCR
+  noise still yields a positive row.
+- Forbidden-agent leakage: resolved, 0 hits. Account labels, chrome words and
+  bottom-navigation strips can never be promoted to the agent slot.
+
+MJ is now 30 / 30 exact rows and the corpus total is 56 / 56. The remaining
+open item is surfacing unresolved windows in the import UI (Task 0.3B-e).
