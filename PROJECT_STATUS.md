@@ -63,7 +63,7 @@ Task 0.3B-f — MJ boundary regression suite and integration cleanup
 
 ## Next task
 
-Task 0.3C-a — Layout-aware OCR evidence model design
+Task 0.3C-a — Float and EVD SMS corpus design
 
 ## Execution contract
 
