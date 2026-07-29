@@ -446,7 +446,16 @@ export interface MjAdapterResult {
   /** Production-shaped rows, in source order. Resolved windows only. */
   rows: StatementRow[];
   unresolved: MjUnresolvedWindow[];
+  /**
+   * Every window, resolved and unresolved, in strict source order. One entry
+   * per defensible amount anchor — never merged, netted, dropped or reordered.
+   */
+  ordered: MjAdapterEntry[];
 }
+
+export type MjAdapterEntry =
+  | { kind: "resolved"; sourceOrder: number; row: StatementRow }
+  | { kind: "unresolved"; sourceOrder: number; window: MjUnresolvedWindow };
 
 /** Evidence-only raw string. Contains the amount token and the bound agent. */
 function adapterRaw(row: MjReconstructedRow, agentName: string): string {
@@ -481,13 +490,16 @@ export function adaptMjTransfersSent(text: string): MjAdapterResult {
   const reconstructed = reconstructMjRows(classifyMjLines(text));
   const rows: StatementRow[] = [];
   const unresolved: MjUnresolvedWindow[] = [];
+  const ordered: MjAdapterEntry[] = [];
 
   for (const row of reconstructed) {
     if (row.status === "resolved" && row.agentName !== null) {
-      rows.push(toStatementRow(row, row.agentName));
+      const statementRow = toStatementRow(row, row.agentName);
+      rows.push(statementRow);
+      ordered.push({ kind: "resolved", sourceOrder: row.sourceOrder, row: statementRow });
       continue;
     }
-    unresolved.push({
+    const window: MjUnresolvedWindow = {
       sourceOrder: row.sourceOrder,
       amountLineIndex: row.amountLineIndex,
       status: row.status === "resolved" ? "missing_agent" : row.status,
@@ -495,8 +507,10 @@ export function adaptMjTransfersSent(text: string): MjAdapterResult {
       isReversal: row.isReversal,
       candidateLineIndexes: [...row.candidateLineIndexes],
       warnings: [...row.warnings],
-    });
+    };
+    unresolved.push(window);
+    ordered.push({ kind: "unresolved", sourceOrder: row.sourceOrder, window });
   }
 
-  return { rows, unresolved };
+  return { rows, unresolved, ordered };
 }

@@ -430,3 +430,108 @@ describe("parseStatementText — generic repeated-handle sender label", () => {
     expect(r.agentName).toBe("Abebe - Kebede");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Task 0.3B-e — MJ unresolved-window diagnostics contract.
+//
+// Every defensible amount window yields exactly one production row: either a
+// resolved (`ok: true`) transaction or a review (`ok: false`) diagnostic. No
+// window is ever silently dropped, merged, netted, duplicated or reordered,
+// and an unresolved window never carries an invented agent or date.
+// ---------------------------------------------------------------------------
+describe("parseStatementText — MJ unresolved-window diagnostics", () => {
+  const mj = (lines: string[]) => parseStatementText(lines.join("\n"), "mj");
+
+  it("emits a missing_agent review row when a window has zero candidates", () => {
+    const rows = mj(["@ Transfers", "Sent", "1,000.00", "[wl]"]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].ok).toBe(false);
+    expect(rows[0].reason).toBe("no agent");
+    expect(rows[0].needsReview).toBe(true);
+    expect(rows[0].amountSantim).toBe(100_000);
+    expect(rows[0].isReversal).toBe(false);
+    expect(rows[0].agentName).toBeUndefined();
+    expect(rows[0].dateText).toBeUndefined();
+  });
+
+  it("emits an ambiguous_agent review row when a window has several candidates", () => {
+    const rows = mj(["2,000.00", "Sample Agent Alpha", "Sample Agent Beta"]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].ok).toBe(false);
+    expect(rows[0].reason).toBe("ambiguous agent");
+    expect(rows[0].amountSantim).toBe(200_000);
+    expect(rows[0].agentName).toBeUndefined();
+  });
+
+  it("preserves source order across mixed resolved and unresolved windows", () => {
+    const rows = mj([
+      "@ Transfers",
+      "Sent",
+      "1,000.00",
+      "Sample Agent Alpha",
+      "2,000.00",
+      "[wl]",
+      "3,000.00",
+      "Sample Agent Beta",
+      "4,000.00",
+      "Sample Agent Gamma",
+      "Sample Agent Delta",
+    ]);
+    expect(rows.map((r) => r.ok)).toEqual([true, false, true, false]);
+    expect(rows.map((r) => r.amountSantim)).toEqual([100_000, 200_000, 300_000, 400_000]);
+    expect(rows.map((r) => r.agentName)).toEqual([
+      "Sample Agent Alpha",
+      undefined,
+      "Sample Agent Beta",
+      undefined,
+    ]);
+  });
+
+  it("keeps attached-minus reversal evidence on an unresolved window", () => {
+    const rows = mj(["-5,250.00", "[wl]"]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].ok).toBe(false);
+    expect(rows[0].isReversal).toBe(true);
+    expect(rows[0].amountSantim).toBe(525_000);
+  });
+
+  it("treats a spaced-minus prefix as positive OCR noise, not a reversal", () => {
+    const rows = mj(["- 3,875.00", "[wl]"]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].isReversal).toBe(false);
+    expect(rows[0].amountSantim).toBe(387_500);
+    const punctuation = mj([": 2,735.00", "[wl]"]);
+    expect(punctuation[0].isReversal).toBe(false);
+    expect(punctuation[0].amountSantim).toBe(273_500);
+  });
+
+  it("never resolves an agent from an account label alone", () => {
+    const rows = mj(["9,000.00", "2 samplewallet - samplewallet"]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].ok).toBe(false);
+    expect(rows[0].reason).toBe("no agent");
+    expect(rows[0].raw.toLowerCase()).not.toContain("samplewallet");
+  });
+
+  it("keeps repeated legitimate agents as separate resolved rows", () => {
+    const rows = mj(["1,000.00", "Sample Agent Alpha", "2,000.00", "Sample Agent Alpha"]);
+    expect(rows).toHaveLength(2);
+    expect(rows.every((r) => r.ok)).toBe(true);
+    expect(rows.map((r) => r.agentName)).toEqual(["Sample Agent Alpha", "Sample Agent Alpha"]);
+    expect(rows.map((r) => r.amountSantim)).toEqual([100_000, 200_000]);
+  });
+
+  it("creates no financial row from unrelated numeric or UI noise", () => {
+    const rows = mj(["2233 me® oN 8 al 57%=", "@ Transfers", "Sent", "4:50", "3", "Transfers"]);
+    expect(rows).toEqual([]);
+  });
+
+  it("is deterministic and does not mutate its input", () => {
+    const text = ["1,000.00", "Sample Agent Alpha", "2,000.00", "[wl]"].join("\n");
+    const snapshot = `${text}`;
+    const first = parseStatementText(text, "mj");
+    const second = parseStatementText(text, "mj");
+    expect(text).toBe(snapshot);
+    expect(JSON.stringify(second)).toBe(JSON.stringify(first));
+  });
+});

@@ -340,16 +340,27 @@ function isLikelyMjTransfers(text: string): boolean {
  * are surfaced through the existing `ok: false` diagnostic row shape (the same
  * mechanism the generic and refill paths already use) so they can never be
  * silently dropped. No legacy fallback, no invented agent/amount/sign/date.
+ *
+ * Ordering is the source order of the amount anchors: resolved and unresolved
+ * windows are interleaved exactly as they appeared on screen, so a reviewer
+ * sees a review row in the position of the transaction it belongs to.
+ * Unresolved rows carry only defensible evidence: the amount in minor units
+ * and the attached-minus reversal flag. They never carry an agent or a date.
  */
 function parseMj(text: string): StatementRow[] {
-  const { rows, unresolved } = adaptMjTransfersSent(text);
-  const diagnostics: StatementRow[] = unresolved.map((window) => ({
-    ok: false,
-    raw: `mj:unresolved#${window.sourceOrder}`,
-    reason: window.status === "missing_agent" ? "no agent" : "ambiguous agent",
-    needsReview: true,
-  }));
-  return [...rows, ...diagnostics];
+  const { ordered } = adaptMjTransfersSent(text);
+  return ordered.map((entry) =>
+    entry.kind === "resolved"
+      ? entry.row
+      : {
+          ok: false,
+          raw: `mj:unresolved#${entry.window.sourceOrder}`,
+          reason: entry.window.status === "missing_agent" ? "no agent" : "ambiguous agent",
+          amountSantim: entry.window.amountSantim,
+          isReversal: entry.window.isReversal,
+          needsReview: true,
+        },
+  );
 }
 
 /** Alami / Yenus / Modern App "Refill History" — flat row triplets. */
