@@ -560,3 +560,126 @@ describe("adaptMjTransfersSent ordered window contract", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Task 0.3B-f — MJ boundary regression suite.
+//
+// Boundaries only: no fixture-specific logic, no invented values. Each test
+// pins one edge of the deterministic amount-anchored contract.
+// ---------------------------------------------------------------------------
+describe("MJ boundary regressions", () => {
+  const adapt = (lines: string[]) => adaptMjTransfersSent(lines.join("\n"));
+
+  it("returns nothing for empty and whitespace-only input", () => {
+    for (const text of ["", "   ", "\n\n", " \t \n \u00A0 \n"]) {
+      const result = adaptMjTransfersSent(text);
+      expect(result.rows).toEqual([]);
+      expect(result.unresolved).toEqual([]);
+      expect(result.ordered).toEqual([]);
+    }
+  });
+
+  it("returns nothing for chrome-only input", () => {
+    const result = adapt(["2233 me® oN 8 al 57%=", "@ Transfers", "Sent", "3", "Transfers"]);
+    expect(result.ordered).toEqual([]);
+  });
+
+  it("leaves a trailing amount with no following agent unresolved", () => {
+    const result = adapt(["Sample Agent Alpha", "1,000.00"]);
+    expect(result.rows).toEqual([]);
+    expect(result.unresolved).toHaveLength(1);
+    expect(result.unresolved[0].status).toBe("missing_agent");
+    expect(result.unresolved[0].candidateLineIndexes).toEqual([]);
+  });
+
+  it("gives adjacent amount anchors one window each", () => {
+    const result = adapt(["1,000.00", "2,000.00", "Sample Agent Alpha"]);
+    expect(result.ordered.map((e) => e.kind)).toEqual(["unresolved", "resolved"]);
+    expect(result.unresolved[0].amountSantim).toBe(100_000);
+    expect(result.rows[0].amountSantim).toBe(200_000);
+  });
+
+  it("interleaves resolved and unresolved windows in source order", () => {
+    const result = adapt([
+      "1,000.00",
+      "Sample Agent Alpha",
+      "2,000.00",
+      "[wl]",
+      "3,000.00",
+      "Sample Agent Beta",
+      "Sample Agent Gamma",
+    ]);
+    expect(result.ordered.map((e) => e.kind)).toEqual(["resolved", "unresolved", "unresolved"]);
+    expect(result.ordered.map((e) => e.sourceOrder)).toEqual([0, 1, 2]);
+    expect(result.unresolved.map((w) => w.status)).toEqual(["missing_agent", "ambiguous_agent"]);
+  });
+
+  it("never resolves an agent from repeated sender-label variations", () => {
+    const labels = [
+      "2 samplewallet - samplewallet",
+      "samplewallet-samplewallet",
+      "SampleWallet - samplewallet",
+      "E 5 sample.wallet - sample.wallet",
+    ];
+    for (const label of labels) {
+      const result = adapt(["1,000.00", label]);
+      expect(result.rows).toEqual([]);
+      expect(result.unresolved[0].status).toBe("missing_agent");
+    }
+  });
+
+  it("rejects amount-like timestamps and percentages as anchors", () => {
+    const result = adapt(["4:50", "57%", "12:30 PM", "3,000", "Sample Agent Alpha"]);
+    expect(result.ordered).toEqual([]);
+  });
+
+  it("rejects punctuation-only and very short OCR tokens as agents", () => {
+    for (const token of ["[wl]", "®", "fo)", "™", "- ;", "b 3", "oo"]) {
+      const result = adapt(["1,000.00", token]);
+      expect(result.rows).toEqual([]);
+      expect(result.unresolved[0].status).toBe("missing_agent");
+    }
+  });
+
+  it("retains multiword and hyphenated legitimate agents", () => {
+    const result = adapt([
+      "1,000.00",
+      "Sample Agent Lambda Meridian",
+      "2,000.00",
+      "& Sample Agent Al-Noor",
+    ]);
+    expect(result.rows.map((r) => r.agentName)).toEqual([
+      "Sample Agent Lambda Meridian",
+      "Sample Agent Al-Noor",
+    ]);
+  });
+
+  it("keeps attached-minus evidence on an unresolved window", () => {
+    const result = adapt(["-5,250.00", "[wl]"]);
+    expect(result.unresolved[0].isReversal).toBe(true);
+    expect(result.unresolved[0].amountSantim).toBe(525_000);
+    expect(result.unresolved[0].warnings).toContain("reversal");
+  });
+
+  it("keeps a spaced-minus unresolved amount positive", () => {
+    const result = adapt(["- 3,875.00", "[wl]"]);
+    expect(result.unresolved[0].isReversal).toBe(false);
+    expect(result.unresolved[0].warnings).not.toContain("reversal");
+  });
+
+  it("keeps duplicate legitimate rows separate", () => {
+    const result = adapt(["1,000.00", "Sample Agent Alpha", "1,000.00", "Sample Agent Alpha"]);
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows[0]).toEqual(result.rows[1]);
+    expect(result.unresolved).toEqual([]);
+  });
+
+  it("is deterministic and never mutates its input", () => {
+    const text = ["1,000.00", "Sample Agent Alpha", "-2,000.00", "[wl]"].join("\n");
+    const snapshot = `${text}`;
+    const first = adaptMjTransfersSent(text);
+    const second = adaptMjTransfersSent(text);
+    expect(text).toBe(snapshot);
+    expect(JSON.stringify(second)).toBe(JSON.stringify(first));
+  });
+});
