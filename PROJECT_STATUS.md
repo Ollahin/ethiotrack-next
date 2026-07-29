@@ -55,14 +55,15 @@ Stage 1 — Corpus and ingestion baseline
 - Refrozen 56/56 exact sanitized-corpus baseline
 - Ratcheted non-regression floor and passing release gate
 - Ordered MJ unresolved-window diagnostics contract
+- MJ boundary regression suite and legacy-path removal
 
 ## Current task
 
-Task 0.3B-e — MJ unresolved-window diagnostics hardening
+Task 0.3B-f — MJ boundary regression suite and integration cleanup
 
 ## Next task
 
-Task 0.3B-f — MJ boundary regression suite and integration cleanup
+Task 0.3C-a — Layout-aware OCR evidence model design
 
 ## Execution contract
 
