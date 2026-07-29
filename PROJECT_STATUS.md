@@ -41,14 +41,16 @@ Stage 1 — Corpus and ingestion baseline
 - All nine sanitized screenshot fixtures
 - Full 56-row golden corpus
 - Refill History OCR-name-variation coverage
+- Deterministic production parser evaluator
+- Frozen sanitized-corpus parser baseline
 
 ## Current task
 
-Task 0.2C-c — Final Refill History golden fixture
+Task 0.2D-a — Production parser evaluator and frozen baseline
 
 ## Next task
 
-Task 0.2D-a — Production parser evaluator and frozen baseline
+Task 0.2D-b — Evaluator acceptance gates and parser failure report
 
 ## Execution contract
 
