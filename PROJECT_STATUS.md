@@ -27,14 +27,18 @@ Stage 1 — Corpus and ingestion baseline
 - Five active sanitized MJ golden fixtures
 - OCR amount-prefix evidence contract
 - MJ OCR sign-noise fixture coverage
+- All six sanitized MJ golden fixtures
+- MJ reversal fixture coverage
+- Signed-amount fixture validation
+- Confirmed-reversal versus OCR-noise distinction
 
 ## Current task
 
-Task 0.2B-c — MJ OCR sign-noise golden fixture
+Task 0.2B-d — MJ reversal golden fixture and signed-amount validation
 
 ## Next task
 
-Task 0.2B-d — MJ reversal golden fixture and signed-amount validation
+Task 0.2C-a — First sanitized Refill History golden fixture
 
 ## Important rule
 

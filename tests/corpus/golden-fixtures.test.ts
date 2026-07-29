@@ -365,9 +365,9 @@ describe("MJ fixture set completion", () => {
 
   it("has exactly 30 active MJ expected rows and 2 reversal rows", () => {
     expect(loaded.reduce((a, e) => a + e.expectedRows.length, 0)).toBe(30);
-    expect(
-      loaded.reduce((a, e) => a + e.expectedRows.filter((r) => r.isReversal).length, 0),
-    ).toBe(2);
+    expect(loaded.reduce((a, e) => a + e.expectedRows.filter((r) => r.isReversal).length, 0)).toBe(
+      2,
+    );
   });
 
   it("keeps source orders contiguous within each fixture", () => {
