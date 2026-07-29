@@ -260,3 +260,135 @@ export function findMjAmountAnchors(lines: MjLine[]): MjAmountAnchor[] {
   }
   return anchors;
 }
+
+/* ------------------------------------------------------------------ */
+/* Agent filtering — batch 0.3B-b                                      */
+/* ------------------------------------------------------------------ */
+
+export interface MjAgentCandidate {
+  sourceIndex: number;
+  /** Canonical name after generic decoration-prefix removal. */
+  agentName: string;
+  /** Stable transform codes. Never free text. */
+  transforms: string[];
+}
+
+/**
+ * Promotes a classified line to an agent candidate. Returns `null` for every
+ * other kind (chrome, account_label, amount, date, noise), so repeated sender
+ * labels, amounts and OCR junk can never enter a reconstructed row.
+ */
+export function toMjAgentCandidate(line: MjLine): MjAgentCandidate | null {
+  if (line.kind !== "agent_candidate") return null;
+  const agentName = line.stripped;
+  if (agentName.length === 0) return null;
+  const transforms: string[] = [];
+  if (agentName !== line.text) transforms.push("decoration_prefix_stripped");
+  if (line.text !== line.raw.trim()) transforms.push("normalized");
+  return { sourceIndex: line.sourceIndex, agentName, transforms };
+}
+
+/** All agent candidates of a classified screen, in source order. */
+export function collectMjAgentCandidates(lines: MjLine[]): MjAgentCandidate[] {
+  const out: MjAgentCandidate[] = [];
+  for (const line of lines) {
+    const candidate = toMjAgentCandidate(line);
+    if (candidate) out.push(candidate);
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
+/* Row reconstruction                                                  */
+/* ------------------------------------------------------------------ */
+
+export type MjRowStatus = "resolved" | "missing_agent" | "ambiguous_agent";
+
+export type MjWarningCode =
+  | "missing_agent"
+  | "ambiguous_agent"
+  | "ambiguous_sign"
+  | "reversal"
+  | "no_date_in_source";
+
+export interface MjReconstructedRow {
+  /** Emission order index, 0-based, in anchor order. */
+  sourceOrder: number;
+  /** Amount line index in the original text. Defines ordering. */
+  amountLineIndex: number;
+  /** Agent line index, or null when unresolved. Never guessed. */
+  agentLineIndex: number | null;
+  amount: MjAmount;
+  /** Null unless exactly one defensible candidate was found. */
+  agentName: string | null;
+  /** Every candidate seen in the window, for evidence only. */
+  candidateLineIndexes: number[];
+  status: MjRowStatus;
+  isReversal: boolean;
+  /** MJ screens carry no date token; always null. */
+  date: null;
+  warnings: MjWarningCode[];
+}
+
+/**
+ * Reconstructs MJ rows from classified lines.
+ *
+ * Each amount anchor opens exactly one transaction window that ends at the
+ * next anchor (or end of screen). An agent is bound only when the window holds
+ * exactly one defensible candidate. Rows are never merged, deduplicated,
+ * netted or reordered, and no value is ever invented.
+ */
+export function reconstructMjRows(lines: MjLine[]): MjReconstructedRow[] {
+  const anchors = findMjAmountAnchors(lines);
+  const candidates = collectMjAgentCandidates(lines);
+  const rows: MjReconstructedRow[] = [];
+
+  for (let i = 0; i < anchors.length; i += 1) {
+    const anchor = anchors[i];
+    const end = i + 1 < anchors.length ? anchors[i + 1].sourceIndex : Number.POSITIVE_INFINITY;
+    const inWindow = candidates.filter(
+      (c) => c.sourceIndex > anchor.sourceIndex && c.sourceIndex < end,
+    );
+
+    const warnings: MjWarningCode[] = [];
+    let status: MjRowStatus;
+    let agentName: string | null = null;
+    let agentLineIndex: number | null = null;
+
+    if (inWindow.length === 1) {
+      status = "resolved";
+      agentName = inWindow[0].agentName;
+      agentLineIndex = inWindow[0].sourceIndex;
+    } else if (inWindow.length === 0) {
+      status = "missing_agent";
+      warnings.push("missing_agent");
+    } else {
+      status = "ambiguous_agent";
+      warnings.push("ambiguous_agent");
+    }
+
+    if (anchor.amount.isReversal) warnings.push("reversal");
+    if (anchor.amount.signEvidence === "ambiguous") warnings.push("ambiguous_sign");
+    warnings.push("no_date_in_source");
+
+    rows.push({
+      sourceOrder: rows.length,
+      amountLineIndex: anchor.sourceIndex,
+      agentLineIndex,
+      amount: anchor.amount,
+      agentName,
+      candidateLineIndexes: inWindow.map((c) => c.sourceIndex),
+      status,
+      isReversal: anchor.amount.isReversal,
+      date: null,
+      warnings,
+    });
+  }
+
+  return rows;
+}
+
+/** Signed minor units for evidence/reporting. Negative only for a reversal. */
+export function signedMjAmountMinor(row: MjReconstructedRow): number {
+  return row.isReversal ? -row.amount.amountSantim : row.amount.amountSantim;
+}
