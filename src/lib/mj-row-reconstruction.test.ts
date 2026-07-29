@@ -460,9 +460,7 @@ describe("adaptMjTransfersSent production-shape adapter", () => {
       expect(rows.map((r) => (r.isReversal ? -r.amountSantim! : r.amountSantim!))).toEqual(
         expected.map((r) => r.signedAmountMinor),
       );
-      expect(rows.map((r) => r.isReversal)).toEqual(
-        expected.map((r) => r.signedAmountMinor < 0),
-      );
+      expect(rows.map((r) => r.isReversal)).toEqual(expected.map((r) => r.signedAmountMinor < 0));
     }
   });
 
