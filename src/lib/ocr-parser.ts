@@ -280,11 +280,10 @@ export function looksLikeDistributorRefillOcr(text: string): boolean {
 // ── Public API: Bank Transfer (Sent tab) ───────────────────────────────────
 export function parseBankTransferOcr(text: string): ParsedRow[] {
   const lines = cleanLines(text);
-  // For bank transfers, we also need to reject "barisohaji" lines as agents
-  // but we still use the same date-anchor approach
+  // For bank transfers we reject the repeated-handle subdistributor label as
+  // an agent, but still use the same date-anchor approach.
   const results = extractByDateAnchors(lines, "out", "ocr.bank.transfer");
-  // Additional filter: ensure we don't have barisohaji as party
-  return results.filter((r) => !/bariso/i.test(r.party));
+  return results.filter((r) => !isRepeatedHandleLabel(r.party));
 }
 
 export function looksLikeBankTransferOcr(text: string): boolean {
