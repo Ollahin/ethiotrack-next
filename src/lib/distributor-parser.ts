@@ -484,16 +484,6 @@ export function detectStatementTemplate(
         rows: parseRefillHistory(text),
       };
     }
-    if (isLikelyMjTransfers(text)) {
-      return {
-        label: "MJ transfers",
-        kind: "mj",
-        reason: "Detected ≥2 MJ card rows (date + right-amount + agent)",
-        forced: false,
-        confidence: 0.8,
-        rows: parseMj(text),
-      };
-    }
     if (isLikelyRefillHistory(text)) {
       return {
         label: "Refill history",
