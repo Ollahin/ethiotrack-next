@@ -392,3 +392,80 @@ export function reconstructMjRows(lines: MjLine[]): MjReconstructedRow[] {
 export function signedMjAmountMinor(row: MjReconstructedRow): number {
   return row.isReversal ? -row.amount.amountSantim : row.amount.amountSantim;
 }
+
+/* ------------------------------------------------------------------ */
+/* Production-shape adapter — batch 0.3B-c                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * An amount window that could not be bound to exactly one defensible agent.
+ * Surfaced separately so it is never silently converted into a row.
+ */
+export interface MjUnresolvedWindow {
+  sourceOrder: number;
+  amountLineIndex: number;
+  status: Exclude<MjRowStatus, "resolved">;
+  amountSantim: number;
+  isReversal: boolean;
+  candidateLineIndexes: number[];
+  warnings: MjWarningCode[];
+}
+
+export interface MjAdapterResult {
+  /** Production-shaped rows, in source order. Resolved windows only. */
+  rows: StatementRow[];
+  unresolved: MjUnresolvedWindow[];
+}
+
+/** Evidence-only raw string. Contains the amount token and the bound agent. */
+function adapterRaw(row: MjReconstructedRow, agentName: string): string {
+  return `${row.amount.prefixText}${row.amount.rawAmountText} | ${agentName}`;
+}
+
+function toStatementRow(row: MjReconstructedRow, agentName: string): StatementRow {
+  return {
+    ok: true,
+    raw: adapterRaw(row, agentName),
+    agentName,
+    airtimeType: "airtime_evd",
+    amountSantim: row.amount.amountSantim,
+    isReversal: row.isReversal,
+    // MJ screens carry no date token, so every row needs a human eyeball —
+    // identical to the existing MJ contract (`santim < 0 || !dateText`).
+    needsReview: true,
+  };
+}
+
+/**
+ * Pure adapter: raw MJ "Transfers → Sent" OCR text in, production-shaped
+ * `StatementRow[]` out.
+ *
+ * - runs the deterministic classifier and row reconstruction
+ * - emits one row per resolved window, in source order, duplicates preserved
+ * - keeps `dateText` absent (MJ screens carry no date token)
+ * - never falls back to the legacy parser and never invents a value
+ * - unresolved windows are returned separately, never as rows
+ */
+export function adaptMjTransfersSent(text: string): MjAdapterResult {
+  const reconstructed = reconstructMjRows(classifyMjLines(text));
+  const rows: StatementRow[] = [];
+  const unresolved: MjUnresolvedWindow[] = [];
+
+  for (const row of reconstructed) {
+    if (row.status === "resolved" && row.agentName !== null) {
+      rows.push(toStatementRow(row, row.agentName));
+      continue;
+    }
+    unresolved.push({
+      sourceOrder: row.sourceOrder,
+      amountLineIndex: row.amountLineIndex,
+      status: row.status === "resolved" ? "missing_agent" : row.status,
+      amountSantim: row.amount.amountSantim,
+      isReversal: row.isReversal,
+      candidateLineIndexes: [...row.candidateLineIndexes],
+      warnings: [...row.warnings],
+    });
+  }
+
+  return { rows, unresolved };
+}
