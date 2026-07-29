@@ -214,7 +214,10 @@ const CHROME_WORDS = new Set([
  * one line made exclusively of chrome words. It is chrome, never an agent.
  */
 function isChromeWordLine(stripped: string): boolean {
-  const tokens = stripped.toLowerCase().split(/[^\p{L}]+/u).filter(Boolean);
+  const tokens = stripped
+    .toLowerCase()
+    .split(/[^\p{L}]+/u)
+    .filter(Boolean);
   return tokens.length > 0 && tokens.every((t) => CHROME_WORDS.has(t));
 }
 
