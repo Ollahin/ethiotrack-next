@@ -6,12 +6,13 @@ import { parseStatementText } from "./distributor-parser";
 // times sit on separate lines, and agent names are alphabet-only.
 
 describe("parseStatementText — MJ layout", () => {
-  it("parses a paired sender/date/agent card", () => {
-    const text = [
-      "sampleagent - sampleagent",
-      "5 Jul 2025                          20,000.00",
-      "Abebe Kebede",
-    ].join("\n");
+  // MJ "Transfers → Sent" screens carry no date column: each visible card is a
+  // repeated account label, an amount on its own line and an agent name.
+  // Parsing is deterministic amount-anchored reconstruction; one amount anchor
+  // opens one row, and an agent binds only when the window holds exactly one
+  // defensible candidate.
+  it("parses an account-label / amount / agent card", () => {
+    const text = ["sampleagent - sampleagent", "20,000.00", "Abebe Kebede"].join("\n");
     const rows = parseStatementText(text, "mj");
     expect(rows).toHaveLength(1);
     const r = rows[0];
@@ -22,12 +23,8 @@ describe("parseStatementText — MJ layout", () => {
     expect(r.airtimeType).toBe("airtime_evd");
   });
 
-  it("captures reversals as positive amount with isReversal", () => {
-    const text = [
-      "sampleagent - sampleagent                 -50,000.00",
-      "6 Jul 2025",
-      "Chala Bekele",
-    ].join("\n");
+  it("captures a confirmed reversal as positive amount with isReversal", () => {
+    const text = ["sampleagent - sampleagent", "-50,000.00", "Chala Bekele"].join("\n");
     const [r] = parseStatementText(text, "mj");
     expect(r.ok).toBe(true);
     expect(r.amountSantim).toBe(5_000_000);
@@ -35,30 +32,58 @@ describe("parseStatementText — MJ layout", () => {
     expect(r.needsReview).toBe(true);
   });
 
-  it("does not mistake the date for the amount or the name", () => {
-    const text = [
-      "sampleagent - sampleagent",
-      "5 Jul 2025                          10,000.00",
-      "Selam Alemu",
-    ].join("\n");
+  it("treats a detached minus as OCR sign noise, never as a reversal", () => {
+    const text = ["sampleagent - sampleagent", "- 50,000.00", "Chala Bekele"].join("\n");
+    const [r] = parseStatementText(text, "mj");
+    expect(r.ok).toBe(true);
+    expect(r.amountSantim).toBe(5_000_000);
+    expect(r.isReversal).toBe(false);
+  });
+
+  it("never binds the repeated account label as the agent", () => {
+    const text = ["sampleagent - sampleagent", "10,000.00", "Selam Alemu"].join("\n");
     const [r] = parseStatementText(text, "mj");
     expect(r.agentName).toBe("Selam Alemu");
     expect(r.amountSantim).toBe(1_000_000);
   });
 
-  it("parses multiple stacked cards", () => {
+  it("parses multiple stacked cards and keeps repeated agents separate", () => {
     const text = [
       "sampleagent - sampleagent",
-      "5 Jul 2025                          20,000.00",
+      "20,000.00",
       "Abebe Kebede",
       "sampleagent - sampleagent",
-      "5 Jul 2025                          15,000.00",
+      "15,000.00",
+      "Meron Tadesse",
+      "sampleagent - sampleagent",
+      "15,000.00",
       "Meron Tadesse",
     ].join("\n");
     const rows = parseStatementText(text, "mj");
-    expect(rows).toHaveLength(2);
-    expect(rows.map((r) => r.agentName)).toEqual(["Abebe Kebede", "Meron Tadesse"]);
-    expect(rows.map((r) => r.amountSantim)).toEqual([2_000_000, 1_500_000]);
+    expect(rows).toHaveLength(3);
+    expect(rows.map((r) => r.agentName)).toEqual([
+      "Abebe Kebede",
+      "Meron Tadesse",
+      "Meron Tadesse",
+    ]);
+    expect(rows.map((r) => r.amountSantim)).toEqual([2_000_000, 1_500_000, 1_500_000]);
+  });
+
+  it("surfaces an amount with no defensible agent as a review row, never a guess", () => {
+    const text = ["sampleagent - sampleagent", "20,000.00"].join("\n");
+    const rows = parseStatementText(text, "mj");
+    expect(rows.filter((r) => r.ok)).toHaveLength(0);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].ok).toBe(false);
+    expect(rows[0].needsReview).toBe(true);
+    expect(rows[0].reason).toBe("no agent");
+  });
+
+  it("surfaces an ambiguous window as a review row, never a guess", () => {
+    const text = ["2,000.00", "Sample Agent Alpha", "Sample Agent Beta"].join("\n");
+    const rows = parseStatementText(text, "mj");
+    expect(rows.filter((r) => r.ok)).toHaveLength(0);
+    expect(rows[0].reason).toBe("ambiguous agent");
   });
 });
 
@@ -110,27 +135,26 @@ describe("parseStatementText — Refill History layout (Alami / Yenus / Modern A
 });
 
 describe("parseStatementText — junk-row guards (regression)", () => {
-  it("parses MJ Transfers card layout: sender / date+amount / agent (screenshot sample)", () => {
-    // Mirrors the OCR of the user's Transfers screenshot: each row is a
-    // three-line card where the middle line carries the date on the left and
-    // the amount right-aligned, and the third line is the agent name only.
+  it("parses an MJ Transfers screenshot into one row per visible amount", () => {
+    // Mirrors the OCR of a Transfers → Sent screenshot: chrome header, then a
+    // repeated account label, a right-aligned amount and the agent name.
     const text = [
       "Transfers",
       "Received Sent",
       "sampleagent - sampleagent",
-      "25 Jul 2026                          20,000.00",
+      "20,000.00",
       "Bokiii",
       "sampleagent - sampleagent",
-      "25 Jul 2026                          10,000.00",
+      "10,000.00",
       "Dammeeeecard",
       "sampleagent - sampleagent",
-      "24 Jul 2026                         257,300.00",
+      "257,300.00",
       "Abduyyeee",
       "sampleagent - sampleagent",
-      "24 Jul 2026                          50,000.00",
+      "50,000.00",
       "Nasreddddinnncarddd",
       "sampleagent - sampleagent",
-      "24 Jul 2026                          21,620.00",
+      "21,620.00",
       "SampleZ",
     ].join("\n");
     const rows = parseStatementText(text, "mj").filter((r) => r.ok);
@@ -144,14 +168,9 @@ describe("parseStatementText — junk-row guards (regression)", () => {
     expect(rows.map((r) => r.amountSantim)).toEqual([
       2_000_000, 1_000_000, 25_730_000, 5_000_000, 2_162_000,
     ]);
-    expect(rows.map((r) => r.dateText)).toEqual([
-      "25 Jul 2026",
-      "25 Jul 2026",
-      "24 Jul 2026",
-      "24 Jul 2026",
-      "24 Jul 2026",
-    ]);
-    expect(rows.every((r) => r.sender === "sampleagent")).toBe(true);
+    // MJ screens carry no date token; the parser must never invent one.
+    expect(rows.every((r) => r.dateText === undefined)).toBe(true);
+    expect(rows.every((r) => r.needsReview)).toBe(true);
   });
 
   it("parses MJ Transfers list where amount and '& Agent' are on separate lines with no date", () => {
@@ -208,7 +227,6 @@ describe("parseStatementText — junk-row guards (regression)", () => {
     expect(rows).toHaveLength(3);
     expect(rows.map((r) => r.agentName)).toEqual(["Biruke", "Jireeeeee", "AbdiBalee"]);
     expect(rows.map((r) => r.amountSantim)).toEqual([5_000_000, 500_000, 2_000_000]);
-    expect(rows.every((r) => r.sender === "sampleagent")).toBe(true);
     expect(rows.every((r) => r.needsReview)).toBe(true);
   });
 
@@ -293,29 +311,27 @@ describe("parseStatementText — junk-row guards (regression)", () => {
     expect(genericRows).toEqual(rows);
   });
 
-  it("parses annotated MJ cards as subdistributor / date-right-amount / agent only", () => {
+  it("parses annotated MJ cards and ignores interleaved footer noise", () => {
     const text = [
       "236m e@® Nl 8 al 56%",
       "@ Transfers",
       "Received Sent",
       "sampleagent - sampleagent",
-      "25 Jul 2026                          20,000.00",
+      "20,000.00",
       "Bokiii",
-      "random footer",
       "sampleagent - sampleagent",
-      "25 Jul 2026                          10,000.00",
+      "10,000.00",
       "Dammeeeecard",
       "sampleagent - sampleagent",
-      "24 Jul 2026                         257,300.00",
+      "257,300.00",
       "Abduyyeee",
     ].join("\n");
 
     const rows = parseStatementText(text, "generic").filter((r) => r.ok);
     expect(rows).toHaveLength(3);
-    expect(rows.map((r) => r.sender)).toEqual(["sampleagent", "sampleagent", "sampleagent"]);
-    expect(rows.map((r) => r.dateText)).toEqual(["25 Jul 2026", "25 Jul 2026", "24 Jul 2026"]);
     expect(rows.map((r) => r.agentName)).toEqual(["Bokiii", "Dammeeeecard", "Abduyyeee"]);
     expect(rows.map((r) => r.amountSantim)).toEqual([2_000_000, 1_000_000, 25_730_000]);
+    expect(rows.every((r) => r.dateText === undefined)).toBe(true);
   });
 
   it("does not guess rows from a Transfers screenshot when no MJ card is complete", () => {
@@ -345,7 +361,7 @@ describe("parseStatementText — junk-row guards (regression)", () => {
     const text = [
       "•", // bullet-only chrome line
       "» sampleagent - sampleagent", // arrow leader
-      "\u200B 5 Jul 2025           20,000.00", // zero-width + date+amount
+      "\u200B 20,000.00", // zero-width + right-aligned amount
       "✓ Birukeee ✓", // status ticks around the name
       "———", // divider noise
     ].join("\n");
@@ -354,7 +370,6 @@ describe("parseStatementText — junk-row guards (regression)", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].agentName).toBe("Birukeee");
     expect(rows[0].amountSantim).toBe(2_000_000);
-    expect(rows[0].sender).toBe("sampleagent");
   });
 
   it("drops UI chrome labels (Success, Details, Close) from refill screenshots", () => {
@@ -385,28 +400,19 @@ describe("parseStatementText — junk-row guards (regression)", () => {
 
 describe("parseStatementText — generic repeated-handle sender label", () => {
   it("rejects a repeated-handle label as an agent (case- and whitespace-insensitive)", () => {
-    const text = [
-      "SampleAgent  -  SAMPLEAGENT",
-      "5 Jul 2025                          10,000.00",
-      "Real Agent Name",
-    ].join("\n");
+    const text = ["SampleAgent  -  SAMPLEAGENT", "10,000.00", "Real Agent Name"].join("\n");
     const rows = parseStatementText(text, "mj").filter((r) => r.ok);
-    // The repeated-handle label above the date line is recognized case- and
-    // whitespace-insensitively; the alphabetic line below is the real agent.
+    // The repeated-handle label is recognized case- and whitespace-insensitively
+    // and can never be bound as an agent; the alphabetic line is the real agent.
     expect(rows).toHaveLength(1);
     expect(rows[0].agentName).toBe("Real Agent Name");
-    expect(rows[0].sender).toBe("SampleAgent");
   });
 
   it("retains a real agent immediately after a repeated-handle label", () => {
-    const text = [
-      "sampleagent - sampleagent",
-      "5 Jul 2025                          20,000.00",
-      "Kebede Alemu",
-    ].join("\n");
+    const text = ["sampleagent - sampleagent", "20,000.00", "Kebede Alemu"].join("\n");
     const [r] = parseStatementText(text, "mj").filter((x) => x.ok);
     expect(r.agentName).toBe("Kebede Alemu");
-    expect(r.sender).toBe("sampleagent");
+    expect(r.amountSantim).toBe(2_000_000);
   });
 
   it("does not reject ordinary hyphenated names as repeated-handle labels", () => {
