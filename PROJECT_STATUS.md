@@ -10,24 +10,22 @@ ethiotrack-next2.0
 
 ## Current stage
 
-Stage 0 — Establish control
+Stage 1 — Corpus and ingestion baseline
 
 ## Completed
 
-- Blueprint archive version 1.0 prepared
-- Product and accounting decisions documented
-- Parser/OCR requirements documented
-- Production execution process documented
-- Validation baseline established (typecheck, lint, format, tests, build)
-- GitHub Actions CI configured for pull requests and production-v3 pushes
+- Documentation archive
+- Validation baseline
+- Continuous integration
+- Corpus scaffold and metadata inventory
 
 ## Current task
 
-Task 0.1E — Continuous integration
+Task 0.2A — Corpus scaffold and fixture inventory
 
 ## Next task
 
-Task 0.2A — Parser corpus archive and sanitized fixture manifest
+Task 0.2B — Sanitized MJ Transfers → Sent golden fixtures
 
 ## Important rule
 
