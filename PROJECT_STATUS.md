@@ -31,14 +31,17 @@ Stage 1 — Corpus and ingestion baseline
 - MJ reversal fixture coverage
 - Signed-amount fixture validation
 - Confirmed-reversal versus OCR-noise distinction
+- First sanitized Refill History golden fixture
+- Source-local minute timestamp contract
+- Refill History repeated-row coverage
 
 ## Current task
 
-Task 0.2B-d — MJ reversal golden fixture and signed-amount validation
+Task 0.2C-a — First sanitized Refill History golden fixture
 
 ## Next task
 
-Task 0.2C-a — First sanitized Refill History golden fixture
+Task 0.2C-b — Refill History same-timestamp golden fixture
 
 ## Important rule
 

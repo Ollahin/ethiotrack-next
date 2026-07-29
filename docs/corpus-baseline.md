@@ -39,14 +39,22 @@ material and are not committed.
 - Refill History row recall: 26 / 26, 100%.
 - 2 known reversal rows in the current catalog.
 
-## Activation status (Task 0.2B-d)
+## Activation status (Task 0.2C-a)
 
-- 6 active sanitized MJ Transfers → Sent fixtures
+- 7 active sanitized fixtures: all 6 MJ Transfers → Sent fixtures
   (`ocr.mj.sent.photo-5`, `ocr.mj.sent.photo-38`, `ocr.mj.sent.photo-2`,
-  `ocr.mj.sent.photo-9`, `ocr.mj.sent.photo-6`, `ocr.mj.sent.photo-4`).
-- 3 metadata-only Refill History catalog entries remain.
-- 30 active expected rows across the six active fixtures.
+  `ocr.mj.sent.photo-9`, `ocr.mj.sent.photo-6`, `ocr.mj.sent.photo-4`) plus
+  1 Refill History fixture (`ocr.refill.photo-64`).
+- 2 metadata-only Refill History catalog entries remain
+  (`ocr.refill.photo-49`, `ocr.refill.photo-51`).
+- 39 active expected rows (30 MJ + 9 Refill History).
 - 2 active expected reversals.
+- 9 active Refill History rows, all positive EVD transfers.
+- Exact source-local minute timestamps (`YYYY-MM-DDTHH:mm`) are now
+  represented, with no timezone suffix and no UTC conversion.
+- Strict agent-linking expectations remain `unassigned` for every row.
+- Repeated legitimate Refill History rows (same agent, same amount, different
+  timestamps) remain separate expected events.
 - All catalogued MJ screenshots now have sanitized golden fixtures.
 - Active MJ coverage includes: missed rows, amount-to-agent association,
   account-label noise, false OCR agent tokens, repeated legitimate agents,

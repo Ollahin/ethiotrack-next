@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "ocr.refill.photo-64",
+  "sourceFamily": "refill_history",
+  "platformHint": "yunus_or_alami",
+  "expectedRows": [
+    {
+      "sourceOrder": 0,
+      "agentText": "Sample Agent Cedar",
+      "rawAmountText": "205,000",
+      "signedAmountMinor": 20500000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": "2026-08-02T16:51",
+      "datePrecision": "minute",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 1,
+      "agentText": "Sample Agent Maple",
+      "rawAmountText": "22,000",
+      "signedAmountMinor": 2200000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": "2026-08-02T13:05",
+      "datePrecision": "minute",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 2,
+      "agentText": "Sample Agent Maple",
+      "rawAmountText": "22,000",
+      "signedAmountMinor": 2200000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": "2026-08-02T12:19",
+      "datePrecision": "minute",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 3,
+      "agentText": "Sample Agent Cedar",
+      "rawAmountText": "32,500",
+      "signedAmountMinor": 3250000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": "2026-08-02T10:51",
+      "datePrecision": "minute",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 4,
+      "agentText": "Sample Agent Cedar",
+      "rawAmountText": "32,500",
+      "signedAmountMinor": 3250000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": "2026-08-02T07:51",
+      "datePrecision": "minute",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 5,
+      "agentText": "Sample Agent Juniper",
+      "rawAmountText": "24,760",
+      "signedAmountMinor": 2476000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": "2026-08-02T06:44",
+      "datePrecision": "minute",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 6,
+      "agentText": "Sample Agent River Stone",
+      "rawAmountText": "78,925",
+      "signedAmountMinor": 7892500,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": "2026-08-02T06:42",
+      "datePrecision": "minute",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 7,
+      "agentText": "Sample Agent Cedar",
+      "rawAmountText": "205,000",
+      "signedAmountMinor": 20500000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": "2026-08-01T16:59",
+      "datePrecision": "minute",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 8,
+      "agentText": "Sample Agent Cedar",
+      "rawAmountText": "1,850",
+      "signedAmountMinor": 185000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": "2026-07-31T16:38",
+      "datePrecision": "minute",
+      "agentResolution": "unassigned"
+    }
+  ],
+  "forbiddenAgentCandidates": ["Refill History", "Agents", "Add Agent", "Refill"],
+  "expectedWarnings": ["repeated-agent", "repeated-amount", "strict-agent-linking-required"]
+}

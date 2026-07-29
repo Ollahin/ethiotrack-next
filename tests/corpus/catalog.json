@@ -95,12 +95,14 @@
     "inputKind": "ocr_screenshot",
     "sourceFamily": "refill_history",
     "platformHint": "yunus_or_alami",
-    "status": "catalogued",
-    "privacyStatus": "metadata_only",
+    "status": "active",
+    "privacyStatus": "sanitized",
     "currentOcrConfidence": 0.87,
     "expected": { "completeRowCount": 9, "partialRowCount": 0, "reversalRowCount": 0 },
     "currentBaseline": { "parsedRowCount": 9 },
-    "tags": ["inline-row", "repeated-agent", "exact-timestamp", "strict-agent-linking"]
+    "tags": ["inline-row", "repeated-agent", "exact-timestamp", "strict-agent-linking"],
+    "rawFixturePath": "tests/corpus/fixtures/ocr/refill-history/photo-64.raw.txt",
+    "expectedFixturePath": "tests/corpus/fixtures/ocr/refill-history/photo-64.expected.json"
   },
   {
     "id": "ocr.refill.photo-49",
