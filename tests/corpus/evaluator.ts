@@ -90,13 +90,20 @@ export function normalizeMjDate(text: string): string | null {
   return `${m[3]}-${month}-${m[1].padStart(2, "0")}`;
 }
 
-function normalizeDate(family: "mj_transfers_sent" | "refill_history", raw?: string): string | null {
+function normalizeDate(
+  family: "mj_transfers_sent" | "refill_history",
+  raw?: string,
+): string | null {
   if (!raw) return null;
   return family === "refill_history" ? normalizeRefillDate(raw) : normalizeMjDate(raw);
 }
 
 /** Row identity key used for full-row multiset comparison. */
-function rowKey(row: { agentText: string | null; signedAmountMinor: number | null; date: string | null }): string {
+function rowKey(row: {
+  agentText: string | null;
+  signedAmountMinor: number | null;
+  date: string | null;
+}): string {
   return [
     row.agentText === null ? "\u0000" : normalizeAgentForComparison(row.agentText),
     row.signedAmountMinor === null ? "\u0000" : String(row.signedAmountMinor),
@@ -180,7 +187,9 @@ export function evaluateFixture(entry: FixtureCatalogEntry): ProductionFixtureRe
 
   const exactAgentMultisetMatches = multisetIntersectionSize(
     expectedRows.map((r) => normalizeAgentForComparison(r.agentText)),
-    actualRows.map((r) => (r.agentText === null ? "\u0000" : normalizeAgentForComparison(r.agentText))),
+    actualRows.map((r) =>
+      r.agentText === null ? "\u0000" : normalizeAgentForComparison(r.agentText),
+    ),
   );
   const exactAmountMultisetMatches = multisetIntersectionSize(
     expectedRows.map((r) => String(r.signedAmountMinor)),
@@ -199,7 +208,9 @@ export function evaluateFixture(entry: FixtureCatalogEntry): ProductionFixtureRe
   // A date is invented when the parser emitted one that no expected row in the
   // fixture carries. MJ expected dates are all unknown, so every MJ-emitted
   // date counts as invented.
-  const expectedDates = new Set(expectedRows.map((r) => r.date).filter((d): d is string => d !== null));
+  const expectedDates = new Set(
+    expectedRows.map((r) => r.date).filter((d): d is string => d !== null),
+  );
   const inventedDateRows = actualRows.filter(
     (r) => r.date !== null && !expectedDates.has(r.date),
   ).length;
