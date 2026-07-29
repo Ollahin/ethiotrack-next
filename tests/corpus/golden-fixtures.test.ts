@@ -127,7 +127,7 @@ describe("ocr.mj.sent.photo-2 — punctuation noise and long agent name", () => 
   });
 
   it("keeps the long agent name as one complete value", () => {
-    const long = expected.expectedRows.find((r) => r.agentText.split(/\s+/).length === 5);
+    const long = expected.expectedRows.find((r) => r.agentText.split(/\s+/).length === 4);
     expect(long?.agentText).toBe("Sample Agent Lambda Meridian");
     expect(raw).toContain("Sample Agent Lambda Meridian");
   });
