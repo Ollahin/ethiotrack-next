@@ -7,6 +7,10 @@ import {
   findMjAmountAnchors,
   parseMjAmount,
   stripMjDecorationPrefix,
+  collectMjAgentCandidates,
+  reconstructMjRows,
+  signedMjAmountMinor,
+  toMjAgentCandidate,
   type MjLine,
 } from "./mj-row-reconstruction";
 
@@ -62,6 +66,17 @@ const EXPECTED_AGENTS: Record<string, string[]> = {
 
 function readFixture(id: string): string {
   return readFileSync(join(FIXTURE_DIR, `${id}.raw.txt`), "utf8");
+}
+
+interface ExpectedRow {
+  sourceOrder: number;
+  agentText: string;
+  signedAmountMinor: number;
+}
+
+function readExpectedRows(id: string): ExpectedRow[] {
+  const json = JSON.parse(readFileSync(join(FIXTURE_DIR, `${id}.expected.json`), "utf8"));
+  return json.expectedRows as ExpectedRow[];
 }
 
 function classified(id: string): MjLine[] {
