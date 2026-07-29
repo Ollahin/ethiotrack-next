@@ -16,8 +16,9 @@
  *  - source order is preserved end to end
  */
 
+import type { StatementRow } from "./distributor-parser";
+
 export type MjLineKind =
-  | "chrome"
   | "chrome"
   | "account_label"
   | "amount"
