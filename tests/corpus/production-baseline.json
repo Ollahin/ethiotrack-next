@@ -1,0 +1,474 @@
+{
+  "schemaVersion": 1,
+  "fixtures": [
+    {
+      "fixtureId": "ocr.mj.sent.photo-5",
+      "sourceFamily": "mj_transfers_sent",
+      "adapterId": "parseStatementText(text,'mj')",
+      "executionStatus": "ok",
+      "errorCode": null,
+      "expectedRowCount": 5,
+      "actualRowCount": 2,
+      "actualRows": [
+        {
+          "emittedOrder": 0,
+          "agentText": "Sample Agent Alpha",
+          "signedAmountMinor": 2100000,
+          "date": null
+        },
+        {
+          "emittedOrder": 1,
+          "agentText": "E Sample Agent Epsilon",
+          "signedAmountMinor": 465000,
+          "date": null
+        }
+      ],
+      "exactRowMatches": 1,
+      "missingRows": 4,
+      "unexpectedRows": 1,
+      "exactAgentMultisetMatches": 1,
+      "exactAmountMultisetMatches": 2,
+      "exactDateMultisetMatches": 2,
+      "expectedNegativeRows": 0,
+      "actualNegativeRows": 0,
+      "forbiddenAgentHits": 0,
+      "inventedDateRows": 0,
+      "exactOrderedSequence": false
+    },
+    {
+      "fixtureId": "ocr.mj.sent.photo-38",
+      "sourceFamily": "mj_transfers_sent",
+      "adapterId": "parseStatementText(text,'mj')",
+      "executionStatus": "ok",
+      "errorCode": null,
+      "expectedRowCount": 5,
+      "actualRowCount": 3,
+      "actualRows": [
+        {
+          "emittedOrder": 0,
+          "agentText": "Sample Agent Eta",
+          "signedAmountMinor": 475000,
+          "date": null
+        },
+        {
+          "emittedOrder": 1,
+          "agentText": "Sample Agent Iota",
+          "signedAmountMinor": 1950000,
+          "date": null
+        },
+        {
+          "emittedOrder": 2,
+          "agentText": "wl",
+          "signedAmountMinor": 360000,
+          "date": null
+        }
+      ],
+      "exactRowMatches": 2,
+      "missingRows": 3,
+      "unexpectedRows": 1,
+      "exactAgentMultisetMatches": 2,
+      "exactAmountMultisetMatches": 3,
+      "exactDateMultisetMatches": 3,
+      "expectedNegativeRows": 0,
+      "actualNegativeRows": 0,
+      "forbiddenAgentHits": 1,
+      "inventedDateRows": 0,
+      "exactOrderedSequence": false
+    },
+    {
+      "fixtureId": "ocr.mj.sent.photo-2",
+      "sourceFamily": "mj_transfers_sent",
+      "adapterId": "parseStatementText(text,'mj')",
+      "executionStatus": "ok",
+      "errorCode": null,
+      "expectedRowCount": 5,
+      "actualRowCount": 3,
+      "actualRows": [
+        {
+          "emittedOrder": 0,
+          "agentText": null,
+          "signedAmountMinor": null,
+          "date": null
+        },
+        {
+          "emittedOrder": 1,
+          "agentText": null,
+          "signedAmountMinor": null,
+          "date": null
+        },
+        {
+          "emittedOrder": 2,
+          "agentText": "Sample Agent Mu",
+          "signedAmountMinor": 2240000,
+          "date": null
+        }
+      ],
+      "exactRowMatches": 1,
+      "missingRows": 4,
+      "unexpectedRows": 2,
+      "exactAgentMultisetMatches": 1,
+      "exactAmountMultisetMatches": 1,
+      "exactDateMultisetMatches": 3,
+      "expectedNegativeRows": 0,
+      "actualNegativeRows": 0,
+      "forbiddenAgentHits": 0,
+      "inventedDateRows": 0,
+      "exactOrderedSequence": false
+    },
+    {
+      "fixtureId": "ocr.mj.sent.photo-9",
+      "sourceFamily": "mj_transfers_sent",
+      "adapterId": "parseStatementText(text,'mj')",
+      "executionStatus": "ok",
+      "errorCode": null,
+      "expectedRowCount": 5,
+      "actualRowCount": 3,
+      "actualRows": [
+        {
+          "emittedOrder": 0,
+          "agentText": "fo",
+          "signedAmountMinor": 1364000,
+          "date": null
+        },
+        {
+          "emittedOrder": 1,
+          "agentText": "Sample Agent Sigma",
+          "signedAmountMinor": 1225000,
+          "date": null
+        },
+        {
+          "emittedOrder": 2,
+          "agentText": "Sample Agent Rho",
+          "signedAmountMinor": 1489000,
+          "date": null
+        }
+      ],
+      "exactRowMatches": 2,
+      "missingRows": 3,
+      "unexpectedRows": 1,
+      "exactAgentMultisetMatches": 2,
+      "exactAmountMultisetMatches": 3,
+      "exactDateMultisetMatches": 3,
+      "expectedNegativeRows": 0,
+      "actualNegativeRows": 0,
+      "forbiddenAgentHits": 1,
+      "inventedDateRows": 0,
+      "exactOrderedSequence": false
+    },
+    {
+      "fixtureId": "ocr.mj.sent.photo-4",
+      "sourceFamily": "mj_transfers_sent",
+      "adapterId": "parseStatementText(text,'mj')",
+      "executionStatus": "ok",
+      "errorCode": null,
+      "expectedRowCount": 5,
+      "actualRowCount": 3,
+      "actualRows": [
+        {
+          "emittedOrder": 0,
+          "agentText": null,
+          "signedAmountMinor": null,
+          "date": null
+        },
+        {
+          "emittedOrder": 1,
+          "agentText": "Sample Agent Psi",
+          "signedAmountMinor": 1575000,
+          "date": null
+        },
+        {
+          "emittedOrder": 2,
+          "agentText": "samplewallet - samplewallet",
+          "signedAmountMinor": 30250000,
+          "date": null
+        }
+      ],
+      "exactRowMatches": 1,
+      "missingRows": 4,
+      "unexpectedRows": 2,
+      "exactAgentMultisetMatches": 1,
+      "exactAmountMultisetMatches": 2,
+      "exactDateMultisetMatches": 3,
+      "expectedNegativeRows": 2,
+      "actualNegativeRows": 0,
+      "forbiddenAgentHits": 1,
+      "inventedDateRows": 0,
+      "exactOrderedSequence": false
+    },
+    {
+      "fixtureId": "ocr.mj.sent.photo-6",
+      "sourceFamily": "mj_transfers_sent",
+      "adapterId": "parseStatementText(text,'mj')",
+      "executionStatus": "ok",
+      "errorCode": null,
+      "expectedRowCount": 5,
+      "actualRowCount": 3,
+      "actualRows": [
+        {
+          "emittedOrder": 0,
+          "agentText": "Sample Agent Tau",
+          "signedAmountMinor": 387500,
+          "date": null
+        },
+        {
+          "emittedOrder": 1,
+          "agentText": "Sample Agent Chi",
+          "signedAmountMinor": 2390000,
+          "date": null
+        },
+        {
+          "emittedOrder": 2,
+          "agentText": "Sample Agent Tau",
+          "signedAmountMinor": 273500,
+          "date": null
+        }
+      ],
+      "exactRowMatches": 3,
+      "missingRows": 2,
+      "unexpectedRows": 0,
+      "exactAgentMultisetMatches": 3,
+      "exactAmountMultisetMatches": 3,
+      "exactDateMultisetMatches": 3,
+      "expectedNegativeRows": 0,
+      "actualNegativeRows": 0,
+      "forbiddenAgentHits": 0,
+      "inventedDateRows": 0,
+      "exactOrderedSequence": false
+    },
+    {
+      "fixtureId": "ocr.refill.photo-64",
+      "sourceFamily": "refill_history",
+      "adapterId": "parseStatementText(text,'alami')",
+      "executionStatus": "ok",
+      "errorCode": null,
+      "expectedRowCount": 9,
+      "actualRowCount": 9,
+      "actualRows": [
+        {
+          "emittedOrder": 0,
+          "agentText": "Sample Agent Cedar",
+          "signedAmountMinor": 20500000,
+          "date": "2026-08-02T16:51"
+        },
+        {
+          "emittedOrder": 1,
+          "agentText": "Sample Agent Maple",
+          "signedAmountMinor": 2200000,
+          "date": "2026-08-02T13:05"
+        },
+        {
+          "emittedOrder": 2,
+          "agentText": "Sample Agent Maple",
+          "signedAmountMinor": 2200000,
+          "date": "2026-08-02T12:19"
+        },
+        {
+          "emittedOrder": 3,
+          "agentText": "Sample Agent Cedar",
+          "signedAmountMinor": 3250000,
+          "date": "2026-08-02T10:51"
+        },
+        {
+          "emittedOrder": 4,
+          "agentText": "Sample Agent Cedar",
+          "signedAmountMinor": 3250000,
+          "date": "2026-08-02T07:51"
+        },
+        {
+          "emittedOrder": 5,
+          "agentText": "Sample Agent Juniper",
+          "signedAmountMinor": 2476000,
+          "date": "2026-08-02T06:44"
+        },
+        {
+          "emittedOrder": 6,
+          "agentText": "Sample Agent River Stone",
+          "signedAmountMinor": 7892500,
+          "date": "2026-08-02T06:42"
+        },
+        {
+          "emittedOrder": 7,
+          "agentText": "Sample Agent Cedar",
+          "signedAmountMinor": 20500000,
+          "date": "2026-08-01T16:59"
+        },
+        {
+          "emittedOrder": 8,
+          "agentText": "Sample Agent Cedar",
+          "signedAmountMinor": 185000,
+          "date": "2026-07-31T16:38"
+        }
+      ],
+      "exactRowMatches": 9,
+      "missingRows": 0,
+      "unexpectedRows": 0,
+      "exactAgentMultisetMatches": 9,
+      "exactAmountMultisetMatches": 9,
+      "exactDateMultisetMatches": 9,
+      "expectedNegativeRows": 0,
+      "actualNegativeRows": 0,
+      "forbiddenAgentHits": 0,
+      "inventedDateRows": 0,
+      "exactOrderedSequence": true
+    },
+    {
+      "fixtureId": "ocr.refill.photo-49",
+      "sourceFamily": "refill_history",
+      "adapterId": "parseStatementText(text,'alami')",
+      "executionStatus": "ok",
+      "errorCode": null,
+      "expectedRowCount": 9,
+      "actualRowCount": 9,
+      "actualRows": [
+        {
+          "emittedOrder": 0,
+          "agentText": "Sample Agent Aspen",
+          "signedAmountMinor": 31000000,
+          "date": "2026-08-10T17:35"
+        },
+        {
+          "emittedOrder": 1,
+          "agentText": "Sample Agent Willow",
+          "signedAmountMinor": 925000,
+          "date": "2026-08-10T13:49"
+        },
+        {
+          "emittedOrder": 2,
+          "agentText": "Sample Agent Copper Field",
+          "signedAmountMinor": 475000,
+          "date": "2026-08-10T12:22"
+        },
+        {
+          "emittedOrder": 3,
+          "agentText": "Sample Agent Copper Field",
+          "signedAmountMinor": 697500,
+          "date": "2026-08-10T09:26"
+        },
+        {
+          "emittedOrder": 4,
+          "agentText": "Sample Agent Larch",
+          "signedAmountMinor": 1964000,
+          "date": "2026-08-10T06:46"
+        },
+        {
+          "emittedOrder": 5,
+          "agentText": "Sample Agent Moss",
+          "signedAmountMinor": 1142000,
+          "date": "2026-08-10T05:40"
+        },
+        {
+          "emittedOrder": 6,
+          "agentText": "Sample Agent Fern",
+          "signedAmountMinor": 2150000,
+          "date": "2026-08-09T16:52"
+        },
+        {
+          "emittedOrder": 7,
+          "agentText": "Sample Agent Birchwood",
+          "signedAmountMinor": 25500000,
+          "date": "2026-08-09T16:50"
+        },
+        {
+          "emittedOrder": 8,
+          "agentText": "Sample Agent Aspen",
+          "signedAmountMinor": 41000000,
+          "date": "2026-08-09T16:50"
+        }
+      ],
+      "exactRowMatches": 9,
+      "missingRows": 0,
+      "unexpectedRows": 0,
+      "exactAgentMultisetMatches": 9,
+      "exactAmountMultisetMatches": 9,
+      "exactDateMultisetMatches": 9,
+      "expectedNegativeRows": 0,
+      "actualNegativeRows": 0,
+      "forbiddenAgentHits": 0,
+      "inventedDateRows": 0,
+      "exactOrderedSequence": true
+    },
+    {
+      "fixtureId": "ocr.refill.photo-51",
+      "sourceFamily": "refill_history",
+      "adapterId": "parseStatementText(text,'alami')",
+      "executionStatus": "ok",
+      "errorCode": null,
+      "expectedRowCount": 8,
+      "actualRowCount": 8,
+      "actualRows": [
+        {
+          "emittedOrder": 0,
+          "agentText": "Sample Agent Lumen",
+          "signedAmountMinor": 3100000,
+          "date": "2026-08-13T08:48"
+        },
+        {
+          "emittedOrder": 1,
+          "agentText": "Sample Agent Lumenn",
+          "signedAmountMinor": 5200000,
+          "date": "2026-08-13T07:16"
+        },
+        {
+          "emittedOrder": 2,
+          "agentText": "Sample Agent Granite Hill",
+          "signedAmountMinor": 8764000,
+          "date": "2026-08-13T05:12"
+        },
+        {
+          "emittedOrder": 3,
+          "agentText": "Sample Agent Solace",
+          "signedAmountMinor": 61000000,
+          "date": "2026-08-12T19:00"
+        },
+        {
+          "emittedOrder": 4,
+          "agentText": "Sample Agent Bramble",
+          "signedAmountMinor": 5200000,
+          "date": "2026-08-12T16:55"
+        },
+        {
+          "emittedOrder": 5,
+          "agentText": "Sample Agent Brambel",
+          "signedAmountMinor": 3100000,
+          "date": "2026-08-12T08:08"
+        },
+        {
+          "emittedOrder": 6,
+          "agentText": "Sample Agent Kestrel",
+          "signedAmountMinor": 1100000,
+          "date": "2026-08-12T06:02"
+        },
+        {
+          "emittedOrder": 7,
+          "agentText": "Sample Agent Nasrin",
+          "signedAmountMinor": 5200000,
+          "date": "2026-08-12T05:37"
+        }
+      ],
+      "exactRowMatches": 8,
+      "missingRows": 0,
+      "unexpectedRows": 0,
+      "exactAgentMultisetMatches": 8,
+      "exactAmountMultisetMatches": 8,
+      "exactDateMultisetMatches": 8,
+      "expectedNegativeRows": 0,
+      "actualNegativeRows": 0,
+      "forbiddenAgentHits": 0,
+      "inventedDateRows": 0,
+      "exactOrderedSequence": true
+    }
+  ],
+  "summary": {
+    "fixtureCount": 9,
+    "expectedRows": 56,
+    "actualRows": 43,
+    "exactRowMatches": 36,
+    "missingRows": 20,
+    "unexpectedRows": 7,
+    "expectedNegativeRows": 2,
+    "actualNegativeRows": 0,
+    "forbiddenAgentHits": 3,
+    "inventedDateRows": 0,
+    "exactFixtureCount": 3
+  }
+}
