@@ -114,9 +114,9 @@ function isAgentName(line: string): boolean {
   if (clean.length < 2 || clean.length > 40) return false;
   // Must contain at least 2 letters
   if ((clean.match(/[A-Za-z]/g) || []).length < 2) return false;
-  // Reject sender names, UI labels, pure numbers
-  if (/\bbariso/i.test(clean)) return false;
-  if (/\bhaji\b/i.test(clean)) return false;
+  // Reject repeated-handle sender labels ("<name> - <name>"), UI labels,
+  // pure numbers. See isRepeatedHandleLabel() below for the structural rule.
+  if (isRepeatedHandleLabel(clean)) return false;
   if (
     /\b(Refill History|Agents|Add Agent|Refill|Review|Link to agent|EVD|Sent|Received|Transfers|Birr|ETB)\b/i.test(
       clean,
@@ -129,6 +129,23 @@ function isAgentName(line: string): boolean {
   if (/^4G$|^5G$|^LTE$/i.test(clean)) return false;
   // Allow letters, spaces, and limited punctuation
   return /^[A-Za-z\s.'-]+$/.test(clean);
+}
+
+/**
+ * Generic detector for the "<name> - <name>" subdistributor account label
+ * pattern that MJ-style transfer screenshots print at the top of every row.
+ * We split only on the hyphen/en-dash separator, trim + collapse whitespace,
+ * compare case-insensitively, and require both sides to be non-empty and
+ * equal after normalization. No private literal is used.
+ */
+export function isRepeatedHandleLabel(line: string): boolean {
+  const norm = line.replace(/\s+/g, " ").trim();
+  // Split on a single hyphen or en-dash surrounded by optional whitespace.
+  const parts = norm.split(/\s*[-–]\s*/);
+  if (parts.length !== 2) return false;
+  const [left, right] = parts;
+  if (!left || !right) return false;
+  return left.toLowerCase() === right.toLowerCase();
 }
 
 // ── Noise removal ──────────────────────────────────────────────────────────
