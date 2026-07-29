@@ -59,7 +59,7 @@
     "platformHint": "mj",
     "status": "catalogued",
     "privacyStatus": "metadata_only",
-    "currentOcrConfidence": 0.60,
+    "currentOcrConfidence": 0.6,
     "expected": { "completeRowCount": 5, "partialRowCount": 0, "reversalRowCount": 2 },
     "currentBaseline": { "parsedRowCount": 2 },
     "tags": ["reversal", "signed-amount", "account-label-as-agent", "missing-rows"]
