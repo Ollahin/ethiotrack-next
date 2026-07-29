@@ -206,3 +206,13 @@ Supported SMS acquisition paths:
 4. Upload a screenshot when text sharing is not available.
 
 A normal PWA will not read the entire SMS inbox.
+
+## Version 1.0.1 — Example sanitization
+
+This revision sanitizes illustrative examples that previously reproduced
+identifiers from the private parser corpus (personal names, subdistributor
+account labels, agent names, receipt IDs, URLs). It does not add, remove or
+alter any approved requirement or decision. All ADRs from Version 1.0 remain
+in force with unchanged meaning; only the example tokens (agent names,
+account labels, sample references) are replaced with clearly synthetic
+placeholders. Amount formats and rule structures are preserved.
