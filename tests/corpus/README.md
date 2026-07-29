@@ -67,7 +67,7 @@ are committed and referenced from `catalog.json`.
 - All names and amounts in active fixtures are **synthetic**. They do not
   correspond to any real agent, account or transaction.
 - Formatting, row ordering, repeated values, signs and OCR noise are preserved
-  so that each fixture reproduces the same *type* of parsing challenge as the
+  so that each fixture reproduces the same _type_ of parsing challenge as the
   original screen.
 - Synthetic values must never be treated as real customer data, exported to
   reports, or used to justify a financial conclusion.
