@@ -98,14 +98,14 @@ describe("parser corpus catalog", () => {
     expect(rh.reduce((a, e) => a + e.expected.reversalRowCount, 0)).toBe(0);
   });
 
-  it("has 8 active and 1 catalogued entries", () => {
-    expect(catalog.filter((e) => e.status === "active").length).toBe(8);
-    expect(catalog.filter((e) => e.status === "catalogued").length).toBe(1);
+  it("has 9 active and 0 catalogued entries", () => {
+    expect(catalog.filter((e) => e.status === "active").length).toBe(9);
+    expect(catalog.filter((e) => e.status === "catalogued").length).toBe(0);
   });
 
-  it("has 8 sanitized and 1 metadata_only entries", () => {
-    expect(catalog.filter((e) => e.privacyStatus === "sanitized").length).toBe(8);
-    expect(catalog.filter((e) => e.privacyStatus === "metadata_only").length).toBe(1);
+  it("has 9 sanitized and 0 metadata_only entries", () => {
+    expect(catalog.filter((e) => e.privacyStatus === "sanitized").length).toBe(9);
+    expect(catalog.filter((e) => e.privacyStatus === "metadata_only").length).toBe(0);
   });
 
   it("has all six MJ fixtures active and sanitized", () => {
@@ -117,24 +117,47 @@ describe("parser corpus catalog", () => {
     }
   });
 
-  it("has exactly two active and one catalogued Refill History fixtures", () => {
+  it("has all three Refill History fixtures active and sanitized", () => {
     const rh = catalog.filter((e) => e.sourceFamily === "refill_history");
     expect(rh.length).toBe(3);
     const activeRh = rh.filter((e) => e.status === "active");
-    expect(activeRh.length).toBe(2);
+    expect(activeRh.length).toBe(3);
     expect(activeRh.map((e) => e.id).sort()).toEqual([
       "ocr.refill.photo-49",
+      "ocr.refill.photo-51",
       "ocr.refill.photo-64",
     ]);
     for (const e of activeRh) {
       expect(e.privacyStatus).toBe("sanitized");
     }
-    const cataloguedRh = rh.filter((e) => e.status === "catalogued");
-    expect(cataloguedRh.length).toBe(1);
-    expect(cataloguedRh[0].id).toBe("ocr.refill.photo-51");
-    for (const e of cataloguedRh) {
-      expect(e.privacyStatus, `expected metadata_only: ${e.id}`).toBe("metadata_only");
-    }
+    expect(rh.filter((e) => e.status === "catalogued").length).toBe(0);
+  });
+
+  it("has 56 active expected rows split 30 MJ and 26 Refill History", () => {
+    const activeEntries = catalog.filter((e) => e.status === "active");
+    const rows = (family: string) =>
+      activeEntries
+        .filter((e) => e.sourceFamily === family)
+        .reduce((a, e) => a + e.expected.completeRowCount, 0);
+    expect(activeEntries.reduce((a, e) => a + e.expected.completeRowCount, 0)).toBe(56);
+    expect(rows("mj_transfers_sent")).toBe(30);
+    expect(rows("refill_history")).toBe(26);
+    expect(rows("mj_transfers_sent") + rows("refill_history")).toBe(56);
+  });
+
+  it("keeps both reversals inside the MJ family only", () => {
+    const activeEntries = catalog.filter((e) => e.status === "active");
+    expect(activeEntries.reduce((a, e) => a + e.expected.reversalRowCount, 0)).toBe(2);
+    expect(
+      activeEntries
+        .filter((e) => e.sourceFamily === "mj_transfers_sent")
+        .reduce((a, e) => a + e.expected.reversalRowCount, 0),
+    ).toBe(2);
+    expect(
+      activeEntries
+        .filter((e) => e.sourceFamily === "refill_history")
+        .reduce((a, e) => a + e.expected.reversalRowCount, 0),
+    ).toBe(0);
   });
 
   it("active entries carry both fixture paths", () => {
