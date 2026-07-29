@@ -976,3 +976,67 @@ eslint-disable directives). They do not fail the `lint` script or `verify`.
   configuration, or blueprint documents.
 - The local `bun run verify` gate passes and the CI workflow runs the exact
   same command.
+
+## Task 0.2A — Corpus scaffold and inventory
+
+### Files added
+
+- `tests/corpus/README.md`
+- `tests/corpus/schema.ts`
+- `tests/corpus/catalog.json`
+- `tests/corpus/catalog.test.ts`
+- `tests/corpus/fixtures/ocr/mj-transfers-sent/.gitkeep`
+- `tests/corpus/fixtures/ocr/refill-history/.gitkeep`
+- `tests/corpus/fixtures/sms/cbe/.gitkeep`
+- `tests/corpus/fixtures/sms/bank-of-abyssinia/.gitkeep`
+- `tests/corpus/fixtures/sms/telebirr/.gitkeep`
+- `tests/corpus/fixtures/sms/cooperative-bank/.gitkeep`
+- `tests/corpus/fixtures/sms/coop-ebirr/.gitkeep`
+- `tests/corpus/fixtures/sms/dashen/.gitkeep`
+- `docs/corpus-baseline.md`
+
+### Source document used
+
+Reference material only: the private `Parser corpus.docx`. The document itself
+and its original screenshots were not committed. No agent names,
+account-holder labels, account numbers, references, receipt IDs, URLs, raw
+OCR text or transaction amounts were copied into any committed file.
+
+### Privacy restrictions
+
+All catalog entries use `privacyStatus: metadata_only` and `status: catalogued`.
+`catalog.test.ts` enforces a deny-list of private substrings and patterns
+(URLs, `FT…` reference IDs, masked account tails, raw currency amounts) and
+asserts that no such tokens appear in `catalog.json`.
+
+### Catalog totals
+
+- 9 fixtures.
+- 56 expected complete rows.
+- 0 expected partial rows.
+- 2 expected reversal rows.
+- 40 currently parsed rows.
+- MJ Transfers → Sent: 6 fixtures, 30 expected rows, 14 parsed rows.
+- Refill History: 3 fixtures, 26 expected rows, 26 parsed rows.
+
+### Tests added
+
+`tests/corpus/catalog.test.ts` — 8 assertions covering schema validation,
+entry count, ID and filename uniqueness, corpus totals, per-source totals,
+status/privacy invariants, absence of fixture paths and the privacy
+deny-list.
+
+### Command results
+
+- `bun run typecheck`: pass
+- `bun run lint`: pass
+- `bun run format:check`: pass
+- `bun run test`: pass (test count increased by the new `catalog.test.ts` file)
+- `bun run build`: pass
+- `bun run verify`: pass
+
+### Behavior confirmation
+
+No parser, OCR, database or application code changed. Only `tests/corpus/**`,
+`docs/corpus-baseline.md`, `docs/baseline-report.md` and `PROJECT_STATUS.md`
+were touched.
