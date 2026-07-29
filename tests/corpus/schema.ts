@@ -140,8 +140,7 @@ export const ExpectedOcrRow = z
       r.amountEvidence?.prefixDisposition !== "ocr_noise" ||
       (r.signedAmountMinor > 0 && !r.isReversal && r.eventKind === "evd_sent_to_agent"),
     {
-      message:
-        "ocr_noise requires a positive, non-reversal evd_sent_to_agent row",
+      message: "ocr_noise requires a positive, non-reversal evd_sent_to_agent row",
     },
   )
   .refine(

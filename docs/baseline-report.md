@@ -1324,3 +1324,84 @@ No production parser, OCR engine or `parseMany` call is made by these tests.
 Production parsing was neither executed nor changed. No file under `src/`,
 no database code, dependency, lockfile, configuration, CI workflow or
 blueprint document was modified.
+
+## Task 0.2B-c — MJ OCR sign-noise golden fixture
+
+### Activated fixture ID
+
+- `ocr.mj.sent.photo-6`
+
+### Files added
+
+- `tests/corpus/fixtures/ocr/mj-transfers-sent/photo-6.raw.txt`
+- `tests/corpus/fixtures/ocr/mj-transfers-sent/photo-6.expected.json`
+
+### Files changed
+
+- `tests/corpus/schema.ts`
+- `tests/corpus/catalog.json`
+- `tests/corpus/catalog.test.ts`
+- `tests/corpus/golden-fixtures.test.ts`
+- `tests/corpus/README.md`
+- `docs/corpus-baseline.md`
+- `docs/baseline-report.md`
+- `PROJECT_STATUS.md`
+
+### AmountEvidence schema extension
+
+`AmountPrefixDisposition` (`ocr_noise` | `confirmed_reversal`) and a strict
+`AmountEvidence` object (`observedText`, `prefixDisposition`) were added.
+`ExpectedOcrRow` gained an optional `amountEvidence` field with two cross-field
+rules: `ocr_noise` requires a positive, non-reversal `evd_sent_to_agent` row;
+`confirmed_reversal` requires a negative `evd_reversal` row. The field is
+optional, so existing fixtures are unaffected. It records how a human author
+interpreted punctuation visible in flattened OCR; it does not authorize the
+production parser to guess a sign without evidence.
+
+### Synthetic-data policy
+
+All names, wallet labels and amounts are synthetic. No original personal name,
+account-holder label, account number, reference, receipt identifier, URL,
+amount or complete OCR passage was committed, and no screenshot image exists in
+the corpus. Privacy validation remains structural, with no plaintext private
+deny list.
+
+### Active fixture and row totals
+
+- 5 active sanitized fixtures, 4 metadata-only fixtures.
+- 25 active expected rows, 0 active expected reversal rows.
+- Full catalog unchanged: 9 fixtures, 56 expected rows, 0 partial rows,
+  2 reversal rows, 40 currently parsed rows.
+
+### Focused sign-noise and repeated-agent assertions
+
+Generic (all active fixtures): `observedText` appears verbatim in the raw
+fixture, the numeric amount inside `observedText` normalizes to
+`rawAmountText`, and each disposition agrees with sign, `isReversal` and
+`eventKind`.
+
+`ocr.mj.sent.photo-6`: exactly 5 expected rows; exactly 2 rows carry
+`amountEvidence`; both use `ocr_noise`; no row uses `confirmed_reversal`; the
+raw fixture contains `- 3,875.00` and `: 2,735.00`; those normalized amounts
+remain positive; all five rows are `evd_sent_to_agent` with positive signed
+amounts; reversal count is zero; `Sample Agent Tau` occurs exactly twice with
+different amounts and both rows remain present; the repeated synthetic sender
+label is forbidden as an agent.
+
+No production parser, OCR engine or `parseMany` call is made by these tests.
+
+### Command results
+
+- `bun run typecheck` — pass
+- `bun run lint` — pass (0 errors, 12 pre-existing warnings)
+- `bun run format:check` — pass
+- `bun run test` — pass (96 tests, up from 80)
+- `bun run build` — pass
+- `bun run verify` — pass
+
+### Confirmation
+
+Production parsing was neither executed nor changed. No file under `src/`, no
+database code, dependency, lockfile, configuration, CI workflow or blueprint
+document was modified. Production accuracy is still not recalculated because
+the evaluator does not execute production parsing.

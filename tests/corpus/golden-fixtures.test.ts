@@ -228,7 +228,9 @@ describe("ocr.mj.sent.photo-6 — OCR sign noise and repeated agents", () => {
       expect(row.amountEvidence?.prefixDisposition).toBe("ocr_noise");
     }
     expect(
-      expected.expectedRows.some((r) => r.amountEvidence?.prefixDisposition === "confirmed_reversal"),
+      expected.expectedRows.some(
+        (r) => r.amountEvidence?.prefixDisposition === "confirmed_reversal",
+      ),
     ).toBe(false);
   });
 
