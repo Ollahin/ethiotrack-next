@@ -122,3 +122,23 @@ All six MJ Transfers → Sent fixtures are now active. Together they cover:
   reversal capture under the approved business rules.
 - This task validates fixture meaning only. It does not implement reversal UI
   or inventory behavior.
+
+## Refill History fixtures
+
+- Refill History represents EVD airtime sent to agents through the Yunus or
+  Alami layouts.
+- The layout is **not** automatically assigned specifically to Yunus or Alami.
+  The platform hint stays `yunus_or_alami`.
+- Inline rows contain the agent name and amount on one line, followed by a
+  local timestamp line directly beneath.
+- Timestamp precision is **minute**: `YYYY-MM-DDTHH:mm`.
+- Source-local wall-clock time is preserved exactly. No timezone is invented,
+  no `Z` suffix is appended and no UTC conversion is performed.
+- Strict agent matching means every expected row stays `unassigned`. Similar
+  names are never automatically linked to an existing agent.
+- Repeated names, repeated amounts and repeated timestamps are **not**
+  sufficient grounds for deduplication.
+- Each visible row remains a separate expected financial event.
+- The first active Refill History fixture (`ocr.refill.photo-64`) covers
+  repeated agents, repeated amounts, a multiword agent name and transactions
+  spanning multiple calendar days.
