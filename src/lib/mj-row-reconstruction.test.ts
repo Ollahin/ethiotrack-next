@@ -10,19 +10,9 @@ import {
   type MjLine,
 } from "./mj-row-reconstruction";
 
-const FIXTURE_DIR = join(
-  process.cwd(),
-  "tests/corpus/fixtures/ocr/mj-transfers-sent",
-);
+const FIXTURE_DIR = join(process.cwd(), "tests/corpus/fixtures/ocr/mj-transfers-sent");
 
-const MJ_FIXTURES = [
-  "photo-2",
-  "photo-4",
-  "photo-5",
-  "photo-6",
-  "photo-9",
-  "photo-38",
-] as const;
+const MJ_FIXTURES = ["photo-2", "photo-4", "photo-5", "photo-6", "photo-9", "photo-38"] as const;
 
 /** Expected synthetic agent lines, in source order, per sanitized fixture. */
 const EXPECTED_AGENTS: Record<string, string[]> = {
@@ -80,18 +70,10 @@ function classified(id: string): MjLine[] {
 
 describe("stripMjDecorationPrefix", () => {
   it("removes generic OCR decoration prefixes only from the left", () => {
-    expect(stripMjDecorationPrefix("2 Sample Agent Alpha")).toBe(
-      "Sample Agent Alpha",
-    );
-    expect(stripMjDecorationPrefix("E 5 Sample Agent Psi")).toBe(
-      "Sample Agent Psi",
-    );
-    expect(stripMjDecorationPrefix("E 3 Sample Agent Omega")).toBe(
-      "Sample Agent Omega",
-    );
-    expect(stripMjDecorationPrefix("E Sample Agent Epsilon")).toBe(
-      "Sample Agent Epsilon",
-    );
+    expect(stripMjDecorationPrefix("2 Sample Agent Alpha")).toBe("Sample Agent Alpha");
+    expect(stripMjDecorationPrefix("E 5 Sample Agent Psi")).toBe("Sample Agent Psi");
+    expect(stripMjDecorationPrefix("E 3 Sample Agent Omega")).toBe("Sample Agent Omega");
+    expect(stripMjDecorationPrefix("E Sample Agent Epsilon")).toBe("Sample Agent Epsilon");
     expect(stripMjDecorationPrefix("& samplewallet - samplewallet")).toBe(
       "samplewallet - samplewallet",
     );
@@ -169,16 +151,10 @@ describe("classifyMjLines over the sanitized MJ corpus", () => {
     const anchors = findMjAmountAnchors(classified("photo-4"));
     const reversals = anchors.filter((a) => a.amount.isReversal);
     expect(reversals).toHaveLength(2);
-    expect(reversals.map((a) => a.amount.amountSantim)).toEqual([
-      525_000, 897_500,
-    ]);
-    expect(
-      reversals.every((a) => a.amount.signEvidence === "attached_minus"),
-    ).toBe(true);
+    expect(reversals.map((a) => a.amount.amountSantim)).toEqual([525_000, 897_500]);
+    expect(reversals.every((a) => a.amount.signEvidence === "attached_minus")).toBe(true);
 
-    const spaced = anchors.find(
-      (a) => a.amount.signEvidence === "spaced_prefix_ignored",
-    );
+    const spaced = anchors.find((a) => a.amount.signEvidence === "spaced_prefix_ignored");
     expect(spaced?.amount.isReversal).toBe(false);
     expect(spaced?.amount.amountSantim).toBe(30_250_000);
   });
@@ -186,9 +162,10 @@ describe("classifyMjLines over the sanitized MJ corpus", () => {
   it("finds zero negative anchors in photo-6", () => {
     const anchors = findMjAmountAnchors(classified("photo-6"));
     expect(anchors.filter((a) => a.amount.isReversal)).toHaveLength(0);
-    expect(
-      anchors.map((a) => a.amount.signEvidence).filter((e) => e !== "none"),
-    ).toEqual(["spaced_prefix_ignored", "punctuation_prefix_ignored"]);
+    expect(anchors.map((a) => a.amount.signEvidence).filter((e) => e !== "none")).toEqual([
+      "spaced_prefix_ignored",
+      "punctuation_prefix_ignored",
+    ]);
   });
 
   it("never classifies a repeated sender-label variant as an agent", () => {
@@ -233,9 +210,7 @@ describe("classifyMjLines over the sanitized MJ corpus", () => {
     for (const id of MJ_FIXTURES) {
       const lines = classified(id);
       for (const line of lines.filter((l) => l.kind === "agent_candidate")) {
-        expect(forbidden.has(line.stripped.toLowerCase()), line.text).toBe(
-          false,
-        );
+        expect(forbidden.has(line.stripped.toLowerCase()), line.text).toBe(false);
       }
       const chrome = lines.filter((l) => l.kind === "chrome");
       expect(chrome.length, id).toBeGreaterThanOrEqual(3);
@@ -243,10 +218,7 @@ describe("classifyMjLines over the sanitized MJ corpus", () => {
         chrome.some((l) => l.reason === "status_bar_percent"),
         id,
       ).toBe(true);
-      expect(
-        chrome.filter((l) => l.stripped.toLowerCase() === "transfers").length,
-        id,
-      ).toBe(2);
+      expect(chrome.filter((l) => l.stripped.toLowerCase() === "transfers").length, id).toBe(2);
       expect(
         chrome.some((l) => l.stripped.toLowerCase() === "sent"),
         id,

@@ -72,11 +72,7 @@ const INVISIBLE_RX = /[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g;
 const NBSP_RX = /[\u00A0\u2007\u202F]/g;
 
 export function normalizeMjLineText(raw: string): string {
-  return raw
-    .replace(INVISIBLE_RX, "")
-    .replace(NBSP_RX, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return raw.replace(INVISIBLE_RX, "").replace(NBSP_RX, " ").replace(/\s+/g, " ").trim();
 }
 
 /**
@@ -195,8 +191,7 @@ const CHROME_WORDS = new Set([
 ]);
 
 /** "<handle> - <handle>" repeated sender/account label. */
-const REPEATED_LABEL_RX =
-  /^([\p{L}\p{N}._]{3,})\s*[-\u2010-\u2015\u2212]\s*\1$/iu;
+const REPEATED_LABEL_RX = /^([\p{L}\p{N}._]{3,})\s*[-\u2010-\u2015\u2212]\s*\1$/iu;
 
 const DATE_RX =
   /\b(?:\d{1,2}[-/ ](?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[-/ ]\d{2,4}|\d{4}-\d{2}-\d{2})\b/i;
