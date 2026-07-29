@@ -1,0 +1,29 @@
+22:10 8 ® BNC 67% =
+< Refill History
+
+Sample Agent Lumen 31,000 Birr
+2026-08-13 8:48 AM
+
+Sample Agent Lumenn 52,000 Birr
+2026-08-13 7:16 AM
+
+Sample Agent Granite Hill 87,640 Birr
+2026-08-13 5:12 AM
+
+Sample Agent Solace 610,000 Birr
+2026-08-12 7:00 PM
+
+Sample Agent Bramble 52,000 Birr
+2026-08-12 4:55 PM
+
+Sample Agent Brambel 31,000 Birr
+2026-08-12 8:08 AM
+
+Sample Agent Kestrel 11,000 Birr
+2026-08-12 6:02 AM
+
+Sample Agent Nasrin 52,000 Birr
+2026-08-12 5:37 AM
+
+i= + $ 9D
+Agents Add Agent Refill Refill History

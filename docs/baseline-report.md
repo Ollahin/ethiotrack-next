@@ -1546,3 +1546,47 @@ Command results: `typecheck`, `lint`, `format:check`, `test`, `build` and
 
 No production parser or OCR code was executed or changed. No original private
 corpus value, screenshot or raw OCR passage was committed.
+
+## Task 0.2C-c — Final Refill History golden fixture and execution contract
+
+Activated `ocr.refill.photo-51`, the last catalogued screenshot fixture. Added
+`docs/ai/EXECUTION_CONTRACT.md` as the permanent, compact execution contract
+for all future AI-assisted work on `production-v3`.
+
+### Changes
+
+- `docs/ai/EXECUTION_CONTRACT.md` (new) — 14 permanent rules plus the compact
+  completion format.
+- `tests/corpus/fixtures/ocr/refill-history/photo-51.raw.txt` (new) —
+  sanitized Refill History OCR text, 8 rows over 2 calendar dates.
+- `tests/corpus/fixtures/ocr/refill-history/photo-51.expected.json` (new) —
+  8 positive `evd_sent_to_agent` rows, minute precision, all `unassigned`.
+- `tests/corpus/catalog.json` — photo-51 promoted to `active` / `sanitized`
+  with both fixture paths; all other metadata preserved.
+- `tests/corpus/catalog.test.ts`, `tests/corpus/golden-fixtures.test.ts` —
+  totals updated to 9 active fixtures / 56 active rows / 30 MJ / 26 Refill
+  History / 2 MJ reversals, plus focused photo-51 assertions.
+- `tests/corpus/README.md`, `docs/corpus-baseline.md`, `PROJECT_STATUS.md` —
+  documentation and status updated.
+
+### Coverage added
+
+OCR name variation: `Sample Agent Lumen` vs `Sample Agent Lumenn` and
+`Sample Agent Bramble` vs `Sample Agent Brambel` remain distinct and unlinked
+under case- and whitespace-only normalization. `Sample Agent Granite Hill`
+stays one multiword agent. The amount `52,000` appears on three rows and all
+three rows remain.
+
+### Corpus totals
+
+- 9 active sanitized fixtures, 0 catalogued.
+- 56 active expected rows (30 MJ + 26 Refill History).
+- 2 reversals, both MJ.
+
+### Validation
+
+`bun run verify` — pass (typecheck, lint, format:check, test, build).
+
+Production parser accuracy has **not** been recalculated. No production
+parser, OCR engine, database, dependency, configuration or CI file changed.
+No original private data or screenshot was committed.

@@ -37,14 +37,23 @@ Stage 1 — Corpus and ingestion baseline
 - Two active sanitized Refill History fixtures
 - Same-timestamp transaction coverage
 - Timestamp-only deduplication prohibition
+- Compact execution contract
+- All nine sanitized screenshot fixtures
+- Full 56-row golden corpus
+- Refill History OCR-name-variation coverage
 
 ## Current task
 
-Task 0.2C-b — Refill History same-timestamp golden fixture
+Task 0.2C-c — Final Refill History golden fixture
 
 ## Next task
 
-Task 0.2C-c — Refill History OCR name-variation golden fixture
+Task 0.2D-a — Production parser evaluator and frozen baseline
+
+## Execution contract
+
+`docs/ai/EXECUTION_CONTRACT.md` is the permanent execution contract for this
+repository. Future tasks reference it instead of repeating its rules.
 
 ## Important rule
 

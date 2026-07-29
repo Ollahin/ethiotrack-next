@@ -49,8 +49,12 @@ describe("golden OCR fixtures", () => {
     expect(active.length).toBeGreaterThan(0);
   });
 
-  it("has eight active fixtures", () => {
-    expect(active.length).toBe(8);
+  it("has nine active fixtures", () => {
+    expect(active.length).toBe(9);
+  });
+
+  it("has 56 active expected rows across the corpus", () => {
+    expect(active.reduce((a, e) => a + e.expected.completeRowCount, 0)).toBe(56);
   });
 
   it("does not commit original screenshot images", () => {
@@ -651,14 +655,139 @@ describe("ocr.refill.photo-49 — same-timestamp rows must stay separate", () =>
   });
 });
 
+describe("ocr.refill.photo-51 — OCR name variations must stay distinct", () => {
+  const { raw, expected } = loadExpected("ocr.refill.photo-51");
+  const rows = expected.expectedRows;
+  const timestampLines = raw
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => /^\d{4}-\d{2}-\d{2} \d{1,2}:\d{2} (AM|PM)$/.test(l));
+  const normalize = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
+
+  it("has exactly 8 expected rows and 8 raw timestamp lines", () => {
+    expect(rows.length).toBe(8);
+    expect(timestampLines.length).toBe(8);
+  });
+
+  it("has source orders 0 through 7", () => {
+    expect(rows.map((r) => r.sourceOrder)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it("keeps every amount positive with no reversals", () => {
+    for (const row of rows) {
+      expect(row.signedAmountMinor).toBeGreaterThan(0);
+      expect(row.isReversal).toBe(false);
+      expect(row.eventKind).toBe("evd_sent_to_agent");
+    }
+    expect(rows.filter((r) => r.isReversal).length).toBe(0);
+  });
+
+  it("uses minute-precision, timezone-free dates and unassigned agents", () => {
+    for (const row of rows) {
+      expect(row.datePrecision).toBe("minute");
+      expect(row.date).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+      expect(row.date).not.toMatch(/[Zz+]|:\d{2}:\d{2}/);
+      expect(row.agentResolution).toBe("unassigned");
+    }
+  });
+
+  it("matches each expected date to the raw line immediately below its row", () => {
+    expect(rows.map((r) => r.date)).toEqual(timestampLines.map(refillTimestampToLocalMinute));
+  });
+
+  it("orders rows newest to oldest", () => {
+    const dates = rows.map((r) => r.date as string);
+    for (let i = 1; i < dates.length; i += 1) {
+      expect(dates[i] <= dates[i - 1]).toBe(true);
+    }
+  });
+
+  it("spans exactly two calendar dates", () => {
+    expect(new Set(rows.map((r) => (r.date as string).slice(0, 10))).size).toBe(2);
+  });
+
+  it("keeps all eight agent strings distinct", () => {
+    expect(new Set(rows.map((r) => r.agentText)).size).toBe(8);
+  });
+
+  it("keeps Lumen and Lumenn distinct and unlinked", () => {
+    const lumen = rows.filter((r) => r.agentText === "Sample Agent Lumen");
+    const lumenn = rows.filter((r) => r.agentText === "Sample Agent Lumenn");
+    expect(lumen.length).toBe(1);
+    expect(lumenn.length).toBe(1);
+    expect(lumen[0].agentText).not.toBe(lumenn[0].agentText);
+    expect(normalize(lumen[0].agentText)).not.toBe(normalize(lumenn[0].agentText));
+    expect(lumen[0].agentResolution).toBe("unassigned");
+    expect(lumenn[0].agentResolution).toBe("unassigned");
+    expect(raw).toContain("Sample Agent Lumen ");
+    expect(raw).toContain("Sample Agent Lumenn ");
+  });
+
+  it("keeps Bramble and Brambel distinct and unlinked", () => {
+    const bramble = rows.filter((r) => r.agentText === "Sample Agent Bramble");
+    const brambel = rows.filter((r) => r.agentText === "Sample Agent Brambel");
+    expect(bramble.length).toBe(1);
+    expect(brambel.length).toBe(1);
+    expect(bramble[0].agentText).not.toBe(brambel[0].agentText);
+    expect(normalize(bramble[0].agentText)).not.toBe(normalize(brambel[0].agentText));
+    expect(bramble[0].agentResolution).toBe("unassigned");
+    expect(brambel[0].agentResolution).toBe("unassigned");
+  });
+
+  it("never makes a similar-name pair equal under case and whitespace normalization", () => {
+    const normalized = rows.map((r) => normalize(r.agentText));
+    expect(new Set(normalized).size).toBe(8);
+  });
+
+  it("keeps Granite Hill as one multiword agent", () => {
+    const granite = rows.filter((r) => r.agentText === "Sample Agent Granite Hill");
+    expect(granite.length).toBe(1);
+    expect(granite[0].agentText.split(/\s+/).length).toBe(4);
+    expect(raw).toContain("Sample Agent Granite Hill");
+  });
+
+  it("keeps all three 52,000 rows", () => {
+    const repeated = rows.filter((r) => r.rawAmountText === "52,000");
+    expect(repeated.length).toBe(3);
+    expect(new Set(repeated.map((r) => r.agentText)).size).toBe(3);
+    expect(new Set(repeated.map((r) => r.sourceOrder)).size).toBe(3);
+    for (const row of repeated) {
+      expect(row.signedAmountMinor).toBe(5200000);
+    }
+  });
+
+  it("declares the OCR name-variation warnings", () => {
+    expect(expected.expectedWarnings).toEqual([
+      "ocr-name-variation",
+      "similar-names-remain-distinct",
+      "strict-agent-linking-required",
+    ]);
+  });
+
+  it("treats chrome labels as noise, never as agents", () => {
+    for (const label of ["Refill History", "Agents", "Add Agent", "Refill"]) {
+      expect(raw).toContain(label);
+      expect(expected.forbiddenAgentCandidates).toContain(label);
+      expect(rows.some((r) => r.agentText === label)).toBe(false);
+      expect(rows.some((r) => normalize(r.agentText) === normalize(label))).toBe(false);
+    }
+  });
+
+  it("validates fixture data only, invoking no production parser or OCR engine", () => {
+    // This suite reads committed fixture files and asserts on their content.
+    // No src/ parser, OCR engine or database module is imported or executed.
+    expect(rows.length).toBe(8);
+  });
+});
+
 describe("active Refill History fixture set", () => {
   const rh = active.filter((e) => e.sourceFamily === "refill_history");
   const loaded = rh.map((e) => loadExpected(e.id).expected);
   const allRows = loaded.flatMap((e) => e.expectedRows);
 
-  it("has exactly 2 active Refill History fixtures and 18 expected rows", () => {
-    expect(rh.length).toBe(2);
-    expect(allRows.length).toBe(18);
+  it("has exactly 3 active Refill History fixtures and 26 expected rows", () => {
+    expect(rh.length).toBe(3);
+    expect(allRows.length).toBe(26);
   });
 
   it("has zero reversals", () => {
