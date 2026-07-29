@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -11,8 +12,10 @@ import {
   reconstructMjRows,
   signedMjAmountMinor,
   toMjAgentCandidate,
+  adaptMjTransfersSent,
   type MjLine,
 } from "./mj-row-reconstruction";
+import { parseStatementText } from "./distributor-parser";
 
 const FIXTURE_DIR = join(process.cwd(), "tests/corpus/fixtures/ocr/mj-transfers-sent");
 
@@ -77,6 +80,11 @@ interface ExpectedRow {
 function readExpectedRows(id: string): ExpectedRow[] {
   const json = JSON.parse(readFileSync(join(FIXTURE_DIR, `${id}.expected.json`), "utf8"));
   return json.expectedRows as ExpectedRow[];
+}
+
+function readForbidden(id: string): string[] {
+  const json = JSON.parse(readFileSync(join(FIXTURE_DIR, `${id}.expected.json`), "utf8"));
+  return (json.forbiddenAgentCandidates ?? []) as string[];
 }
 
 function classified(id: string): MjLine[] {
@@ -418,5 +426,112 @@ describe("reconstructMjRows ambiguity handling", () => {
     expect(rows[0].candidateLineIndexes).toEqual([1, 2]);
     expect(rows[1].status).toBe("resolved");
     expect(rows[1].agentName).toBe("Sample Agent Gamma");
+  });
+});
+
+describe("adaptMjTransfersSent production-shape adapter", () => {
+  it("adapts all six MJ fixtures to exactly 30 production-shaped rows", () => {
+    let total = 0;
+    for (const id of MJ_FIXTURES) {
+      const { rows, unresolved } = adaptMjTransfersSent(readFixture(id));
+      expect(unresolved).toEqual([]);
+      expect(rows).toHaveLength(EXPECTED_AGENTS[id].length);
+      for (const row of rows) {
+        expect(row.ok).toBe(true);
+        expect(row.airtimeType).toBe("airtime_evd");
+        expect(row.amountSantim).toBeGreaterThan(0);
+        expect(Number.isInteger(row.amountSantim)).toBe(true);
+        expect(row.dateText).toBeUndefined();
+        expect(row.needsReview).toBe(true);
+        expect(row.phone).toBeUndefined();
+        expect(row.reference).toBeUndefined();
+        expect(row.sender).toBeUndefined();
+      }
+      total += rows.length;
+    }
+    expect(total).toBe(30);
+  });
+
+  it("matches expected agent, signed amount and order for every golden row", () => {
+    for (const id of MJ_FIXTURES) {
+      const { rows } = adaptMjTransfersSent(readFixture(id));
+      const expected = readExpectedRows(id);
+      expect(rows.map((r) => r.agentName)).toEqual(expected.map((r) => r.agentText));
+      expect(rows.map((r) => (r.isReversal ? -r.amountSantim! : r.amountSantim!))).toEqual(
+        expected.map((r) => r.signedAmountMinor),
+      );
+      expect(rows.map((r) => r.isReversal)).toEqual(expected.map((r) => r.signedAmountMinor < 0));
+    }
+  });
+
+  it("emits exactly two negative rows for photo-4 and none for photo-6", () => {
+    const four = adaptMjTransfersSent(readFixture("photo-4")).rows;
+    expect(four.filter((r) => r.isReversal)).toHaveLength(2);
+    const six = adaptMjTransfersSent(readFixture("photo-6")).rows;
+    expect(six.filter((r) => r.isReversal)).toHaveLength(0);
+  });
+
+  it("keeps repeated agents as separate rows", () => {
+    const rows = adaptMjTransfersSent(readFixture("photo-4")).rows;
+    const psi = rows.filter((r) => r.agentName === "Sample Agent Psi");
+    expect(psi).toHaveLength(2);
+    expect(psi[0].amountSantim).not.toBe(psi[1].amountSantim);
+  });
+
+  it("never emits a forbidden sender label or OCR decoration token", () => {
+    for (const id of MJ_FIXTURES) {
+      const forbidden = readForbidden(id);
+      const { rows } = adaptMjTransfersSent(readFixture(id));
+      for (const row of rows) {
+        for (const bad of forbidden) {
+          expect(row.agentName?.toLowerCase()).not.toContain(bad.toLowerCase());
+          expect(row.raw.toLowerCase()).not.toContain(bad.toLowerCase());
+        }
+        expect(row.agentName).toMatch(/^[\p{L}][\p{L} .'-]*$/u);
+      }
+    }
+  });
+
+  it("leaves missing-agent and ambiguous-agent windows unresolved", () => {
+    const missing = adaptMjTransfersSent(["1,000.00", "wl"].join("\n"));
+    expect(missing.rows).toEqual([]);
+    expect(missing.unresolved).toHaveLength(1);
+    expect(missing.unresolved[0].status).toBe("missing_agent");
+    expect(missing.unresolved[0].amountSantim).toBe(100_000);
+
+    const ambiguous = adaptMjTransfersSent(
+      ["2,000.00", "Sample Agent Alpha", "Sample Agent Beta"].join("\n"),
+    );
+    expect(ambiguous.rows).toEqual([]);
+    expect(ambiguous.unresolved).toHaveLength(1);
+    expect(ambiguous.unresolved[0].status).toBe("ambiguous_agent");
+  });
+
+  it("does not mutate its input and is deterministic", () => {
+    for (const id of MJ_FIXTURES) {
+      const text = readFixture(id);
+      const snapshot = `${text}`;
+      const first = adaptMjTransfersSent(text);
+      const second = adaptMjTransfersSent(text);
+      expect(text).toBe(snapshot);
+      expect(second).toEqual(first);
+      expect(JSON.stringify(second)).toBe(JSON.stringify(first));
+    }
+  });
+
+  it("leaves parseStatementText behavior unchanged", () => {
+    for (const id of MJ_FIXTURES) {
+      const text = readFixture(id);
+      const before = JSON.stringify(parseStatementText(text, "mj"));
+      adaptMjTransfersSent(text);
+      expect(JSON.stringify(parseStatementText(text, "mj"))).toBe(before);
+    }
+  });
+
+  it("keeps the frozen production baseline byte-identical", () => {
+    const path = join(process.cwd(), "tests/corpus/production-baseline.json");
+    expect(createHash("md5").update(readFileSync(path)).digest("hex")).toBe(
+      "277473947e2f4e627caed6892cfb0484",
+    );
   });
 });
