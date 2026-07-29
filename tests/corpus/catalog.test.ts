@@ -96,14 +96,14 @@ describe("parser corpus catalog", () => {
     expect(rh.reduce((a, e) => a + e.currentBaseline.parsedRowCount, 0)).toBe(26);
   });
 
-  it("has 4 active and 5 catalogued entries", () => {
-    expect(catalog.filter((e) => e.status === "active").length).toBe(4);
-    expect(catalog.filter((e) => e.status === "catalogued").length).toBe(5);
+  it("has 5 active and 4 catalogued entries", () => {
+    expect(catalog.filter((e) => e.status === "active").length).toBe(5);
+    expect(catalog.filter((e) => e.status === "catalogued").length).toBe(4);
   });
 
-  it("has 4 sanitized and 5 metadata_only entries", () => {
-    expect(catalog.filter((e) => e.privacyStatus === "sanitized").length).toBe(4);
-    expect(catalog.filter((e) => e.privacyStatus === "metadata_only").length).toBe(5);
+  it("has 5 sanitized and 4 metadata_only entries", () => {
+    expect(catalog.filter((e) => e.privacyStatus === "sanitized").length).toBe(5);
+    expect(catalog.filter((e) => e.privacyStatus === "metadata_only").length).toBe(4);
   });
 
   it("active entries carry both fixture paths", () => {

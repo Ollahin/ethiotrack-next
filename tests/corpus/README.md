@@ -74,6 +74,22 @@ are committed and referenced from `catalog.json`.
 - Every active fixture requires an expected JSON file that validates against
   `GoldenOcrExpectationSchema` in `schema.ts`.
 
+## Amount evidence
+
+An expected row may carry an optional `amountEvidence` object:
+
+- `observedText` records the punctuation observed around an amount in the
+  flattened OCR, exactly as it appears in the raw fixture.
+- `rawAmountText` remains the normalized defensible amount text.
+- `signedAmountMinor` remains the authoritative expected signed value.
+- `prefixDisposition: ocr_noise` means the punctuation must **not**
+  automatically create a reversal.
+- `prefixDisposition: confirmed_reversal` will be used only where a reversal
+  is independently confirmed.
+
+A dash in flattened OCR is not sufficient by itself to invent a reversal.
+Ambiguous financial signs must be preserved for review rather than guessed.
+
 ## Coverage of active MJ fixtures
 
 The four active MJ Transfers → Sent fixtures currently cover:
@@ -84,8 +100,8 @@ The four active MJ Transfers → Sent fixtures currently cover:
 - false OCR agent tokens;
 - punctuation adjacent to amounts;
 - long synthetic agent names;
-- repeated account-label noise.
+- repeated account-label noise;
+- OCR sign noise around amounts, with repeated legitimate agents.
 
-OCR sign correction (negative or reversal amounts produced by sign noise) is
-**not yet represented** in the active set. It will be introduced in the next
-fixture task.
+The true MJ reversal fixture — an independently confirmed negative amount — is
+the next corpus task.

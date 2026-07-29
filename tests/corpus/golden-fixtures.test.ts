@@ -31,8 +31,8 @@ describe("golden OCR fixtures", () => {
     expect(active.length).toBeGreaterThan(0);
   });
 
-  it("has four active fixtures", () => {
-    expect(active.length).toBe(4);
+  it("has five active fixtures", () => {
+    expect(active.length).toBe(5);
   });
 
   it("does not commit original screenshot images", () => {
@@ -99,6 +99,37 @@ describe("golden OCR fixtures", () => {
 
         for (const { name, re } of FORBIDDEN) {
           expect(re.test(raw), `forbidden pattern '${name}' in raw fixture`).toBe(false);
+        }
+      });
+
+      it("keeps amount evidence consistent with the raw fixture and the signed amount", () => {
+        const raw = readFileSync(join(repoRoot, rawPath), "utf8");
+        const expected = GoldenOcrExpectationSchema.parse(
+          JSON.parse(readFileSync(join(repoRoot, expectedPath), "utf8")),
+        );
+
+        for (const row of expected.expectedRows) {
+          const evidence = row.amountEvidence;
+          if (!evidence) continue;
+
+          expect(
+            raw.includes(evidence.observedText),
+            `observedText missing from raw: ${evidence.observedText}`,
+          ).toBe(true);
+
+          const numeric = evidence.observedText.match(/\d{1,3}(?:,\d{3})*(?:\.\d{2})?/);
+          expect(numeric, `no amount inside observedText: ${evidence.observedText}`).not.toBeNull();
+          expect(numeric?.[0]).toBe(row.rawAmountText);
+
+          if (evidence.prefixDisposition === "ocr_noise") {
+            expect(row.signedAmountMinor).toBeGreaterThan(0);
+            expect(row.isReversal).toBe(false);
+            expect(row.eventKind).toBe("evd_sent_to_agent");
+          } else {
+            expect(row.signedAmountMinor).toBeLessThan(0);
+            expect(row.isReversal).toBe(true);
+            expect(row.eventKind).toBe("evd_reversal");
+          }
         }
       });
     });
@@ -177,5 +208,62 @@ describe("ocr.mj.sent.photo-9 — repeated agents and false agent token", () => 
       expect(row.signedAmountMinor).toBeGreaterThan(0);
       expect(row.isReversal).toBe(false);
     }
+  });
+});
+
+describe("ocr.mj.sent.photo-6 — OCR sign noise and repeated agents", () => {
+  const { raw, expected } = loadExpected("ocr.mj.sent.photo-6");
+  const withEvidence = expected.expectedRows.filter((r) => r.amountEvidence);
+
+  it("has exactly 5 expected rows", () => {
+    expect(expected.expectedRows.length).toBe(5);
+  });
+
+  it("has exactly 2 rows carrying amount evidence", () => {
+    expect(withEvidence.length).toBe(2);
+  });
+
+  it("treats both amount prefixes as OCR noise", () => {
+    for (const row of withEvidence) {
+      expect(row.amountEvidence?.prefixDisposition).toBe("ocr_noise");
+    }
+    expect(
+      expected.expectedRows.some(
+        (r) => r.amountEvidence?.prefixDisposition === "confirmed_reversal",
+      ),
+    ).toBe(false);
+  });
+
+  it("contains the noisy amount prefixes verbatim in the raw fixture", () => {
+    expect(raw).toContain("- 3,875.00");
+    expect(raw).toContain(": 2,735.00");
+  });
+
+  it("keeps the noise-prefixed amounts positive", () => {
+    for (const row of withEvidence) {
+      expect(row.signedAmountMinor).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps every row a positive non-reversal transfer", () => {
+    for (const row of expected.expectedRows) {
+      expect(row.eventKind).toBe("evd_sent_to_agent");
+      expect(row.signedAmountMinor).toBeGreaterThan(0);
+    }
+    expect(expected.expectedRows.filter((r) => r.isReversal).length).toBe(0);
+  });
+
+  it("keeps both repeated legitimate agent rows", () => {
+    const tau = expected.expectedRows.filter((r) => r.agentText === "Sample Agent Tau");
+    expect(tau.length).toBe(2);
+    expect(tau[0].signedAmountMinor).not.toBe(tau[1].signedAmountMinor);
+    expect(tau[0].rawAmountText).not.toBe(tau[1].rawAmountText);
+  });
+
+  it("forbids the repeated synthetic sender label as an agent", () => {
+    expect(expected.forbiddenAgentCandidates).toContain("samplewallet - samplewallet");
+    expect(expected.expectedRows.some((r) => r.agentText === "samplewallet - samplewallet")).toBe(
+      false,
+    );
   });
 });

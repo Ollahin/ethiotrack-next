@@ -91,6 +91,22 @@ export const AgentResolution = z.enum([
 ]);
 export type AgentResolution = z.infer<typeof AgentResolution>;
 
+export const AmountPrefixDisposition = z.enum(["ocr_noise", "confirmed_reversal"]);
+export type AmountPrefixDisposition = z.infer<typeof AmountPrefixDisposition>;
+
+/**
+ * Records punctuation observed immediately around an amount in flattened OCR
+ * and how the human-authored golden fixture interpreted it. It does NOT
+ * authorize the production parser to guess a sign without evidence.
+ */
+export const AmountEvidence = z
+  .object({
+    observedText: nonEmpty,
+    prefixDisposition: AmountPrefixDisposition,
+  })
+  .strict();
+export type AmountEvidence = z.infer<typeof AmountEvidence>;
+
 export const ExpectedOcrRow = z
   .object({
     sourceOrder: nonNegInt,
@@ -107,6 +123,7 @@ export const ExpectedOcrRow = z
     date: z.string().min(1).nullable(),
     datePrecision: DatePrecision,
     agentResolution: AgentResolution,
+    amountEvidence: AmountEvidence.optional(),
   })
   .strict()
   .refine((r) => (r.isReversal ? r.signedAmountMinor < 0 : r.signedAmountMinor > 0), {
@@ -117,7 +134,23 @@ export const ExpectedOcrRow = z
   })
   .refine((r) => (r.datePrecision === "unknown" ? r.date === null : r.date !== null), {
     message: "datePrecision must agree with date presence",
-  });
+  })
+  .refine(
+    (r) =>
+      r.amountEvidence?.prefixDisposition !== "ocr_noise" ||
+      (r.signedAmountMinor > 0 && !r.isReversal && r.eventKind === "evd_sent_to_agent"),
+    {
+      message: "ocr_noise requires a positive, non-reversal evd_sent_to_agent row",
+    },
+  )
+  .refine(
+    (r) =>
+      r.amountEvidence?.prefixDisposition !== "confirmed_reversal" ||
+      (r.signedAmountMinor < 0 && r.isReversal && r.eventKind === "evd_reversal"),
+    {
+      message: "confirmed_reversal requires a negative evd_reversal row",
+    },
+  );
 export type ExpectedOcrRow = z.infer<typeof ExpectedOcrRow>;
 
 export const GoldenOcrExpectationSchema = z
