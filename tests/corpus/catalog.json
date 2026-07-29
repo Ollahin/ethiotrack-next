@@ -5,12 +5,14 @@
     "inputKind": "ocr_screenshot",
     "sourceFamily": "mj_transfers_sent",
     "platformHint": "mj",
-    "status": "catalogued",
-    "privacyStatus": "metadata_only",
+    "status": "active",
+    "privacyStatus": "sanitized",
     "currentOcrConfidence": 0.66,
     "expected": { "completeRowCount": 5, "partialRowCount": 0, "reversalRowCount": 0 },
     "currentBaseline": { "parsedRowCount": 2 },
-    "tags": ["flattened-layout", "missing-middle-rows", "account-label-noise", "agent-association"]
+    "tags": ["flattened-layout", "missing-middle-rows", "account-label-noise", "agent-association"],
+    "rawFixturePath": "tests/corpus/fixtures/ocr/mj-transfers-sent/photo-5.raw.txt",
+    "expectedFixturePath": "tests/corpus/fixtures/ocr/mj-transfers-sent/photo-5.expected.json"
   },
   {
     "id": "ocr.mj.sent.photo-38",
@@ -18,12 +20,14 @@
     "inputKind": "ocr_screenshot",
     "sourceFamily": "mj_transfers_sent",
     "platformHint": "mj",
-    "status": "catalogued",
-    "privacyStatus": "metadata_only",
+    "status": "active",
+    "privacyStatus": "sanitized",
     "currentOcrConfidence": 0.66,
     "expected": { "completeRowCount": 5, "partialRowCount": 0, "reversalRowCount": 0 },
     "currentBaseline": { "parsedRowCount": 3 },
-    "tags": ["flattened-layout", "false-agent-token", "missing-rows", "repeated-agent"]
+    "tags": ["flattened-layout", "false-agent-token", "missing-rows", "repeated-agent"],
+    "rawFixturePath": "tests/corpus/fixtures/ocr/mj-transfers-sent/photo-38.raw.txt",
+    "expectedFixturePath": "tests/corpus/fixtures/ocr/mj-transfers-sent/photo-38.expected.json"
   },
   {
     "id": "ocr.mj.sent.photo-2",

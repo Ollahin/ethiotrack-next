@@ -19,14 +19,16 @@ Stage 1 — Corpus and ingestion baseline
 - Continuous integration
 - Corpus scaffold and metadata inventory
 - Repository corpus sanitization
+- Golden-fixture schema
+- First two sanitized MJ fixtures
 
 ## Current task
 
-Task 0.2A-2 — Repository corpus sanitization
+Task 0.2B-a — Golden-fixture contract and first two MJ fixtures
 
 ## Next task
 
-Task 0.2B — Sanitized MJ Transfers → Sent golden fixtures
+Task 0.2B-b — Remaining positive-only MJ golden fixtures
 
 ## Important rule
 

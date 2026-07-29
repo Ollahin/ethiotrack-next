@@ -74,3 +74,61 @@ export type FixtureCatalogEntry = z.infer<typeof FixtureCatalogEntry>;
 
 export const FixtureCatalog = z.array(FixtureCatalogEntry);
 export type FixtureCatalog = z.infer<typeof FixtureCatalog>;
+
+// ── Sanitized golden OCR expectations ──────────────────────────────────────
+
+export const DatePrecision = z.enum(["unknown", "day", "minute", "second"]);
+export type DatePrecision = z.infer<typeof DatePrecision>;
+
+export const ExpectedEventKind = z.enum(["evd_sent_to_agent", "evd_reversal"]);
+export type ExpectedEventKind = z.infer<typeof ExpectedEventKind>;
+
+export const AgentResolution = z.enum([
+  "unassigned",
+  "existing_agent",
+  "create_agent",
+  "explicit_alias",
+]);
+export type AgentResolution = z.infer<typeof AgentResolution>;
+
+export const ExpectedOcrRow = z
+  .object({
+    sourceOrder: nonNegInt,
+    agentText: nonEmpty,
+    rawAmountText: nonEmpty,
+    signedAmountMinor: z
+      .number()
+      .int()
+      .refine((v) => v !== 0, {
+        message: "signedAmountMinor cannot be zero",
+      }),
+    isReversal: z.boolean(),
+    eventKind: ExpectedEventKind,
+    date: z.string().min(1).nullable(),
+    datePrecision: DatePrecision,
+    agentResolution: AgentResolution,
+  })
+  .strict()
+  .refine((r) => (r.isReversal ? r.signedAmountMinor < 0 : r.signedAmountMinor > 0), {
+    message: "isReversal must agree with the sign of signedAmountMinor",
+  })
+  .refine((r) => (r.eventKind === "evd_reversal" ? r.isReversal : !r.isReversal), {
+    message: "eventKind must agree with isReversal",
+  })
+  .refine((r) => (r.datePrecision === "unknown" ? r.date === null : r.date !== null), {
+    message: "datePrecision must agree with date presence",
+  });
+export type ExpectedOcrRow = z.infer<typeof ExpectedOcrRow>;
+
+export const GoldenOcrExpectationSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    fixtureId: nonEmpty,
+    sourceFamily: z.literal("mj_transfers_sent"),
+    platformHint: z.literal("mj"),
+    expectedRows: z.array(ExpectedOcrRow).min(1),
+    forbiddenAgentCandidates: z.array(nonEmpty),
+    expectedWarnings: z.array(nonEmpty),
+  })
+  .strict();
+export type GoldenOcrExpectation = z.infer<typeof GoldenOcrExpectationSchema>;

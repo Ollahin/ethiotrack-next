@@ -59,3 +59,17 @@ Never invent a financial field.
 A fixture is `catalogued` when only its metadata exists. A fixture becomes
 `active` only when both a sanitized raw fixture and an expected-output fixture
 are committed and referenced from `catalog.json`.
+
+## Active OCR fixtures
+
+- Active OCR fixtures contain **sanitized OCR text only**, never screenshot
+  image data. No original screenshot is committed to this repository.
+- All names and amounts in active fixtures are **synthetic**. They do not
+  correspond to any real agent, account or transaction.
+- Formatting, row ordering, repeated values, signs and OCR noise are preserved
+  so that each fixture reproduces the same _type_ of parsing challenge as the
+  original screen.
+- Synthetic values must never be treated as real customer data, exported to
+  reports, or used to justify a financial conclusion.
+- Every active fixture requires an expected JSON file that validates against
+  `GoldenOcrExpectationSchema` in `schema.ts`.

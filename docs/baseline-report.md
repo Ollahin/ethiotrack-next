@@ -1182,3 +1182,75 @@ application behavior was changed. Parser output contracts (row fields and
 their meanings) are unchanged. The full validation suite (`bun run
 typecheck`, `bun run lint`, `bun run format:check`, `bun run test`,
 `bun run build`, `bun run verify`) passes.
+
+## Task 0.2B-a — First sanitized MJ golden fixtures
+
+### Activated fixture IDs
+
+- `ocr.mj.sent.photo-5`
+- `ocr.mj.sent.photo-38`
+
+Both moved from `catalogued`/`metadata_only` to `active`/`sanitized`. The
+remaining seven catalog entries stay `catalogued`/`metadata_only`.
+
+### Files added
+
+- `tests/corpus/fixtures/ocr/mj-transfers-sent/photo-5.raw.txt`
+- `tests/corpus/fixtures/ocr/mj-transfers-sent/photo-5.expected.json`
+- `tests/corpus/fixtures/ocr/mj-transfers-sent/photo-38.raw.txt`
+- `tests/corpus/fixtures/ocr/mj-transfers-sent/photo-38.expected.json`
+- `tests/corpus/golden-fixtures.test.ts`
+
+The now-unnecessary `.gitkeep` in the MJ fixture directory was removed.
+`tests/corpus/schema.ts`, `tests/corpus/catalog.json`,
+`tests/corpus/catalog.test.ts` and `tests/corpus/README.md` were updated.
+
+### Synthetic-data policy
+
+Active OCR fixtures contain sanitized OCR **text**, never screenshot image
+data. Every agent name is synthetic (`Sample Agent <Greek letter>`), every
+account label is the synthetic repeated handle `samplewallet - samplewallet`,
+and every amount is synthetic. Layout, row ordering, repeated agent
+occurrences, punctuation, OCR noise tokens and status-bar garbage are
+preserved so each fixture reproduces the same class of parsing challenge as
+the original screen. No original name, account label, account number, amount,
+reference, receipt identifier, URL or complete original OCR passage was
+copied.
+
+### Expected active row count
+
+10 expected rows (5 per fixture), 0 reversals. The full catalog totals are
+unchanged: 56 expected complete rows, 0 partial rows, 2 known reversals, 40
+currently parsed rows.
+
+### Tests added
+
+- `tests/corpus/golden-fixtures.test.ts` (8 tests): path safety
+  (repository-relative, no absolute paths, no `..` traversal), file existence,
+  schema validation via `GoldenOcrExpectationSchema`, fixture/catalog
+  agreement (fixtureId, sourceFamily, row count, reversal count), contiguous
+  `sourceOrder`, exact `rawAmountText` → `signedAmountMinor` conversion,
+  MJ row invariants (null date, `unknown` precision, `unassigned` resolution),
+  `Sample Agent ` name prefix, forbidden agent candidates present in raw text
+  but never as an expected agent, presence of `Transfers` and `Sent`, presence
+  of the synthetic repeated label, and privacy scans (no HTTP URL, masked
+  account, phone-like value, receipt/reference pattern or raw SMS opening),
+  plus a check that no screenshot image file is committed under
+  `tests/corpus/fixtures/`.
+- `tests/corpus/catalog.test.ts` gained 4 status/path assertions replacing the
+  two outdated "all catalogued / no paths" assertions.
+
+Test totals: 62 tests across 4 files (previously 52 across 3).
+
+### Validation results
+
+`bun run typecheck` ✓, `bun run lint` ✓, `bun run format:check` ✓,
+`bun run test` ✓ (62/62), `bun run build` ✓, `bun run verify` ✓.
+
+### Behavior confirmation
+
+Production parsing was **not** executed and **not** changed. No file under
+`src/**` was touched. No parser or OCR expectation, database schema, financial
+rule, dependency, lockfile, `package.json`, build/lint configuration, CI
+workflow or blueprint document was modified. Parser accuracy against these
+fixtures is deliberately not measured in this task.
