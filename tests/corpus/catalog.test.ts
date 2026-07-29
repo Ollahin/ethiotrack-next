@@ -98,14 +98,14 @@ describe("parser corpus catalog", () => {
     expect(rh.reduce((a, e) => a + e.expected.reversalRowCount, 0)).toBe(0);
   });
 
-  it("has 6 active and 3 catalogued entries", () => {
-    expect(catalog.filter((e) => e.status === "active").length).toBe(6);
-    expect(catalog.filter((e) => e.status === "catalogued").length).toBe(3);
+  it("has 7 active and 2 catalogued entries", () => {
+    expect(catalog.filter((e) => e.status === "active").length).toBe(7);
+    expect(catalog.filter((e) => e.status === "catalogued").length).toBe(2);
   });
 
-  it("has 6 sanitized and 3 metadata_only entries", () => {
-    expect(catalog.filter((e) => e.privacyStatus === "sanitized").length).toBe(6);
-    expect(catalog.filter((e) => e.privacyStatus === "metadata_only").length).toBe(3);
+  it("has 7 sanitized and 2 metadata_only entries", () => {
+    expect(catalog.filter((e) => e.privacyStatus === "sanitized").length).toBe(7);
+    expect(catalog.filter((e) => e.privacyStatus === "metadata_only").length).toBe(2);
   });
 
   it("has all six MJ fixtures active and sanitized", () => {
@@ -117,12 +117,17 @@ describe("parser corpus catalog", () => {
     }
   });
 
-  it("keeps all three Refill History fixtures catalogued", () => {
+  it("has exactly one active and two catalogued Refill History fixtures", () => {
     const rh = catalog.filter((e) => e.sourceFamily === "refill_history");
     expect(rh.length).toBe(3);
-    for (const e of rh) {
-      expect(e.status, `expected catalogued: ${e.id}`).toBe("catalogued");
-      expect(e.privacyStatus).toBe("metadata_only");
+    const activeRh = rh.filter((e) => e.status === "active");
+    expect(activeRh.length).toBe(1);
+    expect(activeRh[0].id).toBe("ocr.refill.photo-64");
+    expect(activeRh[0].privacyStatus).toBe("sanitized");
+    const cataloguedRh = rh.filter((e) => e.status === "catalogued");
+    expect(cataloguedRh.length).toBe(2);
+    for (const e of cataloguedRh) {
+      expect(e.privacyStatus, `expected metadata_only: ${e.id}`).toBe("metadata_only");
     }
   });
 
