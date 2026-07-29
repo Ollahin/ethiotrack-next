@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "ocr.mj.sent.photo-9",
+  "sourceFamily": "mj_transfers_sent",
+  "platformHint": "mj",
+  "expectedRows": [
+    {
+      "sourceOrder": 0,
+      "agentText": "Sample Agent Omicron",
+      "rawAmountText": "12,500.00",
+      "signedAmountMinor": 1250000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 1,
+      "agentText": "Sample Agent Pi",
+      "rawAmountText": "67,250.00",
+      "signedAmountMinor": 6725000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 2,
+      "agentText": "Sample Agent Rho",
+      "rawAmountText": "13,640.00",
+      "signedAmountMinor": 1364000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 3,
+      "agentText": "Sample Agent Sigma",
+      "rawAmountText": "12,250.00",
+      "signedAmountMinor": 1225000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 4,
+      "agentText": "Sample Agent Rho",
+      "rawAmountText": "14,890.00",
+      "signedAmountMinor": 1489000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned"
+    }
+  ],
+  "forbiddenAgentCandidates": ["samplewallet - samplewallet", "fo"],
+  "expectedWarnings": ["missing-date", "false-agent-token-present", "repeated-agent"]
+}
