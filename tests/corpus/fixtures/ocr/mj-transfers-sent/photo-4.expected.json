@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "ocr.mj.sent.photo-4",
+  "sourceFamily": "mj_transfers_sent",
+  "platformHint": "mj",
+  "expectedRows": [
+    {
+      "sourceOrder": 0,
+      "agentText": "Sample Agent Psi",
+      "rawAmountText": "-5,250.00",
+      "signedAmountMinor": -525000,
+      "isReversal": true,
+      "eventKind": "evd_reversal",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned",
+      "amountEvidence": {
+        "observedText": "-5,250.00",
+        "prefixDisposition": "confirmed_reversal"
+      }
+    },
+    {
+      "sourceOrder": 1,
+      "agentText": "Sample Agent Psi",
+      "rawAmountText": "15,750.00",
+      "signedAmountMinor": 1575000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned"
+    },
+    {
+      "sourceOrder": 2,
+      "agentText": "Sample Agent Omega",
+      "rawAmountText": "302,500.00",
+      "signedAmountMinor": 30250000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned",
+      "amountEvidence": {
+        "observedText": "- 302,500.00",
+        "prefixDisposition": "ocr_noise"
+      }
+    },
+    {
+      "sourceOrder": 3,
+      "agentText": "Sample Agent Alder",
+      "rawAmountText": "-8,975.00",
+      "signedAmountMinor": -897500,
+      "isReversal": true,
+      "eventKind": "evd_reversal",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned",
+      "amountEvidence": {
+        "observedText": "-8,975.00",
+        "prefixDisposition": "confirmed_reversal"
+      }
+    },
+    {
+      "sourceOrder": 4,
+      "agentText": "Sample Agent Birch",
+      "rawAmountText": "20,250.00",
+      "signedAmountMinor": 2025000,
+      "isReversal": false,
+      "eventKind": "evd_sent_to_agent",
+      "date": null,
+      "datePrecision": "unknown",
+      "agentResolution": "unassigned"
+    }
+  ],
+  "forbiddenAgentCandidates": ["samplewallet - samplewallet"],
+  "expectedWarnings": [
+    "missing-date",
+    "reversal-present",
+    "ocr-sign-noise",
+    "repeated-agent",
+    "account-label-noise"
+  ]
+}
