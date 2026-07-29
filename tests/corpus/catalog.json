@@ -65,12 +65,14 @@
     "inputKind": "ocr_screenshot",
     "sourceFamily": "mj_transfers_sent",
     "platformHint": "mj",
-    "status": "catalogued",
-    "privacyStatus": "metadata_only",
     "currentOcrConfidence": 0.6,
     "expected": { "completeRowCount": 5, "partialRowCount": 0, "reversalRowCount": 2 },
     "currentBaseline": { "parsedRowCount": 2 },
-    "tags": ["reversal", "signed-amount", "account-label-as-agent", "missing-rows"]
+    "tags": ["reversal", "signed-amount", "account-label-as-agent", "missing-rows"],
+    "status": "active",
+    "privacyStatus": "sanitized",
+    "rawFixturePath": "tests/corpus/fixtures/ocr/mj-transfers-sent/photo-4.raw.txt",
+    "expectedFixturePath": "tests/corpus/fixtures/ocr/mj-transfers-sent/photo-4.expected.json"
   },
   {
     "id": "ocr.mj.sent.photo-6",

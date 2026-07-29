@@ -1405,3 +1405,37 @@ Production parsing was neither executed nor changed. No file under `src/`, no
 database code, dependency, lockfile, configuration, CI workflow or blueprint
 document was modified. Production accuracy is still not recalculated because
 the evaluator does not execute production parsing.
+
+## Task 0.2B-d — MJ reversal golden fixture
+
+- Activated fixture: `ocr.mj.sent.photo-4` (status `active`, privacy
+  `sanitized`).
+- Files added:
+  - `tests/corpus/fixtures/ocr/mj-transfers-sent/photo-4.raw.txt`
+  - `tests/corpus/fixtures/ocr/mj-transfers-sent/photo-4.expected.json`
+- Confirmed reversals: 2 (source orders 0 and 3), both with
+  `amountEvidence.prefixDisposition = confirmed_reversal`, negative
+  `rawAmountText` and negative `signedAmountMinor`.
+- OCR noise versus reversal: source order 2 carries the observed text
+  `- 302,500.00` but is annotated `ocr_noise` and stays a positive
+  `evd_sent_to_agent` row. A visible dash alone is not evidence of a reversal.
+- Repeated-agent coverage: `Sample Agent Psi` appears twice — once as a
+  reversal and once as a positive transfer, with different signed amounts.
+  Both rows remain present; fixture validation never nets or deduplicates them.
+- Completed MJ totals: 6 active MJ fixtures, 30 active expected rows, 2 active
+  expected reversals. Catalog aggregates unchanged (9 fixtures, 56 expected
+  rows, 0 partial, 2 reversals, 40 currently parsed).
+- Focused signed-amount assertions added:
+  - `rawAmountText` parses exactly to `signedAmountMinor`;
+  - negative `rawAmountText` and negative `signedAmountMinor` only on reversal
+    rows;
+  - positive rows are positive and `evd_sent_to_agent`;
+  - `confirmed_reversal` evidence agrees with both the raw amount text and the
+    signed amount;
+  - `ocr_noise` evidence cannot turn a positive authoritative amount into a
+    reversal;
+  - source ordering is contiguous and unchanged; no netting or deduplication.
+- Commands: `bun run typecheck`, `bun run lint`, `bun run format:check`,
+  `bun run test`, `bun run build` and `bun run verify` all pass.
+- Production parsing was neither executed nor changed. No file under `src/`,
+  no dependency, configuration, CI workflow or blueprint was modified.

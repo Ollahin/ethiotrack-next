@@ -39,17 +39,21 @@ material and are not committed.
 - Refill History row recall: 26 / 26, 100%.
 - 2 known reversal rows in the current catalog.
 
-## Activation status (Task 0.2B-c)
+## Activation status (Task 0.2B-d)
 
-- 5 active sanitized MJ Transfers → Sent fixtures
+- 6 active sanitized MJ Transfers → Sent fixtures
   (`ocr.mj.sent.photo-5`, `ocr.mj.sent.photo-38`, `ocr.mj.sent.photo-2`,
-  `ocr.mj.sent.photo-9`, `ocr.mj.sent.photo-6`).
-- 4 remaining catalog entries are metadata-only.
-- 25 active expected rows across the five active fixtures.
-- 0 active expected reversals so far.
-- OCR sign-noise coverage is now active: misleading dash and colon prefixes
-  around amounts are represented and must not produce reversals.
-- The full catalog remains 56 expected rows and 2 known reversals.
+  `ocr.mj.sent.photo-9`, `ocr.mj.sent.photo-6`, `ocr.mj.sent.photo-4`).
+- 3 metadata-only Refill History catalog entries remain.
+- 30 active expected rows across the six active fixtures.
+- 2 active expected reversals.
+- All catalogued MJ screenshots now have sanitized golden fixtures.
+- Active MJ coverage includes: missed rows, amount-to-agent association,
+  account-label noise, false OCR agent tokens, repeated legitimate agents,
+  punctuation noise, misleading OCR signs, confirmed reversals and missing
+  dates.
+- The full catalog remains 9 fixtures, 56 expected rows, 40 currently parsed
+  rows and 2 known reversals.
 - Production parser accuracy is **not** recalculated in this task: the
   evaluator does not execute production parsing yet. No claim is made that the
   current parser passes these fixtures.
