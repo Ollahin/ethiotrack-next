@@ -417,4 +417,134 @@ describe("MJ fixture set completion", () => {
       }
     }
   });
+
+  it("keeps every MJ platform hint mj", () => {
+    for (const e of loaded) {
+      expect(e.platformHint).toBe("mj");
+    }
+  });
+});
+
+describe("refillTimestampToLocalMinute", () => {
+  it("converts PM afternoon hours", () => {
+    expect(refillTimestampToLocalMinute("2026-08-02 4:51 PM")).toBe("2026-08-02T16:51");
+  });
+
+  it("keeps AM morning hours and pads them", () => {
+    expect(refillTimestampToLocalMinute("2026-08-02 7:51 AM")).toBe("2026-08-02T07:51");
+  });
+
+  it("maps 12 AM to hour 00 and 12 PM to hour 12", () => {
+    expect(refillTimestampToLocalMinute("2026-08-02 12:19 AM")).toBe("2026-08-02T00:19");
+    expect(refillTimestampToLocalMinute("2026-08-02 12:19 PM")).toBe("2026-08-02T12:19");
+  });
+
+  it("rejects any other shape", () => {
+    expect(() => refillTimestampToLocalMinute("2026-08-02T16:51")).toThrow();
+    expect(() => refillTimestampToLocalMinute("2026-08-02 16:51 PM")).toThrow();
+  });
+});
+
+describe("ocr.refill.photo-64 — repeated agents, repeated amounts, minute timestamps", () => {
+  const { raw, expected } = loadExpected("ocr.refill.photo-64");
+  const rows = expected.expectedRows;
+  const timestampLines = raw
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => /^\d{4}-\d{2}-\d{2} \d{1,2}:\d{2} (AM|PM)$/.test(l));
+
+  it("has exactly 9 expected rows and 9 raw timestamp lines", () => {
+    expect(rows.length).toBe(9);
+    expect(timestampLines.length).toBe(9);
+  });
+
+  it("has source orders 0 through 8", () => {
+    expect(rows.map((r) => r.sourceOrder)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8]);
+  });
+
+  it("keeps every amount positive with no reversals", () => {
+    for (const row of rows) {
+      expect(row.signedAmountMinor).toBeGreaterThan(0);
+      expect(row.isReversal).toBe(false);
+      expect(row.eventKind).toBe("evd_sent_to_agent");
+    }
+    expect(rows.filter((r) => r.isReversal).length).toBe(0);
+  });
+
+  it("uses unique, minute-precision, timezone-free dates ordered newest to oldest", () => {
+    const dates = rows.map((r) => r.date as string);
+    expect(new Set(dates).size).toBe(9);
+    for (const row of rows) {
+      expect(row.datePrecision).toBe("minute");
+      expect(row.date).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+    }
+    expect(dates).toEqual([...dates].sort().reverse());
+  });
+
+  it("matches each expected date to the raw line immediately below its row", () => {
+    expect(rows.map((r) => r.date)).toEqual(timestampLines.map(refillTimestampToLocalMinute));
+  });
+
+  it("spans exactly three calendar dates", () => {
+    expect(new Set(rows.map((r) => (r.date as string).slice(0, 10))).size).toBe(3);
+  });
+
+  it("keeps every agent unassigned", () => {
+    for (const row of rows) {
+      expect(row.agentResolution).toBe("unassigned");
+    }
+  });
+
+  it("counts repeated legitimate agents exactly", () => {
+    const count = (name: string) => rows.filter((r) => r.agentText === name).length;
+    expect(count("Sample Agent Cedar")).toBe(5);
+    expect(count("Sample Agent Maple")).toBe(2);
+    expect(count("Sample Agent Juniper")).toBe(1);
+    expect(count("Sample Agent River Stone")).toBe(1);
+  });
+
+  it("keeps the multiword agent name as one complete value", () => {
+    const river = rows.filter((r) => r.agentText === "Sample Agent River Stone");
+    expect(river.length).toBe(1);
+    expect(river[0].agentText.split(/\s+/).length).toBe(4);
+    expect(raw).toContain("Sample Agent River Stone");
+  });
+
+  it("keeps the two Maple rows separate", () => {
+    const maple = rows.filter((r) => r.agentText === "Sample Agent Maple");
+    expect(maple.length).toBe(2);
+    expect(maple[0].signedAmountMinor).toBe(maple[1].signedAmountMinor);
+    expect(maple[0].date).not.toBe(maple[1].date);
+  });
+
+  it("keeps the two 32,500 Cedar rows separate", () => {
+    const pair = rows.filter(
+      (r) => r.agentText === "Sample Agent Cedar" && r.rawAmountText === "32,500",
+    );
+    expect(pair.length).toBe(2);
+    expect(pair[0].signedAmountMinor).toBe(pair[1].signedAmountMinor);
+    expect(pair[0].date).not.toBe(pair[1].date);
+  });
+
+  it("keeps the two 205,000 Cedar rows separate on different dates", () => {
+    const pair = rows.filter(
+      (r) => r.agentText === "Sample Agent Cedar" && r.rawAmountText === "205,000",
+    );
+    expect(pair.length).toBe(2);
+    expect(pair[0].signedAmountMinor).toBe(pair[1].signedAmountMinor);
+    expect((pair[0].date as string).slice(0, 10)).not.toBe((pair[1].date as string).slice(0, 10));
+  });
+
+  it("never merges or deduplicates the repeated rows", () => {
+    expect(rows.length).toBe(9);
+    expect(new Set(rows.map((r) => r.sourceOrder)).size).toBe(9);
+  });
+
+  it("treats chrome labels as noise, never as agents", () => {
+    for (const label of ["Refill History", "Agents", "Add Agent", "Refill"]) {
+      expect(raw).toContain(label);
+      expect(expected.forbiddenAgentCandidates).toContain(label);
+      expect(rows.some((r) => r.agentText === label)).toBe(false);
+    }
+  });
 });
