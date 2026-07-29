@@ -50,15 +50,18 @@ Stage 1 — Corpus and ingestion baseline
 - MJ row-reconstruction design and test plan
 - Isolated MJ line classifier and amount-anchor helpers (not yet integrated)
 - Pure MJ agent filtering and row reconstruction helpers (not yet integrated)
-- MJ production-shape adapter with golden-row tests (not yet routed)
+- MJ production-shape adapter with golden-row tests
+- Production MJ parsing routed through deterministic reconstruction
+- Refrozen 56/56 exact sanitized-corpus baseline
+- Ratcheted non-regression floor and passing release gate
 
 ## Current task
 
-Task 0.3B-c — MJ production-shape adapter tests
+Task 0.3B-d — Route MJ Transfers → Sent parsing through deterministic reconstruction
 
 ## Next task
 
-Task 0.3B-d — Route MJ Transfers → Sent parsing through deterministic reconstruction
+Task 0.3B-e — Unresolved-window review surfacing in the import UI
 
 ## Execution contract
 

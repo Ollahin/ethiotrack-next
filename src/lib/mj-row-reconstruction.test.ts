@@ -528,10 +528,12 @@ describe("adaptMjTransfersSent production-shape adapter", () => {
     }
   });
 
-  it("keeps the frozen production baseline byte-identical", () => {
+  it("keeps the refrozen production baseline byte-identical", () => {
+    // Refrozen in task 0.3B-d, when production MJ parsing was routed through
+    // this adapter. The corpus is now parsed exactly: 56 / 56 rows.
     const path = join(process.cwd(), "tests/corpus/production-baseline.json");
     expect(createHash("md5").update(readFileSync(path)).digest("hex")).toBe(
-      "277473947e2f4e627caed6892cfb0484",
+      "802f13a7beab75fd0455cefa54e87717",
     );
   });
 });

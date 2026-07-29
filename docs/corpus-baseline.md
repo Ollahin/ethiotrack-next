@@ -243,3 +243,58 @@ negative rows — no fuzzy matching, no netting, no deduplication.
 | unexpectedActualNegativeRows |               0 |
 
 The per-fixture failure breakdown lives in `docs/parser-failure-report.md`.
+
+## Refrozen production baseline (Task 0.3B-d)
+
+Production MJ parsing now runs through `adaptMjTransfersSent`
+(`src/lib/mj-row-reconstruction.ts`). The legacy MJ card scraper is removed:
+there is no fallback path. `tests/corpus/production-baseline.json` was
+regenerated from the same evaluator, on the same sanitized fixtures, with no
+fixture or expectation edited.
+
+### Measured summary
+
+| Metric               | Before (0.2D-a) | After (0.3B-d) |
+| -------------------- | --------------: | -------------: |
+| fixtureCount         |               9 |              9 |
+| expectedRows         |              56 |             56 |
+| actualRows           |              43 |             56 |
+| exactRowMatches      |              36 |             56 |
+| missingRows          |              20 |              0 |
+| unexpectedRows       |               7 |              0 |
+| expectedNegativeRows |               2 |              2 |
+| actualNegativeRows   |               0 |              2 |
+| forbiddenAgentHits   |               3 |              0 |
+| inventedDateRows     |               0 |              0 |
+| exactFixtureCount    |               3 |              9 |
+
+### Per fixture
+
+| Fixture ID           | Expected | Actual | Exact rows | Missing | Unexpected | Forbidden hits | Ordered |
+| -------------------- | -------: | -----: | ---------: | ------: | ---------: | -------------: | ------: |
+| ocr.mj.sent.photo-5  |        5 |      5 |          5 |       0 |          0 |              0 |     yes |
+| ocr.mj.sent.photo-38 |        5 |      5 |          5 |       0 |          0 |              0 |     yes |
+| ocr.mj.sent.photo-2  |        5 |      5 |          5 |       0 |          0 |              0 |     yes |
+| ocr.mj.sent.photo-9  |        5 |      5 |          5 |       0 |          0 |              0 |     yes |
+| ocr.mj.sent.photo-4  |        5 |      5 |          5 |       0 |          0 |              0 |     yes |
+| ocr.mj.sent.photo-6  |        5 |      5 |          5 |       0 |          0 |              0 |     yes |
+| ocr.refill.photo-64  |        9 |      9 |          9 |       0 |          0 |              0 |     yes |
+| ocr.refill.photo-49  |        9 |      9 |          9 |       0 |          0 |              0 |     yes |
+| ocr.refill.photo-51  |        8 |      8 |          8 |       0 |          0 |              0 |     yes |
+
+### Gate status
+
+- Non-regression gate: **pass**. The MJ floor was ratcheted to its new value
+  (30 exact rows, 0 missing, 0 unexpected, 0 forbidden-agent hits) so the
+  recovered behavior can never silently regress.
+- Release gate: **pass**. All 56 rows match exactly, both confirmed reversals
+  carry the correct negative sign, OCR sign noise produces none, no agent
+  label leaks into the agent slot and no date is invented.
+- Refill History is unchanged at 26 / 26 exact rows.
+
+### Unresolved windows
+
+An amount window with zero or more than one defensible agent candidate is not
+guessed. It is emitted as an `ok: false` review row (`no agent` /
+`ambiguous agent`), so it stays visible in the import surface instead of being
+silently dropped. No sanitized fixture currently produces one.

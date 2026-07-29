@@ -13,6 +13,7 @@
 //   APP_TEMPLATES["mj"] = (text) => [ /* StatementRow[] */ ];
 
 import type { DistributorStatementFormat, TxnType } from "./types";
+import { adaptMjTransfersSent } from "./mj-row-reconstruction";
 
 export interface StatementRow {
   ok: boolean;
@@ -213,16 +214,6 @@ function stripNameLeaders(line: string): string {
   return out;
 }
 
-/**
- * Reject "amounts" that are actually a 4-digit year the OCR rendered with a
- * thousands separator ("2,026" from "2026-07-22"). Real airtime top-ups are
- * never posted as an exact integer year with no cents.
- */
-function looksLikeYearAmount(raw: string): boolean {
-  const n = Number(raw.replace(/,/g, ""));
-  return Number.isInteger(n) && n >= 1900 && n <= 2100;
-}
-
 function looksLikeName(line: string): boolean {
   if (!line) return false;
   // Reject on the ORIGINAL line first: if it carries digits, a time marker,
@@ -297,18 +288,6 @@ function findMjAgentAfter(
   return null;
 }
 
-function findMjSenderBefore(lines: string[], dateAmountIndex: number): string | undefined {
-  for (let k = dateAmountIndex - 1; k >= Math.max(0, dateAmountIndex - 4); k--) {
-    const line = stripTransferOrdinal(lines[k]);
-    if (looksLikeDateOrTime(line) || parseRightAmount(line)) continue;
-    if (/^(received\s+sent|sent|received)$/i.test(line)) continue;
-    const repeated = line.match(REPEATED_SENDER_RX);
-    if (repeated) return repeated[1];
-    return line;
-  }
-  return undefined;
-}
-
 function hasTransfersHeading(text: string): boolean {
   return cleanLines(text).some((line) => /\btransfers?\b/i.test(line));
 }
@@ -351,117 +330,26 @@ function isLikelyMjTransfers(text: string): boolean {
   return cardRows >= 2 || (hasHeading && cardRows >= 1);
 }
 
-/** MJ layout — paired sender/date/agent card, right-aligned amount. */
+/**
+ * MJ "Transfers → Sent" — deterministic amount-anchored reconstruction.
+ *
+ * The legacy card scraper is gone: parsing is delegated wholesale to
+ * `adaptMjTransfersSent`, which anchors one window per defensible amount and
+ * binds an agent only when exactly one defensible candidate sits in that
+ * window. Resolved windows become normal `ok: true` rows. Unresolved windows
+ * are surfaced through the existing `ok: false` diagnostic row shape (the same
+ * mechanism the generic and refill paths already use) so they can never be
+ * silently dropped. No legacy fallback, no invented agent/amount/sign/date.
+ */
 function parseMj(text: string): StatementRow[] {
-  const lines = cleanLines(text);
-  const dateCardRows: StatementRow[] = [];
-  const consumed = new Set<number>();
-
-  // Primary MJ screenshot shape from the user's red annotations:
-  //   <SUBDISTRIBUTOR NAME>
-  //   <DATE>                                  <RIGHT-END AMOUNT>
-  //   <AGENT NAME>
-  // Do not require the sender to be a repeated handle; it can be any OCR text.
-  for (let i = 0; i < lines.length; i++) {
-    if (!looksLikeMjDateAmountLine(lines[i])) continue;
-    const amountStr = parseRightAmount(lines[i]);
-    const dateMatch = lines[i].match(DATE_DDMMMYYYY);
-    const agent = findMjAgentAfter(lines, i);
-    if (!amountStr || !dateMatch || !agent) continue;
-    const santim = toSantim(amountStr);
-    const sender = findMjSenderBefore(lines, i);
-    dateCardRows.push({
-      ok: true,
-      raw: [sender, lines[i], lines[agent.index]].filter(Boolean).join(" | "),
-      sender,
-      dateText: dateMatch[0],
-      agentName: agent.agentName,
-      airtimeType: "airtime_evd",
-      amountSantim: Math.abs(santim),
-      isReversal: santim < 0,
-      needsReview: santim < 0,
-    });
-    consumed.add(i);
-    consumed.add(agent.index);
-  }
-  if (dateCardRows.length > 0) return dateCardRows;
-
-  const out: StatementRow[] = [];
-  let i = 0;
-  while (i < lines.length) {
-    if (consumed.has(i)) {
-      i++;
-      continue;
-    }
-    const line = stripTransferOrdinal(lines[i]);
-    // Sender lines are the repeated-handle "<name> - <name>" label.
-    const senderM = line.match(REPEATED_SENDER_RX);
-    if (!senderM) {
-      i++;
-      continue;
-    }
-    const sender = senderM[1];
-    // Amount can be on the same line (right-aligned) or on the next 1-2 lines.
-    let amountStr: string | undefined;
-    let dateText: string | undefined;
-    let agentName: string | undefined;
-    amountStr = parseRightAmount(line);
-    // Scan the next few lines for missing pieces + agent name.
-    let j = i + 1;
-    const windowEnd = Math.min(lines.length, i + 6);
-    while (j < windowEnd) {
-      const ln = stripTransferOrdinal(lines[j]);
-      if (!dateText) {
-        const dm = ln.match(DATE_DDMMMYYYY);
-        if (dm) {
-          dateText = dm[0];
-          // Amount often shares this line, right-aligned.
-          const am = parseRightAmount(ln);
-          if (am && !amountStr) amountStr = am;
-          j++;
-          continue;
-        }
-      }
-      if (!amountStr) {
-        // Right-side amount only: whole-line number, or trailing number.
-        const wholeAmount = ln.match(new RegExp("^" + AMOUNT_DOTTED.source + "$"));
-        const am = wholeAmount?.[1] ?? parseRightAmount(ln);
-        if (am && !DATE_DDMMMYYYY.test(ln) && !DATE_ISO.test(ln)) {
-          amountStr = am;
-          j++;
-          continue;
-        }
-      }
-      if (!agentName && looksLikeName(ln)) {
-        // Guard: don't pick the next sender line as an agent.
-        if (REPEATED_SENDER_RX.test(ln)) break;
-        agentName = normalizeName(ln);
-        j++;
-        break;
-      }
-      j++;
-    }
-    const raw = lines.slice(i, j).join(" | ");
-    if (!amountStr || !agentName || looksLikeYearAmount(amountStr)) {
-      out.push({ ok: false, raw, reason: !amountStr ? "no amount" : "no agent", sender });
-    } else {
-      const santim = toSantim(amountStr);
-      out.push({
-        ok: true,
-        raw,
-        sender,
-        dateText,
-        agentName,
-        airtimeType: "airtime_evd",
-        amountSantim: Math.abs(santim),
-        isReversal: santim < 0,
-        // Reversals + missing date always deserve a human eyeball.
-        needsReview: santim < 0 || !dateText,
-      });
-    }
-    i = Math.max(j, i + 1);
-  }
-  return out;
+  const { rows, unresolved } = adaptMjTransfersSent(text);
+  const diagnostics: StatementRow[] = unresolved.map((window) => ({
+    ok: false,
+    raw: `mj:unresolved#${window.sourceOrder}`,
+    reason: window.status === "missing_agent" ? "no agent" : "ambiguous agent",
+    needsReview: true,
+  }));
+  return [...rows, ...diagnostics];
 }
 
 /** Alami / Yenus / Modern App "Refill History" — flat row triplets. */

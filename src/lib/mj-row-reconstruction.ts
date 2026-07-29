@@ -89,6 +89,15 @@ export function normalizeMjLineText(raw: string): string {
  * only applied when the remainder still contains an alphanumeric character,
  * so a short line is never emptied by rule 2.
  */
+/**
+ * Removes trailing OCR decoration: status ticks, bullets and other trailing
+ * non-alphanumeric glyphs. Suffix-only, never touches interior characters.
+ */
+export function stripMjDecorationSuffix(text: string): string {
+  const out = text.replace(/[^\p{L}\p{N}.)]+$/u, "");
+  return /[\p{L}\p{N}]/u.test(out) ? out.trim() : text.trim();
+}
+
 export function stripMjDecorationPrefix(text: string): string {
   let out = text;
   // Bounded loop: each iteration strictly shortens `out`.
@@ -112,7 +121,7 @@ export function stripMjDecorationPrefix(text: string): string {
     }
     break;
   }
-  return out.trim();
+  return stripMjDecorationSuffix(out.trim());
 }
 
 /* ------------------------------------------------------------------ */
@@ -190,7 +199,27 @@ const CHROME_WORDS = new Set([
   "back",
   "search",
   "history",
+  "agents",
+  "agent",
+  "add",
+  "refill",
+  "close",
+  "details",
+  "success",
+  "cancel",
 ]);
+
+/**
+ * A bottom-navigation strip ("Agents Add Agent Refill Refill History") OCRs as
+ * one line made exclusively of chrome words. It is chrome, never an agent.
+ */
+function isChromeWordLine(stripped: string): boolean {
+  const tokens = stripped
+    .toLowerCase()
+    .split(/[^\p{L}]+/u)
+    .filter(Boolean);
+  return tokens.length > 0 && tokens.every((t) => CHROME_WORDS.has(t));
+}
 
 /** "<handle> - <handle>" repeated sender/account label. */
 const REPEATED_LABEL_RX = /^([\p{L}\p{N}._]{3,})\s*[-\u2010-\u2015\u2212]\s*\1$/iu;
@@ -218,7 +247,7 @@ function classifyOne(sourceIndex: number, raw: string): MjLine | null {
   if (PERCENT_RX.test(text)) {
     return { ...base, kind: "chrome", reason: "status_bar_percent" };
   }
-  if (CHROME_WORDS.has(stripped.toLowerCase())) {
+  if (isChromeWordLine(stripped)) {
     return { ...base, kind: "chrome", reason: "chrome_word" };
   }
   if (parseMjAmount(text)) {

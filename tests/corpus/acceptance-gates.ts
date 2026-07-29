@@ -316,11 +316,13 @@ export const NON_REGRESSION_LIMITS = {
     forbiddenAgentHits: 0,
     inventedDateRows: 0,
   },
+  // Ratcheted in task 0.3B-d: MJ parsing now runs through the deterministic
+  // amount-anchored reconstruction and reproduces all 30 MJ rows exactly.
   mj: {
-    minExactRowMatches: 10,
-    maxMissingRows: 20,
-    maxUnexpectedRows: 7,
-    maxForbiddenAgentHits: 3,
+    minExactRowMatches: 30,
+    maxMissingRows: 0,
+    maxUnexpectedRows: 0,
+    maxForbiddenAgentHits: 0,
     inventedDateRows: 0,
   },
 } as const;

@@ -27,15 +27,30 @@ describe("acceptance gates — frozen baseline", () => {
     expect(result.passed).toBe(true);
   });
 
-  it("fails the release gate", () => {
+  it("passes the release gate", () => {
     const result = evaluateReleaseGate(baseline);
     expect(result.gate).toBe("release");
-    expect(result.passed).toBe(false);
-    expect(result.failures.length).toBeGreaterThan(0);
+    expect(result.failures).toEqual([]);
+    expect(result.passed).toBe(true);
   });
 
-  it("release failures cover MJ row recovery, reversals and forbidden agents", () => {
-    const { failures } = evaluateReleaseGate(baseline);
+  it("still reports MJ row recovery, reversals and forbidden agents when they regress", () => {
+    // Degrade a synthetic candidate back to a pre-0.3B-d shape; the release
+    // gate must name each broken guarantee explicitly.
+    const candidate = clone();
+    const fixture = candidate.fixtures.find((f) => f.fixtureId === "ocr.mj.sent.photo-4")!;
+    fixture.actualRows = fixture.actualRows.map((r) => ({
+      ...r,
+      signedAmountMinor: r.signedAmountMinor === null ? null : Math.abs(r.signedAmountMinor),
+      agentText: "samplewallet - samplewallet",
+    }));
+    fixture.exactRowMatches = 0;
+    fixture.missingRows = fixture.expectedRowCount;
+    fixture.unexpectedRows = fixture.actualRowCount;
+    fixture.forbiddenAgentHits = fixture.actualRowCount;
+    fixture.exactOrderedSequence = false;
+    const { failures, passed } = evaluateReleaseGate(candidate);
+    expect(passed).toBe(false);
     const categories = new Set(failures.map((f) => f.category));
     expect(categories.has("mj_row_recovery")).toBe(true);
     expect(categories.has("reversal_sign")).toBe(true);
@@ -62,10 +77,11 @@ describe("acceptance gates — frozen baseline", () => {
     expect(nonRegression.measured).toEqual(release.measured);
     expect(release.measured.fixtureCount).toBe(9);
     expect(release.measured.expectedRows).toBe(56);
-    expect(release.measured.actualRows).toBe(43);
-    expect(release.measured.exactRowMatches).toBe(36);
-    expect(release.measured.mj.exactRowMatches).toBe(10);
-    for (const failure of release.failures) {
+    expect(release.measured.actualRows).toBe(56);
+    expect(release.measured.exactRowMatches).toBe(56);
+    expect(release.measured.mj.exactRowMatches).toBe(30);
+    expect(release.failures).toEqual([]);
+    for (const failure of evaluateNonRegressionGate(clone()).failures) {
       expect(failure.expected.length).toBeGreaterThan(0);
       expect(failure.measured.length).toBeGreaterThan(0);
       expect(failure.requirement.length).toBeGreaterThan(0);
@@ -80,12 +96,12 @@ describe("acceptance gates — frozen baseline", () => {
 });
 
 describe("sign analysis", () => {
-  it("measures the frozen reversal loss exactly", () => {
+  it("measures the recovered reversals exactly", () => {
     expect(analyzeSigns(baseline)).toEqual({
       expectedNegativeRows: 2,
-      actualNegativeRows: 0,
-      matchedExpectedNegativeRows: 0,
-      missedExpectedNegativeRows: 2,
+      actualNegativeRows: 2,
+      matchedExpectedNegativeRows: 2,
+      missedExpectedNegativeRows: 0,
       unexpectedActualNegativeRows: 0,
     });
   });
@@ -93,7 +109,8 @@ describe("sign analysis", () => {
   it("attributes both expected reversals to MJ only", () => {
     const m = measureCandidate(baseline);
     expect(m.mj.sign.expectedNegativeRows).toBe(2);
-    expect(m.mj.sign.missedExpectedNegativeRows).toBe(2);
+    expect(m.mj.sign.matchedExpectedNegativeRows).toBe(2);
+    expect(m.mj.sign.missedExpectedNegativeRows).toBe(0);
     expect(m.refill.sign.expectedNegativeRows).toBe(0);
     expect(m.refill.sign.actualNegativeRows).toBe(0);
   });
@@ -103,20 +120,23 @@ describe("sign analysis", () => {
     const fixture = candidate.fixtures.find((f) => f.fixtureId === "ocr.mj.sent.photo-6")!;
     fixture.actualRows[0].signedAmountMinor = -fixture.actualRows[0].signedAmountMinor!;
     const sign = analyzeSigns(candidate);
-    expect(sign.matchedExpectedNegativeRows).toBe(0);
+    // photo-6 expects no negative row, so the flipped row can only ever be
+    // counted as unexpected; the two genuine photo-4 reversals still match.
+    expect(sign.matchedExpectedNegativeRows).toBe(2);
     expect(sign.unexpectedActualNegativeRows).toBe(1);
-    expect(sign.missedExpectedNegativeRows).toBe(2);
+    expect(sign.missedExpectedNegativeRows).toBe(0);
   });
 });
 
 describe("gate totals are derived, not copied", () => {
   it("ignores the candidate summary block", () => {
     const candidate = clone();
-    candidate.summary.exactRowMatches = 56;
-    candidate.summary.missingRows = 0;
-    candidate.summary.forbiddenAgentHits = 0;
-    expect(measureCandidate(candidate).exactRowMatches).toBe(36);
-    expect(evaluateReleaseGate(candidate).passed).toBe(false);
+    candidate.summary.exactRowMatches = 0;
+    candidate.summary.missingRows = 56;
+    candidate.summary.forbiddenAgentHits = 12;
+    expect(measureCandidate(candidate).exactRowMatches).toBe(56);
+    expect(measureCandidate(candidate).forbiddenAgentHits).toBe(0);
+    expect(evaluateReleaseGate(candidate).passed).toBe(true);
   });
 
   it("equals the sum of per-fixture records", () => {
@@ -151,7 +171,7 @@ describe("synthetic candidate mutations produce the expected gate failure", () =
 
   it("fails non-regression when MJ forbidden-agent noise grows", () => {
     const candidate = clone();
-    candidate.fixtures.find((f) => f.fixtureId === "ocr.mj.sent.photo-2")!.forbiddenAgentHits = 2;
+    candidate.fixtures.find((f) => f.fixtureId === "ocr.mj.sent.photo-2")!.forbiddenAgentHits = 1;
     const result = evaluateNonRegressionGate(candidate);
     expect(result.passed).toBe(false);
     expect(result.failures.map((f) => f.code)).toContain("non_regression.mj.forbiddenAgentHits");
