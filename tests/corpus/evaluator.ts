@@ -99,7 +99,7 @@ function normalizeDate(
 }
 
 /** Row identity key used for full-row multiset comparison. */
-function rowKey(row: {
+export function rowKey(row: {
   agentText: string | null;
   signedAmountMinor: number | null;
   date: string | null;
@@ -111,7 +111,7 @@ function rowKey(row: {
   ].join("|");
 }
 
-function multisetIntersectionSize(a: string[], b: string[]): number {
+export function multisetIntersectionSize(a: string[], b: string[]): number {
   const counts = new Map<string, number>();
   for (const key of a) counts.set(key, (counts.get(key) ?? 0) + 1);
   let hits = 0;
@@ -125,7 +125,10 @@ function multisetIntersectionSize(a: string[], b: string[]): number {
   return hits;
 }
 
-function readFixture(entry: FixtureCatalogEntry): { raw: string; expected: GoldenOcrExpectation } {
+export function readFixture(entry: FixtureCatalogEntry): {
+  raw: string;
+  expected: GoldenOcrExpectation;
+} {
   const raw = readFileSync(join(repoRoot, entry.rawFixturePath as string), "utf8");
   const expected = GoldenOcrExpectationSchema.parse(
     JSON.parse(readFileSync(join(repoRoot, entry.expectedFixturePath as string), "utf8")),

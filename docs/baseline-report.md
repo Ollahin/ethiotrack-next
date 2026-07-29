@@ -1622,3 +1622,32 @@ MJ: 10 / 30 exact. Refill History: 26 / 26 exact.
 
 `bun run verify` — pass. No `src/**`, dependency, lockfile, configuration or CI
 change. The baseline is recorded as measured; nothing was tuned to improve it.
+
+## Task 0.2D-b — Evaluator acceptance gates and parser failure report
+
+Added two deterministic gate levels over the frozen evaluator baseline plus a
+sanitized failure report.
+
+### Changes
+
+- `tests/corpus/acceptance-gates.ts` (new) — non-regression and release gates,
+  derived measurements and exact-multiset sign analysis.
+- `tests/corpus/acceptance-gates.test.ts` (new) — 19 assertions covering both
+  verdicts, failure categories, determinism, derived totals, synthetic
+  mutations and frozen-artifact safety.
+- `tests/corpus/evaluator.ts` — exported `rowKey`, `multisetIntersectionSize`
+  and `readFixture` for reuse; no behavior change.
+- `docs/parser-failure-report.md` (new), `docs/corpus-baseline.md`,
+  `PROJECT_STATUS.md`.
+
+### Measured result
+
+Non-regression: pass (0 failures). Release: fail (9 failures) on MJ row
+recovery, reversal signs, forbidden agents and ordered sequence.
+Sign analysis: expected 2 · matched 0 · missed 2 · unexpected 0.
+Failing MJ fixtures: 6 of 6. Refill History contributes no failure.
+
+### Validation
+
+`bun run verify` — pass. No `src/**`, dependency, lockfile, configuration or CI
+change. `tests/corpus/production-baseline.json` is byte-identical.
