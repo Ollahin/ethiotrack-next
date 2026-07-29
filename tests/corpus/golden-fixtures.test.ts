@@ -31,8 +31,8 @@ describe("golden OCR fixtures", () => {
     expect(active.length).toBeGreaterThan(0);
   });
 
-  it("has four active fixtures", () => {
-    expect(active.length).toBe(4);
+  it("has five active fixtures", () => {
+    expect(active.length).toBe(5);
   });
 
   it("does not commit original screenshot images", () => {
@@ -99,6 +99,37 @@ describe("golden OCR fixtures", () => {
 
         for (const { name, re } of FORBIDDEN) {
           expect(re.test(raw), `forbidden pattern '${name}' in raw fixture`).toBe(false);
+        }
+      });
+
+      it("keeps amount evidence consistent with the raw fixture and the signed amount", () => {
+        const raw = readFileSync(join(repoRoot, rawPath), "utf8");
+        const expected = GoldenOcrExpectationSchema.parse(
+          JSON.parse(readFileSync(join(repoRoot, expectedPath), "utf8")),
+        );
+
+        for (const row of expected.expectedRows) {
+          const evidence = row.amountEvidence;
+          if (!evidence) continue;
+
+          expect(
+            raw.includes(evidence.observedText),
+            `observedText missing from raw: ${evidence.observedText}`,
+          ).toBe(true);
+
+          const numeric = evidence.observedText.match(/\d{1,3}(?:,\d{3})*(?:\.\d{2})?/);
+          expect(numeric, `no amount inside observedText: ${evidence.observedText}`).not.toBeNull();
+          expect(numeric?.[0]).toBe(row.rawAmountText);
+
+          if (evidence.prefixDisposition === "ocr_noise") {
+            expect(row.signedAmountMinor).toBeGreaterThan(0);
+            expect(row.isReversal).toBe(false);
+            expect(row.eventKind).toBe("evd_sent_to_agent");
+          } else {
+            expect(row.signedAmountMinor).toBeLessThan(0);
+            expect(row.isReversal).toBe(true);
+            expect(row.eventKind).toBe("evd_reversal");
+          }
         }
       });
     });
