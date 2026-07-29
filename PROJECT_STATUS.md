@@ -52,11 +52,11 @@ Stage 1 — Corpus and ingestion baseline
 
 ## Current task
 
-Task 0.3B-c — Integrate MJ reconstruction behind production adapter tests
+Task 0.3B-b — MJ agent-candidate filtering and row reconstruction
 
 ## Next task
 
-Task 0.3B-b — MJ agent-candidate filtering and row reconstruction
+Task 0.3B-c — Integrate MJ reconstruction behind production adapter tests
 
 ## Execution contract
 
