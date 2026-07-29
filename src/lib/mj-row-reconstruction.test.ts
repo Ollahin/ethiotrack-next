@@ -537,3 +537,26 @@ describe("adaptMjTransfersSent production-shape adapter", () => {
     );
   });
 });
+
+describe("adaptMjTransfersSent ordered window contract", () => {
+  it("emits one ordered entry per window, interleaved in source order", () => {
+    const result = adaptMjTransfersSent(
+      ["1,000.00", "Sample Agent Alpha", "2,000.00", "[wl]", "-3,000.00", "Sample Agent Beta"].join(
+        "\n",
+      ),
+    );
+    expect(result.ordered.map((e) => e.kind)).toEqual(["resolved", "unresolved", "resolved"]);
+    expect(result.ordered.map((e) => e.sourceOrder)).toEqual([0, 1, 2]);
+    expect(result.ordered).toHaveLength(result.rows.length + result.unresolved.length);
+    expect(result.unresolved[0].isReversal).toBe(false);
+    expect(result.rows[1].isReversal).toBe(true);
+  });
+
+  it("keeps every corpus window resolved and ordered", () => {
+    for (const id of MJ_FIXTURES) {
+      const { ordered, rows } = adaptMjTransfersSent(readFixture(id));
+      expect(ordered.every((e) => e.kind === "resolved")).toBe(true);
+      expect(ordered).toHaveLength(rows.length);
+    }
+  });
+});
