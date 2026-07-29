@@ -189,3 +189,57 @@ The new **sanitized-fixture evaluator** baseline records 43 emitted rows and
 The two measurements are **not interchangeable**: different inputs (original
 versus sanitized), different definitions (rows emitted versus exact full-row
 identity) and different comparison rules. Neither number supersedes the other.
+
+## Evaluator acceptance gates (Task 0.2D-b)
+
+Defined in `tests/corpus/acceptance-gates.ts` and asserted by
+`tests/corpus/acceptance-gates.test.ts`. Both gates are deterministic, derive
+every total from the per-fixture records (never from a candidate's own
+`summary` block), and never branch on a fixture id.
+
+### Non-regression gate
+
+A future parser result must:
+
+- evaluate all 9 fixtures and all 56 expected rows;
+- keep Refill History at 26 exact row matches, 26 actual rows, 0 missing,
+  0 unexpected, 3 exact fixtures, 0 negative rows, 0 forbidden-agent hits and
+  0 invented dates;
+- not fall below the frozen MJ baseline: at least 10 exact row matches, at most
+  20 missing rows, at most 7 unexpected rows, at most 3 forbidden-agent hits,
+  and 0 invented dates;
+- preserve duplicate visible transactions (no repeated row collapsed);
+- preserve emitted row ordering (contiguous zero-based order, and an exact
+  ordered sequence whenever nothing is missing or unexpected);
+- never hide a parser error.
+
+The frozen baseline **passes** this gate with zero failures.
+
+### Release gate
+
+Requires 9 exact fixtures, 56 exact row matches, 56 actual rows, 0 missing,
+0 unexpected, 2 correctly matched negative reversal rows, 0 false negative-sign
+rows, 0 forbidden-agent hits, 0 invented dates, an exact ordered sequence for
+every fixture, Refill History at 26 / 26 and MJ at 30 / 30.
+
+The frozen baseline **fails** this gate on MJ row recovery, reversal signs,
+forbidden agents and ordered sequence. Gates are never weakened to make the
+current parser pass.
+
+Each gate returns `{ gate, passed, failures, measured }`, where every failure
+carries a stable `code`, a `category`, the requirement, the expected bound and
+the measured value.
+
+### Sign metrics
+
+Computed by exact multiset comparison of full-row identity restricted to
+negative rows — no fuzzy matching, no netting, no deduplication.
+
+| Metric                       | Frozen baseline |
+| ---------------------------- | --------------: |
+| expectedNegativeRows         |               2 |
+| matchedExpectedNegativeRows  |               0 |
+| missedExpectedNegativeRows   |               2 |
+| unexpectedActualNegativeRows |               0 |
+
+The per-fixture failure breakdown lives in `docs/parser-failure-report.md`.

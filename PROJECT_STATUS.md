@@ -43,14 +43,18 @@ Stage 1 — Corpus and ingestion baseline
 - Refill History OCR-name-variation coverage
 - Deterministic production parser evaluator
 - Frozen sanitized-corpus parser baseline
+- Parser non-regression gate
+- Parser release gate
+- Deterministic sign diagnostics
+- Sanitized parser failure report
 
 ## Current task
 
-Task 0.2D-a — Production parser evaluator and frozen baseline
+Task 0.2D-b — Evaluator acceptance gates and parser failure report
 
 ## Next task
 
-Task 0.2D-b — Evaluator acceptance gates and parser failure report
+Task 0.3A — MJ parser row-reconstruction design and test plan
 
 ## Execution contract
 
