@@ -52,7 +52,7 @@ Stage 1 — Corpus and ingestion baseline
 
 ## Current task
 
-Task 0.3B-a — MJ line classifier and amount-anchor tests
+Task 0.3B-c — Integrate MJ reconstruction behind production adapter tests
 
 ## Next task
 
