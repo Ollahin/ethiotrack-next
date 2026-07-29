@@ -67,8 +67,7 @@ export const FixtureCatalogEntry = z
   .refine(
     (e) =>
       e.status !== "active" ||
-      (typeof e.rawFixturePath === "string" &&
-        typeof e.expectedFixturePath === "string"),
+      (typeof e.rawFixturePath === "string" && typeof e.expectedFixturePath === "string"),
     { message: "active status requires rawFixturePath and expectedFixturePath" },
   );
 export type FixtureCatalogEntry = z.infer<typeof FixtureCatalogEntry>;

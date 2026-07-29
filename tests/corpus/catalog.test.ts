@@ -12,13 +12,7 @@ const catalog: FixtureCatalogEntry[] = FixtureCatalog.parse(parsed);
 // Privacy deny-list — kept inside the test only. These must not appear in
 // catalog.json. Values reflect identifying tokens from the original private
 // Parser corpus.docx and its screenshots.
-const DENY_SUBSTRINGS: string[] = [
-  "barisohaji",
-  "Tsegacardddd",
-  "Misges",
-  "Misgee",
-  "Zeddd",
-];
+const DENY_SUBSTRINGS: string[] = ["barisohaji", "Tsegacardddd", "Misges", "Misgee", "Zeddd"];
 const DENY_PATTERNS: RegExp[] = [
   /https?:\/\//i, // URLs
   /\bFT[A-Z0-9]{6,}\b/, // CBE reference IDs
@@ -43,8 +37,7 @@ describe("parser corpus catalog", () => {
   });
 
   it("matches expected corpus totals", () => {
-    const sum = (fn: (e: FixtureCatalogEntry) => number) =>
-      catalog.reduce((a, e) => a + fn(e), 0);
+    const sum = (fn: (e: FixtureCatalogEntry) => number) => catalog.reduce((a, e) => a + fn(e), 0);
     expect(sum((e) => e.expected.completeRowCount)).toBe(56);
     expect(sum((e) => e.expected.partialRowCount)).toBe(0);
     expect(sum((e) => e.expected.reversalRowCount)).toBe(2);
@@ -55,18 +48,14 @@ describe("parser corpus catalog", () => {
     const mj = catalog.filter((e) => e.sourceFamily === "mj_transfers_sent");
     expect(mj.length).toBe(6);
     expect(mj.reduce((a, e) => a + e.expected.completeRowCount, 0)).toBe(30);
-    expect(mj.reduce((a, e) => a + e.currentBaseline.parsedRowCount, 0)).toBe(
-      14,
-    );
+    expect(mj.reduce((a, e) => a + e.currentBaseline.parsedRowCount, 0)).toBe(14);
   });
 
   it("matches Refill History source totals", () => {
     const rh = catalog.filter((e) => e.sourceFamily === "refill_history");
     expect(rh.length).toBe(3);
     expect(rh.reduce((a, e) => a + e.expected.completeRowCount, 0)).toBe(26);
-    expect(rh.reduce((a, e) => a + e.currentBaseline.parsedRowCount, 0)).toBe(
-      26,
-    );
+    expect(rh.reduce((a, e) => a + e.currentBaseline.parsedRowCount, 0)).toBe(26);
   });
 
   it("marks every entry as metadata_only and catalogued", () => {
