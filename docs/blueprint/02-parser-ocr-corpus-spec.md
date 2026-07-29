@@ -69,14 +69,14 @@ The system is not expected to correctly guess every future unknown message forma
 | Yunus/Alami Refill History | 3 | 26 | 26 | 100.0% |
 | Total | 9 | 56 | 40 | 71.4% |
 
-The Refill History 100% figure measures row extraction only. It does not mean agent linking is correct; examples such as `Zeddd → Zed` and `Misges → Misgee` violate the strict-linking rule.
+The Refill History 100% figure measures row extraction only. It does not mean agent linking is correct; examples such as `SampleZ → SampleY` and `SampleMB → SampleMA` violate the strict-linking rule.
 
 ### 4.2 Confirmed MJ failure classes
 
 - Missing full rows.
 - Wrong amount-to-agent pairing.
 - OCR icons/symbol fragments treated as names (`wl`, `fo`).
-- `barisohaji - barisohaji` treated as the agent.
+- `sampleagent - sampleagent` treated as the agent.
 - Negative signs lost or ignored.
 - Reversals omitted.
 - Visible dates not reliably extracted.
@@ -409,7 +409,7 @@ Rules:
 - Platform family: MJ.
 - Positive amount: EVD sent to an agent.
 - Negative amount: EVD reversal.
-- `barisohaji - barisohaji` is the source/subdistributor account label, not the agent.
+- `sampleagent - sampleagent` is the source/subdistributor account label, not the agent.
 
 ### 11.2 Visual pattern
 
@@ -741,7 +741,7 @@ Screenshot fixture:
   "expectedRows": [
     {
       "order": 1,
-      "agent": "Tsegacardddd",
+      "agent": "SampleAgentA",
       "signedAmountSantim": 2000000,
       "datePrecision": "day",
       "complete": true

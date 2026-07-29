@@ -1101,3 +1101,84 @@ require a separate approved task to address.
 No application, parser or OCR behavior changed. Only
 `tests/corpus/catalog.test.ts` and `docs/baseline-report.md` were modified
 in this task.
+
+## Task 0.2A-2 — Repository corpus sanitization
+
+### Categories of files sanitized
+
+- Blueprint documentation (illustrative examples) —
+  `docs/blueprint/01-master-blueprint.md`,
+  `docs/blueprint/02-parser-ocr-corpus-spec.md`,
+  `docs/blueprint/CHANGELOG.md`. Original personal names, agent names and
+  subdistributor account labels replaced with clearly synthetic placeholders;
+  requirements and rule structures preserved.
+- Parser source (noise-filter literal + comments) — `src/lib/parser.ts`,
+  `src/lib/ocr-parser.ts`, `src/lib/distributor-parser.ts`. Private
+  literals removed from doc-comments; a hard-coded noise-filter literal was
+  replaced with a generic structural detector.
+- Parser tests (fixture strings) — `src/lib/distributor-parser.test.ts`,
+  `src/lib/parser.test.ts`. Private name/label tokens replaced with
+  synthetic equivalents. Amount and layout structure unchanged.
+
+### Generic parser rule introduced
+
+A private hard-coded sender-label literal (`bariso`/`haji`) previously
+served as a noise-filter to reject the subdistributor account label as an
+agent. It is replaced with a structural repeated-handle detector:
+
+- Input line is trimmed and internal whitespace is collapsed.
+- The line is split on a single hyphen or en-dash surrounded by optional
+  whitespace; the split must produce exactly two non-empty sides.
+- The two sides are compared case-insensitively; equality identifies the
+  `<name> - <name>` account-label pattern.
+
+Implementations: `isRepeatedHandleLabel()` in `src/lib/ocr-parser.ts` and
+the equivalent `OCR_SENDER_LABEL_RX` in `src/lib/parser.ts` using a
+backreference. No fuzzy matching is added. Behavior previously achieved by
+the private literal is preserved. The pre-existing `REPEATED_SENDER_RX`
+backreference detector in `src/lib/distributor-parser.ts` is unchanged.
+
+### Tests added or updated
+
+- `src/lib/distributor-parser.test.ts` — replaced private literals with
+  synthetic values across all existing MJ / Refill History cases and added
+  four regression tests under
+  `parseStatementText — generic repeated-handle sender label`:
+  - rejects a repeated-handle label as an agent (case- and whitespace-
+    insensitive);
+  - retains a real agent immediately after a repeated-handle label;
+  - does not reject ordinary hyphenated names as repeated-handle labels;
+  - does not treat `<A> - <B>` with different sides as a repeated-handle
+    label.
+- `src/lib/parser.test.ts` — one illustrative example name replaced with a
+  synthetic equivalent; no assertion changes.
+
+Test count: 44 before Task 0.2A-2, 52 after (three test files, three
+passing).
+
+### Current-tree privacy scan
+
+Repository-wide search (via a temporary local list, not committed) for the
+identifiers previously present in the tree returned zero matches in tracked
+files. Structural scans for URLs, receipt/reference identifiers, masked
+account numbers and raw SMS paragraphs also returned zero matches outside
+the fixtures gitkeep directories.
+
+### Remote-history assessment
+
+Unable to determine from within this environment whether commits containing
+the identifiers have already reached the remote `production-v3` branch. Git
+state is managed by the platform and remote refs are not directly
+inspectable here. Current-tree sanitization does not remove old Git history;
+if any such commit has already been pushed to the remote branch, a
+separately approved history-cleanup task will be required. The protected
+`ethiotrack-next2.0` branch is not to be rewritten under any circumstance.
+
+### Behavior confirmation
+
+No database schema, financial rule, transaction model, dependency,
+lockfile, package.json, build/lint configuration, CI workflow or unrelated
+application behavior was changed. Parser output contracts (row fields and
+their meanings) are unchanged. The full validation suite (`bun run
+typecheck`, `bun run lint`, `bun run format:check`, `bun run test`,
+`bun run build`, `bun run verify`) passes.

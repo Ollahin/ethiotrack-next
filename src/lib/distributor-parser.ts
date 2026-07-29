@@ -25,7 +25,7 @@ export interface StatementRow {
   reason?: string;
   /** Parser was uncertain — surface for human review before commit. */
   needsReview?: boolean;
-  /** Sender identity as printed on the row (e.g. "barisohaji - barisohaji"). MJ only. */
+  /** Sender identity as printed on the row (repeated-handle "<name> - <name>" label). MJ only. */
   sender?: string;
   /** Row-level date string as printed on the screen (parser does not normalize). */
   dateText?: string;
@@ -255,9 +255,9 @@ function normalizeName(line: string): string {
 
 /**
  * MJ transfer screenshots often OCR the left list index as a leading digit on
- * the sender / recipient line ("2 barisohaji - barisohaji", "5 AbdiBale").
- * Strip only that explicit ordinal shape, and only before alphabetic content,
- * so amounts/dates stay untouched.
+ * the sender / recipient line ("2 <name> - <name>", "5 SampleAgent"). Strip
+ * only that explicit ordinal shape, and only before alphabetic content, so
+ * amounts/dates stay untouched.
  */
 function stripTransferOrdinal(line: string): string {
   return line.replace(/^\d{1,2}\s+(?=[A-Za-z\u1200-\u137F])/, "").trim();
@@ -394,7 +394,7 @@ function parseMj(text: string): StatementRow[] {
       continue;
     }
     const line = stripTransferOrdinal(lines[i]);
-    // Sender lines look like "barisohaji - barisohaji" (repeated handle).
+    // Sender lines are the repeated-handle "<name> - <name>" label.
     const senderM = line.match(REPEATED_SENDER_RX);
     if (!senderM) {
       i++;

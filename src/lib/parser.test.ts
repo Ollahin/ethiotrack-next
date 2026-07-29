@@ -117,7 +117,7 @@ describe("parseMany", () => {
     const text = [
       "Telebirr: received ETB 100.00 from Ayele K.",
       "",
-      "CBE: credited ETB 200.00 from Zed A. Ref: X1",
+      "CBE: credited ETB 200.00 from Sami A. Ref: X1",
     ].join("\n");
     const rows = parseMany(text);
     expect(rows).toHaveLength(2);
