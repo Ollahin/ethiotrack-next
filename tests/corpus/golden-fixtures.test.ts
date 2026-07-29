@@ -39,7 +39,8 @@ export function refillTimestampToLocalMinute(text: string): string {
   const [, day, hourText, minute, meridiem] = m;
   const hour12 = Number(hourText);
   if (hour12 < 1 || hour12 > 12) throw new Error(`unsupported hour: ${text}`);
-  const hour24 = meridiem === "AM" ? (hour12 === 12 ? 0 : hour12) : hour12 === 12 ? 12 : hour12 + 12;
+  const hour24 =
+    meridiem === "AM" ? (hour12 === 12 ? 0 : hour12) : hour12 === 12 ? 12 : hour12 + 12;
   return `${day}T${String(hour24).padStart(2, "0")}:${minute}`;
 }
 

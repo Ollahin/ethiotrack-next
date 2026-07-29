@@ -142,8 +142,7 @@ export const ExpectedOcrRow = z
       if (r.date === null) return r.datePrecision === "unknown";
       if (r.datePrecision === "day") return /^\d{4}-\d{2}-\d{2}$/.test(r.date);
       if (r.datePrecision === "minute") return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(r.date);
-      if (r.datePrecision === "second")
-        return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(r.date);
+      if (r.datePrecision === "second") return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(r.date);
       return false;
     },
     { message: "date must match the shape required by datePrecision" },
