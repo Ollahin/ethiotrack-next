@@ -31,8 +31,8 @@ describe("golden OCR fixtures", () => {
     expect(active.length).toBeGreaterThan(0);
   });
 
-  it("has five active fixtures", () => {
-    expect(active.length).toBe(5);
+  it("has six active fixtures", () => {
+    expect(active.length).toBe(6);
   });
 
   it("does not commit original screenshot images", () => {
@@ -81,7 +81,23 @@ describe("golden OCR fixtures", () => {
         );
 
         for (const row of expected.expectedRows) {
-          expect(amountToMinor(row.rawAmountText)).toBe(Math.abs(row.signedAmountMinor));
+          // rawAmountText is the authoritative normalized signed value.
+          expect(amountToMinor(row.rawAmountText)).toBe(row.signedAmountMinor);
+          if (row.rawAmountText.startsWith("-")) {
+            expect(row.isReversal, `negative amount on non-reversal row`).toBe(true);
+          }
+          if (row.signedAmountMinor < 0) {
+            expect(row.isReversal).toBe(true);
+            expect(row.eventKind).toBe("evd_reversal");
+          }
+          if (row.isReversal) {
+            expect(row.signedAmountMinor).toBeLessThan(0);
+            expect(row.rawAmountText.startsWith("-")).toBe(true);
+          } else {
+            expect(row.signedAmountMinor).toBeGreaterThan(0);
+            expect(row.rawAmountText.startsWith("-")).toBe(false);
+            expect(row.eventKind).toBe("evd_sent_to_agent");
+          }
           expect(row.date).toBeNull();
           expect(row.datePrecision).toBe("unknown");
           expect(row.agentResolution).toBe("unassigned");
@@ -119,18 +135,31 @@ describe("golden OCR fixtures", () => {
 
           const numeric = evidence.observedText.match(/\d{1,3}(?:,\d{3})*(?:\.\d{2})?/);
           expect(numeric, `no amount inside observedText: ${evidence.observedText}`).not.toBeNull();
-          expect(numeric?.[0]).toBe(row.rawAmountText);
+          expect(numeric?.[0]).toBe(row.rawAmountText.replace(/^-/, ""));
 
           if (evidence.prefixDisposition === "ocr_noise") {
             expect(row.signedAmountMinor).toBeGreaterThan(0);
             expect(row.isReversal).toBe(false);
             expect(row.eventKind).toBe("evd_sent_to_agent");
+            expect(row.rawAmountText.startsWith("-")).toBe(false);
           } else {
             expect(row.signedAmountMinor).toBeLessThan(0);
             expect(row.isReversal).toBe(true);
             expect(row.eventKind).toBe("evd_reversal");
+            expect(row.rawAmountText.startsWith("-")).toBe(true);
+            expect(amountToMinor(row.rawAmountText)).toBe(row.signedAmountMinor);
           }
         }
+      });
+
+      it("never nets or deduplicates rows during validation", () => {
+        const expected = GoldenOcrExpectationSchema.parse(
+          JSON.parse(readFileSync(join(repoRoot, expectedPath), "utf8")),
+        );
+        expect(expected.expectedRows.length).toBe(entry.expected.completeRowCount);
+        expect(expected.expectedRows.map((r) => r.sourceOrder)).toEqual(
+          [...expected.expectedRows].map((r) => r.sourceOrder).sort((a, b) => a - b),
+        );
       });
     });
   }
