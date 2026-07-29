@@ -54,14 +54,15 @@ Stage 1 — Corpus and ingestion baseline
 - Production MJ parsing routed through deterministic reconstruction
 - Refrozen 56/56 exact sanitized-corpus baseline
 - Ratcheted non-regression floor and passing release gate
+- Ordered MJ unresolved-window diagnostics contract
 
 ## Current task
 
-Task 0.3B-d — Route MJ Transfers → Sent parsing through deterministic reconstruction
+Task 0.3B-e — MJ unresolved-window diagnostics hardening
 
 ## Next task
 
-Task 0.3B-e — Unresolved-window review surfacing in the import UI
+Task 0.3B-f — MJ boundary regression suite and integration cleanup
 
 ## Execution contract
 
