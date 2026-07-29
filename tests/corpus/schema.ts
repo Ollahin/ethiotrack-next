@@ -135,6 +135,19 @@ export const ExpectedOcrRow = z
   .refine((r) => (r.datePrecision === "unknown" ? r.date === null : r.date !== null), {
     message: "datePrecision must agree with date presence",
   })
+  // Source-local wall-clock validation. No timezone suffix is permitted and no
+  // Date parsing or machine timezone is used.
+  .refine(
+    (r) => {
+      if (r.date === null) return r.datePrecision === "unknown";
+      if (r.datePrecision === "day") return /^\d{4}-\d{2}-\d{2}$/.test(r.date);
+      if (r.datePrecision === "minute") return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(r.date);
+      if (r.datePrecision === "second")
+        return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(r.date);
+      return false;
+    },
+    { message: "date must match the shape required by datePrecision" },
+  )
   .refine(
     (r) =>
       r.amountEvidence?.prefixDisposition !== "ocr_noise" ||
@@ -157,11 +170,17 @@ export const GoldenOcrExpectationSchema = z
   .object({
     schemaVersion: z.literal(1),
     fixtureId: nonEmpty,
-    sourceFamily: z.literal("mj_transfers_sent"),
-    platformHint: z.literal("mj"),
+    sourceFamily: z.enum(["mj_transfers_sent", "refill_history"]),
+    platformHint: z.enum(["mj", "yunus_or_alami"]),
     expectedRows: z.array(ExpectedOcrRow).min(1),
     forbiddenAgentCandidates: z.array(nonEmpty),
     expectedWarnings: z.array(nonEmpty),
   })
-  .strict();
+  .strict()
+  .refine(
+    (e) =>
+      (e.sourceFamily === "mj_transfers_sent" && e.platformHint === "mj") ||
+      (e.sourceFamily === "refill_history" && e.platformHint === "yunus_or_alami"),
+    { message: "platformHint must match sourceFamily" },
+  );
 export type GoldenOcrExpectation = z.infer<typeof GoldenOcrExpectationSchema>;
