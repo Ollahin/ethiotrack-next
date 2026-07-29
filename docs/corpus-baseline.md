@@ -39,6 +39,18 @@ material and are not committed.
 - Refill History row recall: 26 / 26, 100%.
 - 2 known reversal rows in the current catalog.
 
+## Activation status (Task 0.2B-a)
+
+- 2 active sanitized MJ Transfers → Sent fixtures
+  (`ocr.mj.sent.photo-5`, `ocr.mj.sent.photo-38`).
+- 7 remaining catalog entries are metadata-only.
+- 10 active expected rows across the two active fixtures.
+- 0 active reversals so far.
+- The full catalog remains 56 expected rows and 2 known reversals.
+- Production parser accuracy is **not** recalculated in this task: the
+  evaluator does not execute production parsing yet. No claim is made that the
+  current parser passes these fixtures.
+
 Refill History's 100% row recall measures raw row extraction only. It does not
 imply correct strict agent linking; known fixtures include OCR name variations
 that the current parser has been observed to link too permissively.
