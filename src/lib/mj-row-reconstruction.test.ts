@@ -7,6 +7,10 @@ import {
   findMjAmountAnchors,
   parseMjAmount,
   stripMjDecorationPrefix,
+  collectMjAgentCandidates,
+  reconstructMjRows,
+  signedMjAmountMinor,
+  toMjAgentCandidate,
   type MjLine,
 } from "./mj-row-reconstruction";
 
@@ -62,6 +66,17 @@ const EXPECTED_AGENTS: Record<string, string[]> = {
 
 function readFixture(id: string): string {
   return readFileSync(join(FIXTURE_DIR, `${id}.raw.txt`), "utf8");
+}
+
+interface ExpectedRow {
+  sourceOrder: number;
+  agentText: string;
+  signedAmountMinor: number;
+}
+
+function readExpectedRows(id: string): ExpectedRow[] {
+  const json = JSON.parse(readFileSync(join(FIXTURE_DIR, `${id}.expected.json`), "utf8"));
+  return json.expectedRows as ExpectedRow[];
 }
 
 function classified(id: string): MjLine[] {
@@ -253,5 +268,155 @@ describe("classifyMjLines over the sanitized MJ corpus", () => {
         expect(line.reason.length).toBeGreaterThan(0);
       }
     }
+  });
+});
+
+describe("MJ agent-candidate filtering", () => {
+  it("promotes only agent_candidate lines and preserves multiword names", () => {
+    const lines = classified("photo-2");
+    const names = collectMjAgentCandidates(lines).map((c) => c.agentName);
+    expect(names).toEqual(EXPECTED_AGENTS["photo-2"]);
+    expect(names).toContain("Sample Agent Lambda Meridian");
+  });
+
+  it("rejects chrome, account labels, amounts and noise", () => {
+    for (const id of MJ_FIXTURES) {
+      for (const line of classified(id)) {
+        if (line.kind === "agent_candidate") continue;
+        expect(toMjAgentCandidate(line), line.text).toBeNull();
+      }
+    }
+  });
+
+  it("records a stable transform code when a decoration prefix was removed", () => {
+    const candidate = collectMjAgentCandidates(classified("photo-4"))[0];
+    expect(candidate.agentName).toBe("Sample Agent Psi");
+    expect(candidate.transforms).toContain("decoration_prefix_stripped");
+  });
+});
+
+describe("reconstructMjRows over the sanitized MJ corpus", () => {
+  it("reconstructs exactly 5 resolved rows per fixture and 30 in total", () => {
+    let total = 0;
+    for (const id of MJ_FIXTURES) {
+      const rows = reconstructMjRows(classified(id));
+      expect(rows, id).toHaveLength(5);
+      expect(
+        rows.every((r) => r.status === "resolved"),
+        id,
+      ).toBe(true);
+      total += rows.length;
+    }
+    expect(total).toBe(30);
+  });
+
+  it("matches each fixture's expected agent, signed amount and source order", () => {
+    for (const id of MJ_FIXTURES) {
+      const rows = reconstructMjRows(classified(id));
+      const actual = rows.map((r) => ({
+        sourceOrder: r.sourceOrder,
+        agentText: r.agentName,
+        signedAmountMinor: signedMjAmountMinor(r),
+      }));
+      expect(actual, id).toEqual(
+        readExpectedRows(id).map((e) => ({
+          sourceOrder: e.sourceOrder,
+          agentText: e.agentText,
+          signedAmountMinor: e.signedAmountMinor,
+        })),
+      );
+    }
+  });
+
+  it("preserves photo-4's two reversals and its positive spaced-minus row", () => {
+    const rows = reconstructMjRows(classified("photo-4"));
+    const reversals = rows.filter((r) => r.isReversal);
+    expect(reversals).toHaveLength(2);
+    expect(reversals.map(signedMjAmountMinor)).toEqual([-525_000, -897_500]);
+    expect(reversals.every((r) => r.warnings.includes("reversal"))).toBe(true);
+
+    const spaced = rows.find((r) => r.amount.signEvidence === "spaced_prefix_ignored");
+    expect(spaced?.isReversal).toBe(false);
+    expect(signedMjAmountMinor(spaced!)).toBe(30_250_000);
+  });
+
+  it("produces no reversals for photo-6", () => {
+    const rows = reconstructMjRows(classified("photo-6"));
+    expect(rows.filter((r) => r.isReversal)).toHaveLength(0);
+    expect(rows.every((r) => signedMjAmountMinor(r) > 0)).toBe(true);
+  });
+
+  it("keeps repeated agents as separate rows without netting", () => {
+    const rows = reconstructMjRows(classified("photo-4"));
+    const psi = rows.filter((r) => r.agentName === "Sample Agent Psi");
+    expect(psi).toHaveLength(2);
+    expect(psi.map(signedMjAmountMinor)).toEqual([-525_000, 1_575_000]);
+    expect(psi[0].amountLineIndex).not.toBe(psi[1].amountLineIndex);
+  });
+
+  it("never binds a false OCR token or an account label to a row", () => {
+    const forbidden = ["wl", "fo", "fo)", "[]", "ir", "oe", "transfers", "sent"];
+    for (const id of MJ_FIXTURES) {
+      for (const row of reconstructMjRows(classified(id))) {
+        const name = (row.agentName ?? "").toLowerCase();
+        expect(name.includes("samplewallet"), id).toBe(false);
+        expect(forbidden.includes(name), id).toBe(false);
+      }
+    }
+  });
+
+  it("keeps every row dateless, because the MJ corpus contains no date", () => {
+    for (const id of MJ_FIXTURES) {
+      for (const row of reconstructMjRows(classified(id))) {
+        expect(row.date).toBeNull();
+        expect(row.warnings).toContain("no_date_in_source");
+      }
+    }
+  });
+
+  it("is deterministic and preserves ascending anchor order", () => {
+    for (const id of MJ_FIXTURES) {
+      const first = reconstructMjRows(classified(id));
+      expect(reconstructMjRows(classified(id))).toEqual(first);
+      const indexes = first.map((r) => r.amountLineIndex);
+      expect([...indexes].sort((a, b) => a - b)).toEqual(indexes);
+      expect(first.map((r) => r.sourceOrder)).toEqual([0, 1, 2, 3, 4]);
+    }
+  });
+});
+
+describe("reconstructMjRows ambiguity handling", () => {
+  it("reports missing_agent without inventing a name", () => {
+    const rows = reconstructMjRows(
+      classifyMjLines(["samplewallet - samplewallet", "1,000.00", "wl"].join("\n")),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].status).toBe("missing_agent");
+    expect(rows[0].agentName).toBeNull();
+    expect(rows[0].agentLineIndex).toBeNull();
+    expect(rows[0].candidateLineIndexes).toEqual([]);
+    expect(rows[0].warnings).toContain("missing_agent");
+    expect(rows[0].amount.amountSantim).toBe(100_000);
+  });
+
+  it("reports ambiguous_agent without picking one of the candidates", () => {
+    const rows = reconstructMjRows(
+      classifyMjLines(
+        [
+          "2,000.00",
+          "Sample Agent Alpha",
+          "Sample Agent Beta",
+          "3,000.00",
+          "Sample Agent Gamma",
+        ].join("\n"),
+      ),
+    );
+    expect(rows).toHaveLength(2);
+    expect(rows[0].status).toBe("ambiguous_agent");
+    expect(rows[0].agentName).toBeNull();
+    expect(rows[0].agentLineIndex).toBeNull();
+    expect(rows[0].candidateLineIndexes).toEqual([1, 2]);
+    expect(rows[1].status).toBe("resolved");
+    expect(rows[1].agentName).toBe("Sample Agent Gamma");
   });
 });
