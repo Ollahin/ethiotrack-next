@@ -144,13 +144,6 @@ function amountToSantim(token: string): number {
   return major * 100 + minor;
 }
 
-/** True for an exact integer year token in the plausible calendar range. */
-function looksLikeYearAmount(token: string): boolean {
-  if (!/\.00$/.test(token)) return false;
-  const major = Number.parseInt(token.split(".")[0].replace(/,/g, ""), 10);
-  return major >= 1900 && major <= 2100;
-}
-
 function classifySignPrefix(prefix: string): MjSignEvidence {
   if (prefix.length === 0) return "none";
   const trimmed = prefix.trim();
@@ -181,9 +174,6 @@ export function parseMjAmount(normalizedLine: string): MjAmount | null {
 
   const prefix = match[1];
   const token = match[2];
-  // A 4-digit year the OCR rendered with a thousands separator ("2,026.00"
-  // from "2026-07-22") is never a defensible MJ amount.
-  if (looksLikeYearAmount(token)) return null;
   const signEvidence = classifySignPrefix(prefix);
 
   return {
