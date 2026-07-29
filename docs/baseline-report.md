@@ -1040,3 +1040,64 @@ deny-list.
 No parser, OCR, database or application code changed. Only `tests/corpus/**`,
 `docs/corpus-baseline.md`, `docs/baseline-report.md` and `PROJECT_STATUS.md`
 were touched.
+
+## Task 0.2A-1 — Remove original corpus identifiers from committed test
+
+### Summary
+
+Task 0.2A initially used plaintext private values from the original
+`Parser corpus.docx` inside the privacy deny-list in
+`tests/corpus/catalog.test.ts` (original agent names and account-label
+tokens). Task 0.2A-1 removes those plaintext values from the committed test
+and replaces the deny-list with structural privacy validation. No sensitive
+value is reproduced anywhere in the current tree, including this report.
+
+### Structural privacy checks now used
+
+`tests/corpus/catalog.test.ts` recursively walks every string in
+`catalog.json` and enforces:
+
+- fixture IDs match the sanitized ID structure
+  (`ocr.(mj.sent|refill).photo-<n>`);
+- source filenames match the sanitized screenshot filename pattern
+  (`photo_<n>_YYYY-MM-DD_HH-MM-SS.jpg`);
+- tags are lowercase kebab-case and bounded in length;
+- no string contains a URL, masked bank-account pattern, receipt/reference
+  identifier, `ETB`/`Birr` followed by an amount, a raw-message opening such
+  as `Dear `, or multiline raw content;
+- no string is unusually long (bounded at 120 characters);
+- string values only appear in the approved metadata fields (ID, filename,
+  enum-valued fields, optional notes and fixture paths) or inside `tags`.
+
+### Current-tree private-data scan
+
+A repository-wide scan for the original identifying tokens returned matches
+only inside files that this task is not allowed to modify:
+
+- `docs/blueprint/01-master-blueprint.md`
+- `docs/blueprint/02-parser-ocr-corpus-spec.md`
+- `docs/blueprint/CHANGELOG.md`
+- `src/lib/parser.ts`
+- `src/lib/ocr-parser.ts`
+- `src/lib/distributor-parser.ts`
+- `src/lib/distributor-parser.test.ts`
+
+Categories observed in those files: original agent-name tokens and
+account-label tokens used as parser noise-filter constants and blueprint
+examples. These files are in the "do not change" scope for Task 0.2A-1 and
+require a separate approved task to address.
+
+### Command results
+
+- `bun run typecheck`: pass
+- `bun run lint`: pass
+- `bun run format:check`: pass
+- `bun run test`: pass (48 tests)
+- `bun run build`: pass
+- `bun run verify`: pass
+
+### Behavior confirmation
+
+No application, parser or OCR behavior changed. Only
+`tests/corpus/catalog.test.ts` and `docs/baseline-report.md` were modified
+in this task.
