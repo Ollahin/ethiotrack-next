@@ -46,14 +46,14 @@ parseStatementText(text, "mj")
 
 ### 1.2 How each field is extracted today
 
-| Field    | Mechanism                                                                                                              |
-| -------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Lines    | `cleanLines` — normalize, edge-strip, drop chrome/symbol/1-char lines. Order preserved, indexes not retained.            |
-| Anchor   | Pass 2 anchors a card on a **sender** line matching `REPEATED_SENDER_RX` = `^([A-Za-z0-9._-]{3,})\s*[-–]\s*\1\b`.        |
-| Amount   | `parseRightAmount` (right-anchored `AMOUNT_DOTTED`) or a whole-line `^AMOUNT_DOTTED$` inside a 6-line forward window.    |
-| Agent    | First line in the window where `looksLikeName` is true, after `stripTransferOrdinal` / leaders / trailers.              |
-| Date     | `DATE_DDMMMYYYY` only. The six MJ fixtures contain no such token, so `dateText` is always `undefined`.                   |
-| Sign     | `toSantim(amountStr)`; the row stores `amountSantim: Math.abs(...)` plus `isReversal: santim < 0`. `needsReview` mirrors it. |
+| Field  | Mechanism                                                                                                                    |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| Lines  | `cleanLines` — normalize, edge-strip, drop chrome/symbol/1-char lines. Order preserved, indexes not retained.                |
+| Anchor | Pass 2 anchors a card on a **sender** line matching `REPEATED_SENDER_RX` = `^([A-Za-z0-9._-]{3,})\s*[-–]\s*\1\b`.            |
+| Amount | `parseRightAmount` (right-anchored `AMOUNT_DOTTED`) or a whole-line `^AMOUNT_DOTTED$` inside a 6-line forward window.        |
+| Agent  | First line in the window where `looksLikeName` is true, after `stripTransferOrdinal` / leaders / trailers.                   |
+| Date   | `DATE_DDMMMYYYY` only. The six MJ fixtures contain no such token, so `dateText` is always `undefined`.                       |
+| Sign   | `toSantim(amountStr)`; the row stores `amountSantim: Math.abs(...)` plus `isReversal: santim < 0`. `needsReview` mirrors it. |
 
 The evaluator (`tests/corpus/evaluator.ts`) recombines sign as
 `isReversal ? -abs : +abs`, so a dropped row loses its sign entirely.
@@ -105,7 +105,7 @@ After leader/trailer stripping, `[wl` → `wl` (photo-38) and `fo)` → `fo`
 
 **C5 — The repeated account label leaks into the agent slot (3rd forbidden hit).**
 In photo-4 the window guard `REPEATED_SENDER_RX.test(ln)` is evaluated on the
-*unstripped* line `& samplewallet - samplewallet`, which does not match, while
+_unstripped_ line `& samplewallet - samplewallet`, which does not match, while
 `looksLikeName` accepts `samplewallet - samplewallet`. The result is the frozen
 row `samplewallet - samplewallet / 30,250,000`.
 
@@ -118,7 +118,7 @@ false negatives — the sign channel is absent, not wrong.
 
 **C7 — Spaced-minus OCR noise is currently handled correctly and must stay so.**
 `- 302,500.00` (photo-4) and `- 3,875.00` (photo-6) are expected positives.
-`AMOUNT_DOTTED` only captures an *attached* minus, so both are already read as
+`AMOUNT_DOTTED` only captures an _attached_ minus, so both are already read as
 positive. Any redesign must preserve this exact behavior.
 
 **C8 — No MJ date exists in the source.**
@@ -131,14 +131,14 @@ reaches `exactOrderedSequence`. No reordering bug was observed.
 
 Cause-to-fixture matrix:
 
-| Fixture   | C1 | C2 | C3 | C4 | C5 | C6 |
-| --------- | -- | -- | -- | -- | -- | -- |
-| photo-5   | ✔  |    | ✔  |    |    |    |
-| photo-38  | ✔  |    |    | ✔  |    |    |
-| photo-2   | ✔  | ✔  |    |    |    |    |
-| photo-9   | ✔  |    |    | ✔  |    |    |
-| photo-4   | ✔  | ✔  |    |    | ✔  | ✔  |
-| photo-6   | ✔  |    |    |    |    |    |
+| Fixture  | C1  | C2  | C3  | C4  | C5  | C6  |
+| -------- | --- | --- | --- | --- | --- | --- |
+| photo-5  | ✔   |     | ✔   |     |     |     |
+| photo-38 | ✔   |     |     | ✔   |     |     |
+| photo-2  | ✔   | ✔   |     |     |     |     |
+| photo-9  | ✔   |     |     | ✔   |     |     |
+| photo-4  | ✔   | ✔   |     |     | ✔   | ✔   |
+| photo-6  | ✔   |     |     |     |     |     |
 
 ---
 
@@ -189,7 +189,7 @@ raw text
     on the anchor line or its immediate neighbor. The current corpus has none,
     so MJ must continue to emit zero dates and zero invented dates.
 11. **Account labels can never become agents.** The `account_label` class is
-    decided before agent candidacy and is checked on the *stripped* line, which
+    decided before agent candidacy and is checked on the _stripped_ line, which
     closes C5.
 
 ---
@@ -204,12 +204,12 @@ API change; `parseStatementText` keeps its signature and `StatementRow` shape).
 
 ```ts
 export type MjLineKind =
-  | "chrome"          // status bar, "Transfers", "Sent", page footer
-  | "account_label"   // repeated "<handle> - <handle>" sender label
-  | "amount"          // defensible money token
+  | "chrome" // status bar, "Transfers", "Sent", page footer
+  | "account_label" // repeated "<handle> - <handle>" sender label
+  | "amount" // defensible money token
   | "agent_candidate" // possible agent name line
-  | "date"            // date/time token
-  | "noise";          // everything else, including short junk like "wl", "fo"
+  | "date" // date/time token
+  | "noise"; // everything else, including short junk like "wl", "fo"
 
 export interface MjLine {
   /** Index in the original text, after normalization but before filtering. */
@@ -237,16 +237,16 @@ without referencing any fixture.
 
 ```ts
 export type MjSignEvidence =
-  | "attached_minus"          // "-5,250.00"      → confirmed reversal
-  | "spaced_prefix_ignored"   // "- 302,500.00"   → positive, noise
+  | "attached_minus" // "-5,250.00"      → confirmed reversal
+  | "spaced_prefix_ignored" // "- 302,500.00"   → positive, noise
   | "punctuation_prefix_ignored" // ": 2,735.00"  → positive, noise
-  | "none"                    // "21,000.00"      → positive
-  | "ambiguous";              // neither shape    → positive + review
+  | "none" // "21,000.00"      → positive
+  | "ambiguous"; // neither shape    → positive + review
 
 export interface MjAmount {
   /** Always non-negative. */
   amountSantim: number;
-  isReversal: boolean;      // true only for "attached_minus"
+  isReversal: boolean; // true only for "attached_minus"
   signEvidence: MjSignEvidence;
   rawAmountText: string;
 }
@@ -281,18 +281,18 @@ C3). Stripping is prefix-only and never touches interior characters.
 
 ```ts
 export interface MjReconstructedRow {
-  anchorIndex: number;             // amount line index — defines emission order
+  anchorIndex: number; // amount line index — defines emission order
   amount: MjAmount;
-  agent: MjAgentCandidate | null;  // null is allowed and reported, never guessed
-  accountLabel?: string;           // nearest preceding account_label, if any
-  dateText?: string;               // only when a real date token exists
+  agent: MjAgentCandidate | null; // null is allowed and reported, never guessed
+  accountLabel?: string; // nearest preceding account_label, if any
+  dateText?: string; // only when a real date token exists
   warnings: string[];
 }
 
 export function reconstructMjRows(lines: MjLine[]): MjReconstructedRow[];
 ```
 
-Binding rule: for anchor *a*, take the first `agent_candidate` with
+Binding rule: for anchor _a_, take the first `agent_candidate` with
 `sourceIndex > a` and `sourceIndex < nextAnchorIndex`. Never look backwards for
 an agent, never reuse an agent already bound to another anchor, never skip past
 the next anchor.
@@ -321,14 +321,14 @@ so the UI contract does not change. `needsReview` becomes true for
 All six MJ fixtures currently fail. Each row below states the assertions the
 implementation must satisfy, expressed against evaluator output.
 
-| Fixture   | Required assertions                                                                                                                                                              |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| photo-5   | 5 emitted rows (C1). `Sample Agent Epsilon` emitted without the stray `E ` leader (C3). All 5 amounts positive, 0 reversals. All dates null.                                       |
-| photo-38  | 5 emitted rows. `wl` never appears as an agent; forbidden hits = 0 (C4). `Sample Agent Eta` appears twice, on two different amounts, and is not deduplicated.                       |
-| photo-2   | 5 emitted rows, none with a null agent or null amount (C2). Long agent `Sample Agent Lambda Meridian` retained whole. Leading `E 5 ` / `E 3 ` list indexes stripped, not rejected.  |
-| photo-9   | 5 emitted rows. `fo` never appears as an agent (C4). `Sample Agent Rho` appears twice on two different amounts, both retained, in source order.                                     |
-| photo-4   | 5 emitted rows. Exactly 2 negative rows, both matching the expected reversals (C6). `- 302,500.00` stays **positive** (C7). `samplewallet - samplewallet` never an agent (C5).      |
-| photo-6   | 5 emitted rows. `- 3,875.00` and `: 2,735.00` stay positive (C7). `Sample Agent Tau` appears twice with different amounts, both retained, no netting.                               |
+| Fixture  | Required assertions                                                                                                                                                                |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| photo-5  | 5 emitted rows (C1). `Sample Agent Epsilon` emitted without the stray `E ` leader (C3). All 5 amounts positive, 0 reversals. All dates null.                                       |
+| photo-38 | 5 emitted rows. `wl` never appears as an agent; forbidden hits = 0 (C4). `Sample Agent Eta` appears twice, on two different amounts, and is not deduplicated.                      |
+| photo-2  | 5 emitted rows, none with a null agent or null amount (C2). Long agent `Sample Agent Lambda Meridian` retained whole. Leading `E 5 ` / `E 3 ` list indexes stripped, not rejected. |
+| photo-9  | 5 emitted rows. `fo` never appears as an agent (C4). `Sample Agent Rho` appears twice on two different amounts, both retained, in source order.                                    |
+| photo-4  | 5 emitted rows. Exactly 2 negative rows, both matching the expected reversals (C6). `- 302,500.00` stays **positive** (C7). `samplewallet - samplewallet` never an agent (C5).     |
+| photo-6  | 5 emitted rows. `- 3,875.00` and `: 2,735.00` stay positive (C7). `Sample Agent Tau` appears twice with different amounts, both retained, no netting.                              |
 
 Cross-cutting MJ assertions: 30/30 exact rows, 30 actual rows, 0 missing,
 0 unexpected, 0 forbidden-agent hits, 0 invented dates, 0 emitted dates,
@@ -356,14 +356,14 @@ work unless a batch explicitly proves Refill History invariance first.
 Each batch is independently reviewable, independently revertable, and must
 leave the non-regression gate green.
 
-| Batch  | Scope                                                                | Gate expectation                                   |
-| ------ | -------------------------------------------------------------------- | -------------------------------------------------- |
-| 0.3B-a | `classifyMjLines` + `parseMjAmount` as new pure helpers, **unused** by production. Unit tests only. | No behavior change; baseline byte-identical.        |
-| 0.3B-b | `toMjAgentCandidate` + rejection rules. Still unused.                 | No behavior change.                                 |
-| 0.3B-c | `reconstructMjRows`; unit-tested against synthetic line arrays.       | No behavior change.                                 |
-| 0.3B-d | Switch `parseMj` to the amount-anchored pipeline behind the same signature. | Non-regression green; MJ metrics improve; baseline JSON re-frozen in a dedicated step. |
-| 0.3B-e | Sign evidence and warning surfacing (`needsReview`, `reason`).        | Sign analysis reaches matched 2 / missed 0 / unexpected 0. |
-| 0.3B-f | Release-gate closure: ordering and remaining exact matches.           | Release gate green.                                 |
+| Batch  | Scope                                                                                               | Gate expectation                                                                       |
+| ------ | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 0.3B-a | `classifyMjLines` + `parseMjAmount` as new pure helpers, **unused** by production. Unit tests only. | No behavior change; baseline byte-identical.                                           |
+| 0.3B-b | `toMjAgentCandidate` + rejection rules. Still unused.                                               | No behavior change.                                                                    |
+| 0.3B-c | `reconstructMjRows`; unit-tested against synthetic line arrays.                                     | No behavior change.                                                                    |
+| 0.3B-d | Switch `parseMj` to the amount-anchored pipeline behind the same signature.                         | Non-regression green; MJ metrics improve; baseline JSON re-frozen in a dedicated step. |
+| 0.3B-e | Sign evidence and warning surfacing (`needsReview`, `reason`).                                      | Sign analysis reaches matched 2 / missed 0 / unexpected 0.                             |
+| 0.3B-f | Release-gate closure: ordering and remaining exact matches.                                         | Release gate green.                                                                    |
 
 The frozen `tests/corpus/production-baseline.json` is re-generated only in
 batch 0.3B-d and later, as an explicit, separately reviewed step — never as a

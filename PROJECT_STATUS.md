@@ -47,14 +47,15 @@ Stage 1 — Corpus and ingestion baseline
 - Parser release gate
 - Deterministic sign diagnostics
 - Sanitized parser failure report
+- MJ row-reconstruction design and test plan
 
 ## Current task
 
-Task 0.2D-b — Evaluator acceptance gates and parser failure report
+Task 0.3A — MJ parser row-reconstruction design and test plan
 
 ## Next task
 
-Task 0.3A — MJ parser row-reconstruction design and test plan
+Task 0.3B-a — MJ line classifier and amount-anchor tests
 
 ## Execution contract
 
