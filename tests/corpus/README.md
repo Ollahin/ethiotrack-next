@@ -73,3 +73,19 @@ are committed and referenced from `catalog.json`.
   reports, or used to justify a financial conclusion.
 - Every active fixture requires an expected JSON file that validates against
   `GoldenOcrExpectationSchema` in `schema.ts`.
+
+## Coverage of active MJ fixtures
+
+The four active MJ Transfers → Sent fixtures currently cover:
+
+- missing rows;
+- flattened amount-to-agent association;
+- repeated legitimate agents;
+- false OCR agent tokens;
+- punctuation adjacent to amounts;
+- long synthetic agent names;
+- repeated account-label noise.
+
+OCR sign correction (negative or reversal amounts produced by sign noise) is
+**not yet represented** in the active set. It will be introduced in the next
+fixture task.
