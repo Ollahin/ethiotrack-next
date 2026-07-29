@@ -773,10 +773,10 @@ export function parseOcrTransferList(text: string): ParsedRow[] {
     }
     if (!amountRaw) continue;
 
-    // Nearest sender line above the date (contains bariso/haji).
+    // Nearest repeated-handle sender label above the date.
     let sender: string | undefined;
     for (let k = dateIdx - 1; k >= 0; k--) {
-      if (OCR_SENDER_HINT_RX.test(lines[k])) {
+      if (OCR_SENDER_LABEL_RX.test(lines[k])) {
         sender = lines[k];
         break;
       }
@@ -786,7 +786,7 @@ export function parseOcrTransferList(text: string): ParsedRow[] {
     let agent: string | undefined;
     const isAgentCandidate = (s: string): boolean => {
       if (!OCR_AGENT_NAME_RX.test(s)) return false;
-      if (OCR_SENDER_HINT_RX.test(s)) return false;
+      if (OCR_SENDER_LABEL_RX.test(s)) return false;
       if (OCR_DATE_RX.test(s)) return false;
       if (OCR_STRICT_AMOUNT_RX.test(s)) return false;
       return true;
