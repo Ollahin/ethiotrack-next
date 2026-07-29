@@ -26,13 +26,30 @@ function amountToMinor(raw: string): number {
   return Math.round(Number(normalized) * 100);
 }
 
+/**
+ * Converts a raw Refill History timestamp line such as `2026-08-02 4:51 PM`
+ * into the source-local wall-clock value `2026-08-02T16:51`.
+ *
+ * Deterministic string arithmetic only: no Date parsing, no environment
+ * timezone, no Date object and no timezone suffix.
+ */
+export function refillTimestampToLocalMinute(text: string): string {
+  const m = /^(\d{4}-\d{2}-\d{2}) (\d{1,2}):(\d{2}) (AM|PM)$/.exec(text);
+  if (!m) throw new Error(`unsupported refill timestamp: ${text}`);
+  const [, day, hourText, minute, meridiem] = m;
+  const hour12 = Number(hourText);
+  if (hour12 < 1 || hour12 > 12) throw new Error(`unsupported hour: ${text}`);
+  const hour24 = meridiem === "AM" ? (hour12 === 12 ? 0 : hour12) : hour12 === 12 ? 12 : hour12 + 12;
+  return `${day}T${String(hour24).padStart(2, "0")}:${minute}`;
+}
+
 describe("golden OCR fixtures", () => {
   it("has at least one active fixture", () => {
     expect(active.length).toBeGreaterThan(0);
   });
 
-  it("has six active fixtures", () => {
-    expect(active.length).toBe(6);
+  it("has seven active fixtures", () => {
+    expect(active.length).toBe(7);
   });
 
   it("does not commit original screenshot images", () => {
@@ -98,8 +115,18 @@ describe("golden OCR fixtures", () => {
             expect(row.rawAmountText.startsWith("-")).toBe(false);
             expect(row.eventKind).toBe("evd_sent_to_agent");
           }
-          expect(row.date).toBeNull();
-          expect(row.datePrecision).toBe("unknown");
+          if (entry.sourceFamily === "mj_transfers_sent") {
+            expect(row.date).toBeNull();
+            expect(row.datePrecision).toBe("unknown");
+          } else {
+            expect(row.date).not.toBeNull();
+            expect(row.datePrecision).toBe("minute");
+            expect(row.date).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+            expect(row.date).not.toMatch(/[Zz+]|:\d{2}:\d{2}/);
+            expect(row.isReversal).toBe(false);
+            expect(row.signedAmountMinor).toBeGreaterThan(0);
+            expect(row.eventKind).toBe("evd_sent_to_agent");
+          }
           expect(row.agentResolution).toBe("unassigned");
           expect(row.agentText.startsWith("Sample Agent ")).toBe(true);
         }
@@ -109,9 +136,15 @@ describe("golden OCR fixtures", () => {
           expect(expected.expectedRows.some((r) => r.agentText === candidate)).toBe(false);
         }
 
-        expect(raw).toContain("Transfers");
-        expect(raw).toContain("Sent");
-        expect(raw).toMatch(/(\S+)\s-\s\1/);
+        if (entry.sourceFamily === "mj_transfers_sent") {
+          expect(expected.platformHint).toBe("mj");
+          expect(raw).toContain("Transfers");
+          expect(raw).toContain("Sent");
+          expect(raw).toMatch(/(\S+)\s-\s\1/);
+        } else {
+          expect(expected.platformHint).toBe("yunus_or_alami");
+          expect(raw).toContain("Refill History");
+        }
 
         for (const { name, re } of FORBIDDEN) {
           expect(re.test(raw), `forbidden pattern '${name}' in raw fixture`).toBe(false);
