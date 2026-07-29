@@ -31,6 +31,10 @@ describe("golden OCR fixtures", () => {
     expect(active.length).toBeGreaterThan(0);
   });
 
+  it("has four active fixtures", () => {
+    expect(active.length).toBe(4);
+  });
+
   it("does not commit original screenshot images", () => {
     const dir = join(here, "fixtures");
     const walk = (p: string): string[] =>
