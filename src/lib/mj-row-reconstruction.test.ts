@@ -301,7 +301,10 @@ describe("reconstructMjRows over the sanitized MJ corpus", () => {
     for (const id of MJ_FIXTURES) {
       const rows = reconstructMjRows(classified(id));
       expect(rows, id).toHaveLength(5);
-      expect(rows.every((r) => r.status === "resolved"), id).toBe(true);
+      expect(
+        rows.every((r) => r.status === "resolved"),
+        id,
+      ).toBe(true);
       total += rows.length;
     }
     expect(total).toBe(30);
@@ -399,9 +402,13 @@ describe("reconstructMjRows ambiguity handling", () => {
   it("reports ambiguous_agent without picking one of the candidates", () => {
     const rows = reconstructMjRows(
       classifyMjLines(
-        ["2,000.00", "Sample Agent Alpha", "Sample Agent Beta", "3,000.00", "Sample Agent Gamma"].join(
-          "\n",
-        ),
+        [
+          "2,000.00",
+          "Sample Agent Alpha",
+          "Sample Agent Beta",
+          "3,000.00",
+          "Sample Agent Gamma",
+        ].join("\n"),
       ),
     );
     expect(rows).toHaveLength(2);
