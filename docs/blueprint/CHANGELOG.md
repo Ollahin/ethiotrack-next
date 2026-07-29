@@ -54,7 +54,7 @@ Automatic linking is strict. The only automatic normalization allowed is:
 - Collapse repeated internal whitespace.
 - Compare case-insensitively.
 
-Spelling variants are not automatically merged. For example, `Zed` and `Zeddd`, or `Misgee` and `Misges`, remain separate until the user decides.
+Spelling variants are not automatically merged. For example, `SampleY` and `SampleZ`, or `SampleMA` and `SampleMB`, remain separate until the user decides.
 
 For an unrecognized name, the user chooses:
 

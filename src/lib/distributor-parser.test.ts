@@ -8,7 +8,7 @@ import { parseStatementText } from "./distributor-parser";
 describe("parseStatementText — MJ layout", () => {
   it("parses a paired sender/date/agent card", () => {
     const text = [
-      "barisohaji - barisohaji",
+      "sampleagent - sampleagent",
       "5 Jul 2025                          20,000.00",
       "Abebe Kebede",
     ].join("\n");
@@ -24,7 +24,7 @@ describe("parseStatementText — MJ layout", () => {
 
   it("captures reversals as positive amount with isReversal", () => {
     const text = [
-      "barisohaji - barisohaji                 -50,000.00",
+      "sampleagent - sampleagent                 -50,000.00",
       "6 Jul 2025",
       "Chala Bekele",
     ].join("\n");
@@ -37,7 +37,7 @@ describe("parseStatementText — MJ layout", () => {
 
   it("does not mistake the date for the amount or the name", () => {
     const text = [
-      "barisohaji - barisohaji",
+      "sampleagent - sampleagent",
       "5 Jul 2025                          10,000.00",
       "Selam Alemu",
     ].join("\n");
@@ -48,10 +48,10 @@ describe("parseStatementText — MJ layout", () => {
 
   it("parses multiple stacked cards", () => {
     const text = [
-      "barisohaji - barisohaji",
+      "sampleagent - sampleagent",
       "5 Jul 2025                          20,000.00",
       "Abebe Kebede",
-      "barisohaji - barisohaji",
+      "sampleagent - sampleagent",
       "5 Jul 2025                          15,000.00",
       "Meron Tadesse",
     ].join("\n");
@@ -117,21 +117,21 @@ describe("parseStatementText — junk-row guards (regression)", () => {
     const text = [
       "Transfers",
       "Received Sent",
-      "barisohaji - barisohaji",
+      "sampleagent - sampleagent",
       "25 Jul 2026                          20,000.00",
       "Bokiii",
-      "barisohaji - barisohaji",
+      "sampleagent - sampleagent",
       "25 Jul 2026                          10,000.00",
       "Dammeeeecard",
-      "barisohaji - barisohaji",
+      "sampleagent - sampleagent",
       "24 Jul 2026                         257,300.00",
       "Abduyyeee",
-      "barisohaji - barisohaji",
+      "sampleagent - sampleagent",
       "24 Jul 2026                          50,000.00",
       "Nasreddddinnncarddd",
-      "barisohaji - barisohaji",
+      "sampleagent - sampleagent",
       "24 Jul 2026                          21,620.00",
-      "Zeddd",
+      "SampleZ",
     ].join("\n");
     const rows = parseStatementText(text, "mj").filter((r) => r.ok);
     expect(rows.map((r) => r.agentName)).toEqual([
@@ -139,7 +139,7 @@ describe("parseStatementText — junk-row guards (regression)", () => {
       "Dammeeeecard",
       "Abduyyeee",
       "Nasreddddinnncarddd",
-      "Zeddd",
+      "SampleZ",
     ]);
     expect(rows.map((r) => r.amountSantim)).toEqual([
       2_000_000, 1_000_000, 25_730_000, 5_000_000, 2_162_000,
@@ -151,27 +151,27 @@ describe("parseStatementText — junk-row guards (regression)", () => {
       "24 Jul 2026",
       "24 Jul 2026",
     ]);
-    expect(rows.every((r) => r.sender === "barisohaji")).toBe(true);
+    expect(rows.every((r) => r.sender === "sampleagent")).toBe(true);
   });
 
   it("parses MJ Transfers list where amount and '& Agent' are on separate lines with no date", () => {
     const text = [
       "Transfers",
       "Sent",
-      "barisohaji - barisohaji",
+      "sampleagent - sampleagent",
       "15,000.00",
       "-",
       "& Sintayehu",
-      "barisohaji - barisohaji",
+      "sampleagent - sampleagent",
       "10,000.00",
       "& Jireeeeee",
-      "barisohaji - barisohaji",
+      "sampleagent - sampleagent",
       "5,000.00",
       "& Baliyyuuu",
-      "barisohaji - barisohaji",
+      "sampleagent - sampleagent",
       "10,000.00",
       "& Kaleebbbbb",
-      "barisohaji - barisohaji",
+      "sampleagent - sampleagent",
       "25,000.00",
       "oA Gojeeeee",
     ].join("\n");
@@ -193,13 +193,13 @@ describe("parseStatementText — junk-row guards (regression)", () => {
       "2236 Me @@ Qf 8 al 56%m",
       "@ Transfers",
       "Sent",
-      "2 barisohaji - barisohaji",
+      "2 sampleagent - sampleagent",
       "50,000.00",
       "2 Biruke",
-      "2 barisohaji - barisohaji",
+      "2 sampleagent - sampleagent",
       "5,000.00",
       "2 Jireeeeee",
-      "2 barisohaji - barisohaji",
+      "2 sampleagent - sampleagent",
       "20,000.00",
       "5 AbdiBalee",
     ].join("\n");
@@ -208,7 +208,7 @@ describe("parseStatementText — junk-row guards (regression)", () => {
     expect(rows).toHaveLength(3);
     expect(rows.map((r) => r.agentName)).toEqual(["Biruke", "Jireeeeee", "AbdiBalee"]);
     expect(rows.map((r) => r.amountSantim)).toEqual([5_000_000, 500_000, 2_000_000]);
-    expect(rows.every((r) => r.sender === "barisohaji")).toBe(true);
+    expect(rows.every((r) => r.sender === "sampleagent")).toBe(true);
     expect(rows.every((r) => r.needsReview)).toBe(true);
   });
 
@@ -248,7 +248,7 @@ describe("parseStatementText — junk-row guards (regression)", () => {
       "2026-07-22 10:51 AM",
       "Birukeee 30,000 Birr",
       "2026-07-22 7:51 AM",
-      "Zeddd 21,620 Birr",
+      "SampleZ 21,620 Birr",
       "2026-07-22 6:44 AM",
       "Enginer Abdi 75,675 Birr",
       "2026-07-22 6:42 AM",
@@ -270,7 +270,7 @@ describe("parseStatementText — junk-row guards (regression)", () => {
       "Tsegaaa",
       "Birukeee",
       "Birukeee",
-      "Zeddd",
+      "SampleZ",
       "Enginer Abdi",
       "Birukeee",
       "Birukeee",
@@ -298,21 +298,21 @@ describe("parseStatementText — junk-row guards (regression)", () => {
       "236m e@® Nl 8 al 56%",
       "@ Transfers",
       "Received Sent",
-      "barisohaji - barisohaji",
+      "sampleagent - sampleagent",
       "25 Jul 2026                          20,000.00",
       "Bokiii",
       "random footer",
-      "barisohaji - barisohaji",
+      "sampleagent - sampleagent",
       "25 Jul 2026                          10,000.00",
       "Dammeeeecard",
-      "barisohaji - barisohaji",
+      "sampleagent - sampleagent",
       "24 Jul 2026                         257,300.00",
       "Abduyyeee",
     ].join("\n");
 
     const rows = parseStatementText(text, "generic").filter((r) => r.ok);
     expect(rows).toHaveLength(3);
-    expect(rows.map((r) => r.sender)).toEqual(["barisohaji", "barisohaji", "barisohaji"]);
+    expect(rows.map((r) => r.sender)).toEqual(["sampleagent", "sampleagent", "sampleagent"]);
     expect(rows.map((r) => r.dateText)).toEqual(["25 Jul 2026", "25 Jul 2026", "24 Jul 2026"]);
     expect(rows.map((r) => r.agentName)).toEqual(["Bokiii", "Dammeeeecard", "Abduyyeee"]);
     expect(rows.map((r) => r.amountSantim)).toEqual([2_000_000, 1_000_000, 25_730_000]);
@@ -322,7 +322,7 @@ describe("parseStatementText — junk-row guards (regression)", () => {
     const text = [
       "@ Transfers",
       "Sent",
-      "barisohaji - barisohaji",
+      "sampleagent - sampleagent",
       "2026-07-22 4:51 PM",
       "2,026.00",
       "Agents Add Agent Refill",
@@ -344,7 +344,7 @@ describe("parseStatementText — junk-row guards (regression)", () => {
   it("strips OCR chrome (bullets, arrows, ticks, NBSP, zero-width) from MJ cards", () => {
     const text = [
       "•", // bullet-only chrome line
-      "» barisohaji - barisohaji", // arrow leader
+      "» sampleagent - sampleagent", // arrow leader
       "\u200B 5 Jul 2025           20,000.00", // zero-width + date+amount
       "✓ Birukeee ✓", // status ticks around the name
       "———", // divider noise
@@ -354,7 +354,7 @@ describe("parseStatementText — junk-row guards (regression)", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].agentName).toBe("Birukeee");
     expect(rows[0].amountSantim).toBe(2_000_000);
-    expect(rows[0].sender).toBe("barisohaji");
+    expect(rows[0].sender).toBe("sampleagent");
   });
 
   it("drops UI chrome labels (Success, Details, Close) from refill screenshots", () => {
