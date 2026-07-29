@@ -39,14 +39,16 @@ material and are not committed.
 - Refill History row recall: 26 / 26, 100%.
 - 2 known reversal rows in the current catalog.
 
-## Activation status (Task 0.2B-b)
+## Activation status (Task 0.2B-c)
 
-- 4 active sanitized MJ Transfers → Sent fixtures
+- 5 active sanitized MJ Transfers → Sent fixtures
   (`ocr.mj.sent.photo-5`, `ocr.mj.sent.photo-38`, `ocr.mj.sent.photo-2`,
-  `ocr.mj.sent.photo-9`).
-- 5 remaining catalog entries are metadata-only.
-- 20 active expected rows across the four active fixtures.
-- 0 active reversals so far.
+  `ocr.mj.sent.photo-9`, `ocr.mj.sent.photo-6`).
+- 4 remaining catalog entries are metadata-only.
+- 25 active expected rows across the five active fixtures.
+- 0 active expected reversals so far.
+- OCR sign-noise coverage is now active: misleading dash and colon prefixes
+  around amounts are represented and must not produce reversals.
 - The full catalog remains 56 expected rows and 2 known reversals.
 - Production parser accuracy is **not** recalculated in this task: the
   evaluator does not execute production parsing yet. No claim is made that the
