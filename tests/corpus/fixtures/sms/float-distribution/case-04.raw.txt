@@ -1,0 +1,5 @@
+[EN 2026-08-13 11:20]
+ETB 25,000.00 removed from your M-PESA float by Sample Administrator at Sample Shop A on 2026-08-13 11:20. Ref: SYN4471033. New float balance ETB 1,077,000.00.
+
+[AM 2026-08-13 11:20]
+ብር 25,000.00 ከኤም-ፔሳ ፍሎት ተቀንሶ ወደ 70002 ተልኳል። ላኪ ኮድ 70001። ቀን 2026-08-13 11:20። ማጣቀሻ SYN4471034።
