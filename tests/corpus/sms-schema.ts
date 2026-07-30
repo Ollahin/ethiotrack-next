@@ -140,9 +140,12 @@ export const SmsExpectedEvent = z
   })
   // Codes only exist where an Amharic half is present. They are never derived
   // from English text.
-  .refine((e) => e.pairing !== "english_only" || (e.senderCode === null && e.recipientCode === null), {
-    message: "english_only events must not carry sender or recipient codes",
-  })
+  .refine(
+    (e) => e.pairing !== "english_only" || (e.senderCode === null && e.recipientCode === null),
+    {
+      message: "english_only events must not carry sender or recipient codes",
+    },
+  )
   .refine((e) => e.pairing !== "amharic_only" || e.counterpartyLabel === null, {
     message: "amharic_only events must not carry an English counterparty label",
   })
@@ -202,7 +205,9 @@ export const SmsGoldenExpectationSchema = z
   })
   .refine(
     (f) =>
-      f.expectedEvents.every((e) => e.pairing === "english_only" || f.languageHalves.includes("am")),
+      f.expectedEvents.every(
+        (e) => e.pairing === "english_only" || f.languageHalves.includes("am"),
+      ),
     { message: "code-bearing events require an Amharic half in languageHalves" },
   );
 export type SmsGoldenExpectation = z.infer<typeof SmsGoldenExpectationSchema>;
