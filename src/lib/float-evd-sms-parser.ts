@@ -524,7 +524,7 @@ export function resolveSmsOccurredAt(
 const ADMIN_RX = /\bby\s+([^.]+?)(?=\s+at\s|\s+on\s|\.|$)/;
 const SHOP_RX = /\bat\s+([^.]+?)(?=\s+on\s|\.|$)/;
 const DISTRIBUTOR_RX =
-  /credited with\s+ETB\s*\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?\s*\.\s*([^.\n]+?)\s*$/i;
+  /credited with\s+(?:ETB\s*)?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?\s*(?:ETB)?\s*\.\s*([^.\n]+?)\s*$/i;
 
 export function extractLabels(block: SmsBlock): {
   counterpartyLabel: string | null;
