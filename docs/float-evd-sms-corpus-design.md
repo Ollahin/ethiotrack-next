@@ -8,11 +8,11 @@ behavior change is authorized by this task. Governed by
 
 Three sanitized SMS families enter the corpus:
 
-| Family | Meaning | Canonical direction |
-| --- | --- | --- |
+| Family               | Meaning                                          | Canonical direction       |
+| -------------------- | ------------------------------------------------ | ------------------------- |
 | `float_distribution` | Float removed from our M-PESA float and sent out | outbound (stock decrease) |
-| `evd_receipt` | Our account credited with an ETB EVD amount | inbound (stock increase) |
-| `float_receipt` | Float added to our M-PESA float | inbound (stock increase) |
+| `evd_receipt`        | Our account credited with an ETB EVD amount      | inbound (stock increase)  |
+| `float_receipt`      | Float added to our M-PESA float                  | inbound (stock increase)  |
 
 Proposed event kinds (fixture-level vocabulary only, not production types):
 
@@ -73,15 +73,15 @@ Rules:
 
 Every extracted field carries an evidence record:
 
-| Field | Evidence source | Confidence when present | Abstain when |
-| --- | --- | --- | --- |
-| `amountMinor` | explicit amount token with currency/format | high | more than one candidate amount and no balance keyword to disambiguate |
-| `resultingBalanceMinor` | amount adjacent to a balance keyword | high | keyword absent |
-| `transactionReference` | explicit reference token | high | token absent or truncated |
-| `occurredAt` | in-message timestamp, else SMS-app timestamp | high / medium | neither present → require user-selected date |
-| `counterpartyLabel` | administrator, shop or trailing distributor label | medium | label is UI chrome or generic |
-| `senderCode` / `recipientCode` | Amharic half only | high | English-only message |
-| `direction` | family-level wording (`removed from` vs `added to`, `credited`) | high | wording ambiguous → review |
+| Field                          | Evidence source                                                 | Confidence when present | Abstain when                                                          |
+| ------------------------------ | --------------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------- |
+| `amountMinor`                  | explicit amount token with currency/format                      | high                    | more than one candidate amount and no balance keyword to disambiguate |
+| `resultingBalanceMinor`        | amount adjacent to a balance keyword                            | high                    | keyword absent                                                        |
+| `transactionReference`         | explicit reference token                                        | high                    | token absent or truncated                                             |
+| `occurredAt`                   | in-message timestamp, else SMS-app timestamp                    | high / medium           | neither present → require user-selected date                          |
+| `counterpartyLabel`            | administrator, shop or trailing distributor label               | medium                  | label is UI chrome or generic                                         |
+| `senderCode` / `recipientCode` | Amharic half only                                               | high                    | English-only message                                                  |
+| `direction`                    | family-level wording (`removed from` vs `added to`, `credited`) | high                    | wording ambiguous → review                                            |
 
 Confidence values: `high`, `medium`, `low`. Any `low` field forces the row to
 `needs_review`.
@@ -215,22 +215,22 @@ Reported per family and overall:
 
 ## 12. Initial minimal representative corpus (14 logical cases)
 
-| # | Id | Family | Covers |
-| --- | --- | --- | --- |
-| 1 | `sms.float.dist.case-01` | float_distribution | clean bilingual pair, matching reference |
-| 2 | `sms.float.dist.case-02` | float_distribution | English-only half, no recipient code |
-| 3 | `sms.float.dist.case-03` | float_distribution | Amharic-only half, partial extraction retained |
-| 4 | `sms.float.dist.case-04` | float_distribution | two halves, mismatched references → no pairing |
-| 5 | `sms.float.dist.case-05` | float_distribution | same amount and same minute, different references |
-| 6 | `sms.float.dist.case-06` | float_distribution | balance figure larger than amount, adjacency trap |
-| 7 | `sms.float.dist.case-07` | float_distribution | truncated reference → abstention |
-| 8 | `sms.float.dist.case-08` | float_distribution | similar administrator labels remain distinct |
-| 9 | `sms.evd.case-01` | evd_receipt | credited amount with trailing distributor label |
-| 10 | `sms.evd.case-02` | evd_receipt | no embedded reference or date, SMS-app timestamp present |
-| 11 | `sms.evd.case-03` | evd_receipt | no timestamp at all → user-selected date, no invented time |
-| 12 | `sms.evd.case-04` | evd_receipt | two identical-looking receipts, no dedup |
-| 13 | `sms.float.recv.case-01` | float_receipt | clean inbound with reference and balance |
-| 14 | `sms.float.recv.case-02` | float_receipt | inbound bilingual pair, codes present |
+| #   | Id                       | Family             | Covers                                                     |
+| --- | ------------------------ | ------------------ | ---------------------------------------------------------- |
+| 1   | `sms.float.dist.case-01` | float_distribution | clean bilingual pair, matching reference                   |
+| 2   | `sms.float.dist.case-02` | float_distribution | English-only half, no recipient code                       |
+| 3   | `sms.float.dist.case-03` | float_distribution | Amharic-only half, partial extraction retained             |
+| 4   | `sms.float.dist.case-04` | float_distribution | two halves, mismatched references → no pairing             |
+| 5   | `sms.float.dist.case-05` | float_distribution | same amount and same minute, different references          |
+| 6   | `sms.float.dist.case-06` | float_distribution | balance figure larger than amount, adjacency trap          |
+| 7   | `sms.float.dist.case-07` | float_distribution | truncated reference → abstention                           |
+| 8   | `sms.float.dist.case-08` | float_distribution | similar administrator labels remain distinct               |
+| 9   | `sms.evd.case-01`        | evd_receipt        | credited amount with trailing distributor label            |
+| 10  | `sms.evd.case-02`        | evd_receipt        | no embedded reference or date, SMS-app timestamp present   |
+| 11  | `sms.evd.case-03`        | evd_receipt        | no timestamp at all → user-selected date, no invented time |
+| 12  | `sms.evd.case-04`        | evd_receipt        | two identical-looking receipts, no dedup                   |
+| 13  | `sms.float.recv.case-01` | float_receipt      | clean inbound with reference and balance                   |
+| 14  | `sms.float.recv.case-02` | float_receipt      | inbound bilingual pair, codes present                      |
 
 ## 13. Implementation batches
 
