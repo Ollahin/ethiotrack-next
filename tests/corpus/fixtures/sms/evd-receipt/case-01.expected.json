@@ -3,7 +3,9 @@
   "fixtureId": "sms.evd.case-01",
   "family": "evd_receipt",
   "platformHint": "evd_shortcode",
-  "languageHalves": ["en"],
+  "languageHalves": [
+    "en"
+  ],
   "expectedEvents": [
     {
       "sourceOrder": 0,
@@ -26,9 +28,18 @@
       "pairingStatus": "pending",
       "amharicEvidenceText": null,
       "evidence": {
-        "amountMinor": { "observedText": "credited with ETB 20,000.00", "confidence": "high" },
-        "occurredAt": { "observedText": "[SMS-APP 2026-08-13 15:42]", "confidence": "medium" },
-        "counterpartyLabel": { "observedText": "Sample Distributor A", "confidence": "medium" }
+        "amountMinor": {
+          "observedText": "credited with 20,000.00 ETB",
+          "confidence": "high"
+        },
+        "occurredAt": {
+          "observedText": "[SMS-APP 2026-08-13 15:42]",
+          "confidence": "medium"
+        },
+        "counterpartyLabel": {
+          "observedText": "Sample Distributor A",
+          "confidence": "medium"
+        }
       }
     }
   ],

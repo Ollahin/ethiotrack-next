@@ -3,7 +3,9 @@
   "fixtureId": "sms.float.recv.case-01",
   "family": "float_receipt",
   "platformHint": "mpesa",
-  "languageHalves": ["en"],
+  "languageHalves": [
+    "en"
+  ],
   "expectedEvents": [
     {
       "sourceOrder": 0,
@@ -26,13 +28,22 @@
       "pairingStatus": "pending",
       "amharicEvidenceText": null,
       "evidence": {
-        "amountMinor": { "observedText": "ETB 500,000.00 added", "confidence": "high" },
-        "resultingBalanceMinor": {
-          "observedText": "New float balance ETB 1,755,000.00",
+        "amountMinor": {
+          "observedText": "500,000.00 Birr was added",
           "confidence": "high"
         },
-        "transactionReference": { "observedText": "Ref: SYN4471040", "confidence": "high" },
-        "occurredAt": { "observedText": "on 2026-08-14 08:20", "confidence": "high" }
+        "resultingBalanceMinor": {
+          "observedText": "Current M-PESA balance is 1,755,000.00 Birr",
+          "confidence": "high"
+        },
+        "transactionReference": {
+          "observedText": "Your Transaction Number is SYN4471040",
+          "confidence": "high"
+        },
+        "occurredAt": {
+          "observedText": "on 14/8/26 at 8:20 AM",
+          "confidence": "high"
+        }
       }
     }
   ],
