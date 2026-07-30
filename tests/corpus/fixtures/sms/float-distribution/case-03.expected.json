@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "sms.float.dist.case-03",
+  "family": "float_distribution",
+  "platformHint": "mpesa",
+  "languageHalves": ["en"],
+  "expectedEvents": [
+    {
+      "sourceOrder": 0,
+      "eventKind": "float_sent_to_agent",
+      "direction": "outbound",
+      "amountMinor": -1800000,
+      "rawAmountText": "18,000.00",
+      "resultingBalanceMinor": 110200000,
+      "rawBalanceText": "1,102,000.00",
+      "transactionReference": "SYN4471032",
+      "occurredAt": "2026-08-12T14:40",
+      "datePrecision": "minute",
+      "dateSource": "in_message",
+      "counterpartyLabel": "Sample Administrator",
+      "shopLabel": "Sample Shop A",
+      "counterpartyMatch": "unassigned",
+      "senderCode": null,
+      "recipientCode": null,
+      "pairing": "english_only",
+      "pairingStatus": "pending",
+      "amharicEvidenceText": null,
+      "evidence": {
+        "amountMinor": { "observedText": "ETB 18,000.00 removed", "confidence": "high" },
+        "transactionReference": { "observedText": "Ref: SYN4471032", "confidence": "high" },
+        "occurredAt": { "observedText": "on 2026-08-12 14:40", "confidence": "high" }
+      }
+    }
+  ],
+  "reviewRows": [],
+  "notes": [
+    "The unmatched English half stays visible as one pending event.",
+    "The recipient code is never invented from English text."
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "sms.evd.case-02",
+  "family": "evd_receipt",
+  "platformHint": "evd_shortcode",
+  "languageHalves": ["en"],
+  "expectedEvents": [
+    {
+      "sourceOrder": 0,
+      "eventKind": "evd_received_from_distributor",
+      "direction": "inbound",
+      "amountMinor": 2000000,
+      "rawAmountText": "20,000.00",
+      "resultingBalanceMinor": null,
+      "rawBalanceText": null,
+      "transactionReference": null,
+      "occurredAt": "2026-08-14T09:10",
+      "datePrecision": "minute",
+      "dateSource": "sms_app",
+      "counterpartyLabel": "Sample Distributor A",
+      "shopLabel": null,
+      "counterpartyMatch": "unassigned",
+      "senderCode": null,
+      "recipientCode": null,
+      "pairing": "english_only",
+      "pairingStatus": "pending",
+      "amharicEvidenceText": null,
+      "evidence": {
+        "amountMinor": { "observedText": "credited with ETB 20,000.00", "confidence": "high" },
+        "occurredAt": { "observedText": "[SMS-APP 2026-08-14 09:10]", "confidence": "medium" }
+      }
+    },
+    {
+      "sourceOrder": 1,
+      "eventKind": "evd_received_from_distributor",
+      "direction": "inbound",
+      "amountMinor": 2000000,
+      "rawAmountText": "20,000.00",
+      "resultingBalanceMinor": null,
+      "rawBalanceText": null,
+      "transactionReference": null,
+      "occurredAt": "2026-08-14T17:35",
+      "datePrecision": "minute",
+      "dateSource": "sms_app",
+      "counterpartyLabel": "Sample Distributor A",
+      "shopLabel": null,
+      "counterpartyMatch": "unassigned",
+      "senderCode": null,
+      "recipientCode": null,
+      "pairing": "english_only",
+      "pairingStatus": "pending",
+      "amharicEvidenceText": null,
+      "evidence": {
+        "amountMinor": { "observedText": "credited with ETB 20,000.00", "confidence": "high" },
+        "occurredAt": { "observedText": "[SMS-APP 2026-08-14 17:35]", "confidence": "medium" }
+      }
+    }
+  ],
+  "reviewRows": [],
+  "notes": [
+    "Identical amounts at different timestamps remain separate events.",
+    "Reference-free receipts are never deduplicated."
+  ]
+}

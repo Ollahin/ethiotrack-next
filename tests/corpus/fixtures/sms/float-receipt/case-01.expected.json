@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "sms.float.recv.case-01",
+  "family": "float_receipt",
+  "platformHint": "mpesa",
+  "languageHalves": ["en"],
+  "expectedEvents": [
+    {
+      "sourceOrder": 0,
+      "eventKind": "float_received_from_distributor",
+      "direction": "inbound",
+      "amountMinor": 50000000,
+      "rawAmountText": "500,000.00",
+      "resultingBalanceMinor": 175500000,
+      "rawBalanceText": "1,755,000.00",
+      "transactionReference": "SYN4471040",
+      "occurredAt": "2026-08-14T08:20",
+      "datePrecision": "minute",
+      "dateSource": "in_message",
+      "counterpartyLabel": "Sample Administrator",
+      "shopLabel": "Sample Shop A",
+      "counterpartyMatch": "unassigned",
+      "senderCode": null,
+      "recipientCode": null,
+      "pairing": "english_only",
+      "pairingStatus": "pending",
+      "amharicEvidenceText": null,
+      "evidence": {
+        "amountMinor": { "observedText": "ETB 500,000.00 added", "confidence": "high" },
+        "resultingBalanceMinor": {
+          "observedText": "New float balance ETB 1,755,000.00",
+          "confidence": "high"
+        },
+        "transactionReference": { "observedText": "Ref: SYN4471040", "confidence": "high" },
+        "occurredAt": { "observedText": "on 2026-08-14 08:20", "confidence": "high" }
+      }
+    }
+  ],
+  "reviewRows": [],
+  "notes": [
+    "Inbound float receipt carries amount, reference and resulting balance.",
+    "The resulting balance is never treated as the transaction amount."
+  ]
+}
