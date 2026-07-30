@@ -61,10 +61,11 @@ Stage 1 — Corpus and ingestion baseline
 - Complete 14-case sanitized SMS corpus
 - Deterministic Float and EVD SMS parser design
 - Pure SMS classification and field-extraction primitives (not yet integrated)
+- Source-structure faithful SMS primitives and representative fixtures
 
 ## Current task
 
-Task 0.3C-e — SMS classification and field-extraction primitives
+Task 0.3C-e1 — Source-structure faithful SMS primitives
 
 ## Next task
 
