@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "sms.evd.case-04",
+  "family": "evd_receipt",
+  "platformHint": "evd_shortcode",
+  "languageHalves": ["en"],
+  "expectedEvents": [
+    {
+      "sourceOrder": 0,
+      "eventKind": "evd_received_from_distributor",
+      "direction": "inbound",
+      "amountMinor": 800000,
+      "rawAmountText": "8,000.00",
+      "resultingBalanceMinor": null,
+      "rawBalanceText": null,
+      "transactionReference": null,
+      "occurredAt": "2026-08-15T11:05",
+      "datePrecision": "minute",
+      "dateSource": "sms_app",
+      "counterpartyLabel": "Sample Distributor B",
+      "shopLabel": null,
+      "counterpartyMatch": "unassigned",
+      "senderCode": null,
+      "recipientCode": null,
+      "pairing": "english_only",
+      "pairingStatus": "pending",
+      "amharicEvidenceText": null,
+      "evidence": {
+        "amountMinor": { "observedText": "credited with ETB 8,000.00", "confidence": "high" },
+        "occurredAt": { "observedText": "[SMS-APP 2026-08-15 11:05]", "confidence": "medium" },
+        "counterpartyLabel": { "observedText": "Sample Distributor B", "confidence": "medium" }
+      }
+    }
+  ],
+  "reviewRows": [],
+  "notes": [
+    "The trailing distributor label matches no stored distributor.",
+    "Matching normalizes case and whitespace only, so the label stays unassigned.",
+    "The raw label is preserved for manual review instead of being linked."
+  ]
+}
