@@ -339,9 +339,8 @@ export function extractAmountAndBalance(
 
     if (amountMinor === null) {
       const after = text.slice(match.index + match[0].length);
-      const trailer = /^\s+(?:was\s+|has been\s+)?(?:successfully\s+)?(removed|added|credited)\b/i.exec(
-        after,
-      );
+      const trailer =
+        /^\s+(?:was\s+|has been\s+)?(?:successfully\s+)?(removed|added|credited)\b/i.exec(after);
       amountMinor = santim;
       rawAmountText = amountToken;
       const creditedBefore = /credited with\s*$/i.test(before) ? "credited with " : "";

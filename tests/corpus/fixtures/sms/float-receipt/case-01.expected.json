@@ -3,9 +3,7 @@
   "fixtureId": "sms.float.recv.case-01",
   "family": "float_receipt",
   "platformHint": "mpesa",
-  "languageHalves": [
-    "en"
-  ],
+  "languageHalves": ["en"],
   "expectedEvents": [
     {
       "sourceOrder": 0,

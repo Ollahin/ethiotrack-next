@@ -3,10 +3,7 @@
   "fixtureId": "sms.float.dist.case-01",
   "family": "float_distribution",
   "platformHint": "mpesa",
-  "languageHalves": [
-    "en",
-    "am"
-  ],
+  "languageHalves": ["en", "am"],
   "expectedEvents": [
     {
       "sourceOrder": 0,
