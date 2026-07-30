@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "sms.float.recv.case-02",
+  "family": "float_receipt",
+  "platformHint": "mpesa",
+  "languageHalves": ["en", "am"],
+  "expectedEvents": [
+    {
+      "sourceOrder": 0,
+      "eventKind": "float_received_from_distributor",
+      "direction": "inbound",
+      "amountMinor": 30000000,
+      "rawAmountText": "300,000.00",
+      "resultingBalanceMinor": 145500000,
+      "rawBalanceText": "1,455,000.00",
+      "transactionReference": "SYN4471041",
+      "occurredAt": "2026-08-17T08:05",
+      "datePrecision": "minute",
+      "dateSource": "in_message",
+      "counterpartyLabel": "Sample Administrator",
+      "shopLabel": "Sample Shop A",
+      "counterpartyMatch": "unassigned",
+      "senderCode": "70005",
+      "recipientCode": "70001",
+      "pairing": "paired",
+      "pairingStatus": "complete",
+      "amharicEvidenceText": "ብር 300,000.00 ወደ ኤም-ፔሳ ፍሎት ተጨምሯል። ላኪ ኮድ 70005። ተቀባይ ኮድ 70001። ቀን 2026-08-17 08:05። ማጣቀሻ SYN4471041።",
+      "evidence": {
+        "amountMinor": { "observedText": "ETB 300,000.00 added", "confidence": "high" },
+        "resultingBalanceMinor": {
+          "observedText": "New float balance ETB 1,455,000.00",
+          "confidence": "high"
+        },
+        "transactionReference": { "observedText": "Ref: SYN4471041", "confidence": "high" },
+        "occurredAt": { "observedText": "on 2026-08-17 08:05", "confidence": "high" },
+        "senderCode": { "observedText": "ላኪ ኮድ 70005", "confidence": "high" },
+        "recipientCode": { "observedText": "ተቀባይ ኮድ 70001", "confidence": "high" }
+      }
+    },
+    {
+      "sourceOrder": 1,
+      "eventKind": "float_received_from_distributor",
+      "direction": "inbound",
+      "amountMinor": 30000000,
+      "rawAmountText": "300,000.00",
+      "resultingBalanceMinor": 175500000,
+      "rawBalanceText": "1,755,000.00",
+      "transactionReference": "SYN4471042",
+      "occurredAt": "2026-08-17T08:40",
+      "datePrecision": "minute",
+      "dateSource": "in_message",
+      "counterpartyLabel": "Sample Administrator",
+      "shopLabel": "Sample Shop A",
+      "counterpartyMatch": "unassigned",
+      "senderCode": null,
+      "recipientCode": null,
+      "pairing": "english_only",
+      "pairingStatus": "pending",
+      "amharicEvidenceText": null,
+      "evidence": {
+        "amountMinor": { "observedText": "ETB 300,000.00 added", "confidence": "high" },
+        "resultingBalanceMinor": {
+          "observedText": "New float balance ETB 1,755,000.00",
+          "confidence": "high"
+        },
+        "transactionReference": { "observedText": "Ref: SYN4471042", "confidence": "high" },
+        "occurredAt": { "observedText": "on 2026-08-17 08:40", "confidence": "high" }
+      }
+    }
+  ],
+  "notes": [
+    "Two inbound float receipts carry the same amount and different references.",
+    "Different references always remain separate events.",
+    "The first receipt is proven bilingual; the second half never arrived."
+  ],
+  "reviewRows": []
+}

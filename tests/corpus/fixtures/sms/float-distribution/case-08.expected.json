@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "sms.float.dist.case-08",
+  "family": "float_distribution",
+  "platformHint": "mpesa",
+  "languageHalves": ["en"],
+  "expectedEvents": [],
+  "reviewRows": [
+    {
+      "sourceOrder": 0,
+      "reason": "missing_amount",
+      "observedText": "ETB removed from your M-PESA float by Sample Administrator"
+    }
+  ],
+  "notes": [
+    "The message is truncated before the amount token.",
+    "No amount, balance, reference, code or timestamp is invented.",
+    "The abstention stays visible as a review row instead of a financial event."
+  ]
+}

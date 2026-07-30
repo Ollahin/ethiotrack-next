@@ -179,11 +179,16 @@ export const SmsGoldenExpectationSchema = z
     family: SmsFamily,
     platformHint: SmsPlatformHint,
     languageHalves: z.array(SmsLanguage).min(1),
-    expectedEvents: z.array(SmsExpectedEvent).min(1),
+    // A fully malformed message may legitimately produce zero events. The
+    // outcome must still be visible, which the review-row rule below enforces.
+    expectedEvents: z.array(SmsExpectedEvent),
     reviewRows: z.array(SmsExpectedReview),
     notes: z.array(nonEmpty),
   })
   .strict()
+  .refine((f) => f.expectedEvents.length > 0 || f.reviewRows.length > 0, {
+    message: "a fixture with no events must expose at least one review row",
+  })
   .refine(
     (f) =>
       (f.family === "evd_receipt" && f.platformHint === "evd_shortcode") ||

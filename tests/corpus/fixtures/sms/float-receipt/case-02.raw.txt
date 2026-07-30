@@ -1,0 +1,8 @@
+[EN 2026-08-17 08:05]
+ETB 300,000.00 added to your M-PESA float by Sample Administrator at Sample Shop A on 2026-08-17 08:05. Ref: SYN4471041. New float balance ETB 1,455,000.00.
+
+[AM 2026-08-17 08:05]
+ብር 300,000.00 ወደ ኤም-ፔሳ ፍሎት ተጨምሯል። ላኪ ኮድ 70005። ተቀባይ ኮድ 70001። ቀን 2026-08-17 08:05። ማጣቀሻ SYN4471041።
+
+[EN 2026-08-17 08:40]
+ETB 300,000.00 added to your M-PESA float by Sample Administrator at Sample Shop A on 2026-08-17 08:40. Ref: SYN4471042. New float balance ETB 1,755,000.00.

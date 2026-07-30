@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "sms.float.dist.case-07",
+  "family": "float_distribution",
+  "platformHint": "mpesa",
+  "languageHalves": ["en"],
+  "expectedEvents": [
+    {
+      "sourceOrder": 0,
+      "eventKind": "float_sent_to_agent",
+      "direction": "outbound",
+      "amountMinor": -2200000,
+      "rawAmountText": "22,000.00",
+      "resultingBalanceMinor": null,
+      "rawBalanceText": null,
+      "transactionReference": null,
+      "occurredAt": "2026-08-16T10:30",
+      "datePrecision": "minute",
+      "dateSource": "in_message",
+      "counterpartyLabel": "Sample Administrator",
+      "shopLabel": "Sample Shop A",
+      "counterpartyMatch": "unassigned",
+      "senderCode": null,
+      "recipientCode": null,
+      "pairing": "english_only",
+      "pairingStatus": "pending",
+      "amharicEvidenceText": null,
+      "evidence": {
+        "amountMinor": { "observedText": "ETB 22,000.00 removed", "confidence": "high" },
+        "occurredAt": { "observedText": "on 2026-08-16 10:30", "confidence": "high" },
+        "counterpartyLabel": { "observedText": "by Sample Administrator", "confidence": "medium" }
+      }
+    }
+  ],
+  "reviewRows": [
+    {
+      "sourceOrder": 0,
+      "reason": "missing_reference",
+      "observedText": "Ref: SYN44710"
+    }
+  ],
+  "notes": [
+    "The reference token is truncated and is therefore not extracted.",
+    "A truncated reference is never completed, padded or guessed.",
+    "The defensible amount and date survive while the row stays under review."
+  ]
+}

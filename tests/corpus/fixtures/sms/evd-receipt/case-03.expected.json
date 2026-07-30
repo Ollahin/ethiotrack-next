@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "sms.evd.case-03",
+  "family": "evd_receipt",
+  "platformHint": "evd_shortcode",
+  "languageHalves": ["en"],
+  "expectedEvents": [
+    {
+      "sourceOrder": 0,
+      "eventKind": "evd_received_from_distributor",
+      "direction": "inbound",
+      "amountMinor": 1200000,
+      "rawAmountText": "12,000.00",
+      "resultingBalanceMinor": null,
+      "rawBalanceText": null,
+      "transactionReference": null,
+      "occurredAt": "2026-08-15",
+      "datePrecision": "date",
+      "dateSource": "user_selected",
+      "counterpartyLabel": "Sample Distributor A",
+      "shopLabel": null,
+      "counterpartyMatch": "unassigned",
+      "senderCode": null,
+      "recipientCode": null,
+      "pairing": "english_only",
+      "pairingStatus": "pending",
+      "amharicEvidenceText": null,
+      "evidence": {
+        "amountMinor": { "observedText": "credited with ETB 12,000.00", "confidence": "high" },
+        "occurredAt": { "observedText": "user-selected day 2026-08-15", "confidence": "medium" },
+        "counterpartyLabel": { "observedText": "Sample Distributor A", "confidence": "medium" }
+      }
+    }
+  ],
+  "reviewRows": [],
+  "notes": [
+    "No in-message date and no SMS-app timestamp exist.",
+    "The day comes from an explicit user selection and precision stays date.",
+    "No time of day is invented."
+  ]
+}

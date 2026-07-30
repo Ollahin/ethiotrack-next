@@ -14,9 +14,9 @@
 - Non-regression gate: passing at the ratcheted floor.
 - Release gate: passing (100% exact on the sanitized corpus).
 - `tests/corpus/production-baseline.json` is the frozen reference baseline.
-- Sanitized SMS corpus: 7 active fixtures, 10 expected events, 1 review row
-  (4 float_distribution, 2 evd_receipt, 1 float_receipt). Meaning-only; no
-  production SMS parser exists yet.
+- Sanitized SMS corpus: 14 active fixtures, 17 expected events, 3 review rows
+  (8 float_distribution, 4 evd_receipt, 2 float_receipt). The 14-case plan is
+  complete. Meaning-only; no production SMS parser exists yet.
 
 ## MJ milestone completion
 
@@ -49,8 +49,8 @@ a boundary regression suite is in place.
 
 ## Current task
 
-Task 0.3C-b — Sanitized SMS fixture schema and first representative fixtures
+Task 0.3C-c — Complete the 14-case sanitized SMS corpus
 
 ## Next task
 
-Task 0.3C-c — Complete the 14-case sanitized SMS corpus
+Task 0.3C-d — Deterministic Float and EVD SMS parser design

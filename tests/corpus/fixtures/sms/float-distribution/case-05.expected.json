@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "sms.float.dist.case-05",
+  "family": "float_distribution",
+  "platformHint": "mpesa",
+  "languageHalves": ["am"],
+  "expectedEvents": [
+    {
+      "sourceOrder": 0,
+      "eventKind": "float_sent_to_agent",
+      "direction": "outbound",
+      "amountMinor": -1250000,
+      "rawAmountText": "12,500.00",
+      "resultingBalanceMinor": null,
+      "rawBalanceText": null,
+      "transactionReference": "SYN4471035",
+      "occurredAt": "2026-08-15T16:12",
+      "datePrecision": "minute",
+      "dateSource": "in_message",
+      "counterpartyLabel": null,
+      "shopLabel": null,
+      "counterpartyMatch": "unassigned",
+      "senderCode": "70001",
+      "recipientCode": "70004",
+      "pairing": "amharic_only",
+      "pairingStatus": "pending",
+      "amharicEvidenceText": "ብር 12,500.00 ከኤም-ፔሳ ፍሎት ተቀንሶ ወደ 70004 ተልኳል። ላኪ ኮድ 70001። ቀን 2026-08-15 16:12። ማጣቀሻ SYN4471035።",
+      "evidence": {
+        "amountMinor": { "observedText": "ብር 12,500.00", "confidence": "high" },
+        "transactionReference": { "observedText": "ማጣቀሻ SYN4471035", "confidence": "high" },
+        "occurredAt": { "observedText": "ቀን 2026-08-15 16:12", "confidence": "high" },
+        "senderCode": { "observedText": "ላኪ ኮድ 70001", "confidence": "high" },
+        "recipientCode": { "observedText": "ወደ 70004", "confidence": "high" }
+      }
+    }
+  ],
+  "reviewRows": [],
+  "notes": [
+    "An Amharic half with no English companion stays visible and pending.",
+    "No English counterparty or shop label is invented for an Amharic-only half.",
+    "Amharic content is retained as evidence even when extraction is partial."
+  ]
+}

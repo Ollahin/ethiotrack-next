@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "sms.float.dist.case-06",
+  "family": "float_distribution",
+  "platformHint": "mpesa",
+  "languageHalves": ["en", "am"],
+  "expectedEvents": [
+    {
+      "sourceOrder": 0,
+      "eventKind": "float_sent_to_agent",
+      "direction": "outbound",
+      "amountMinor": -4000000,
+      "rawAmountText": "40,000.00",
+      "resultingBalanceMinor": 106200000,
+      "rawBalanceText": "1,062,000.00",
+      "transactionReference": "SYN4471036",
+      "occurredAt": "2026-08-15T18:02",
+      "datePrecision": "minute",
+      "dateSource": "in_message",
+      "counterpartyLabel": "Sample Administrator",
+      "shopLabel": "Sample Shop A",
+      "counterpartyMatch": "unassigned",
+      "senderCode": "70001",
+      "recipientCode": "70002",
+      "pairing": "paired",
+      "pairingStatus": "complete",
+      "amharicEvidenceText": "ብር 40,000.00 ከኤም-ፔሳ ፍሎት ተቀንሶ ወደ 70002 ተልኳል። ላኪ ኮድ 70001። ቀን 2026-08-15 18:02። ማጣቀሻ SYN4471036።",
+      "evidence": {
+        "amountMinor": { "observedText": "ETB 40,000.00 removed", "confidence": "high" },
+        "resultingBalanceMinor": {
+          "observedText": "New float balance ETB 1,062,000.00",
+          "confidence": "high"
+        },
+        "transactionReference": { "observedText": "Ref: SYN4471036", "confidence": "high" },
+        "occurredAt": { "observedText": "on 2026-08-15 18:02", "confidence": "high" },
+        "counterpartyLabel": { "observedText": "by Sample Administrator", "confidence": "medium" },
+        "senderCode": { "observedText": "ላኪ ኮድ 70001", "confidence": "high" },
+        "recipientCode": { "observedText": "ወደ 70002", "confidence": "high" }
+      }
+    }
+  ],
+  "reviewRows": [],
+  "notes": [
+    "Three delivered messages carry one proven reference and form one event.",
+    "A redelivered English half is not a second financial event.",
+    "Deduplication is proven by the equal reference, never by amount or minute."
+  ]
+}

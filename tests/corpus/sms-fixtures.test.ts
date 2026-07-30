@@ -38,27 +38,35 @@ function readExpected(entry: SmsFixtureCatalogEntry): SmsGoldenExpectation {
 const loaded = active.map((entry) => ({ entry, expected: readExpected(entry) }));
 const allEvents: SmsExpectedEvent[] = loaded.flatMap((f) => f.expected.expectedEvents);
 
-const ALLOWED_LABELS = ["Sample Administrator", "Sample Shop A", "Sample Distributor A"];
+const ALLOWED_LABELS = [
+  "Sample Administrator",
+  "Sample Shop A",
+  "Sample Distributor A",
+  "Sample Distributor B",
+];
+
+/** The only fixture allowed to carry a deliberately truncated reference token. */
+const TRUNCATED_REFERENCE_FIXTURE = "sms.float.dist.case-07";
 
 const FORBIDDEN = [
   { name: "http-url", re: /https?:\/\//i },
   { name: "masked-account", re: /\d\*{1,}\d/ },
   { name: "phone-number", re: /(?:\+251|\b0)\d{8,9}\b/ },
   { name: "raw-sms-opening", re: /^\s*Dear\b/im },
-  { name: "non-synthetic-reference", re: /\bRef:\s*(?!SYN\d{7}\b)\S+/ },
+  { name: "non-synthetic-reference", re: /\bRef:\s*(?!SYN\d{1,7}\b)\S+/ },
 ];
 
 describe("sanitized SMS fixture catalog", () => {
-  it("has seven active fixtures across the three families", () => {
-    expect(active.length).toBe(7);
-    expect(active.filter((e) => e.family === "float_distribution").length).toBe(4);
-    expect(active.filter((e) => e.family === "evd_receipt").length).toBe(2);
-    expect(active.filter((e) => e.family === "float_receipt").length).toBe(1);
+  it("has fourteen active fixtures across the three families", () => {
+    expect(active.length).toBe(14);
+    expect(active.filter((e) => e.family === "float_distribution").length).toBe(8);
+    expect(active.filter((e) => e.family === "evd_receipt").length).toBe(4);
+    expect(active.filter((e) => e.family === "float_receipt").length).toBe(2);
   });
 
-  it("has 10 expected events and 1 review row", () => {
-    expect(active.reduce((a, e) => a + e.expected.eventCount, 0)).toBe(10);
-    expect(active.reduce((a, e) => a + e.expected.reviewRowCount, 0)).toBe(1);
+  it("has 17 expected events and 3 review rows", () => {
+    expect(active.reduce((a, e) => a + e.expected.eventCount, 0)).toBe(17);
+    expect(active.reduce((a, e) => a + e.expected.reviewRowCount, 0)).toBe(3);
   });
 
   it("has unique fixture ids", () => {
@@ -270,7 +278,7 @@ describe("EVD receipt date provenance", () => {
     for (const { entry, expected } of loaded.filter((f) => f.entry.family === "evd_receipt")) {
       const raw = readRaw(entry);
       for (const e of expected.expectedEvents) {
-        expect(e.dateSource, entry.id).toBe("sms_app");
+        if (e.dateSource !== "sms_app") continue;
         expect(e.occurredAt, entry.id).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
         const [day, minute] = e.occurredAt!.split("T");
         expect(raw, entry.id).toContain(`[SMS-APP ${day} ${minute}]`);
@@ -282,6 +290,105 @@ describe("EVD receipt date provenance", () => {
         .join("\n");
       expect(body, entry.id).not.toMatch(/\d{4}-\d{2}-\d{2}/);
       expect(body, entry.id).not.toMatch(/SYN\d{7}/);
+    }
+  });
+
+  it("falls back to a user-selected day with no invented time", () => {
+    const f = loaded.find((x) => x.entry.id === "sms.evd.case-03")!;
+    const raw = readRaw(f.entry);
+    expect(raw).not.toMatch(/\d{4}-\d{2}-\d{2}/);
+    const e = f.expected.expectedEvents[0];
+    expect(e.dateSource).toBe("user_selected");
+    expect(e.datePrecision).toBe("date");
+    expect(e.occurredAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("leaves an unrecognized distributor label unassigned but preserved", () => {
+    const f = loaded.find((x) => x.entry.id === "sms.evd.case-04")!;
+    const e = f.expected.expectedEvents[0];
+    expect(e.counterpartyLabel).toBe("Sample Distributor B");
+    expect(e.counterpartyMatch).toBe("unassigned");
+    expect(readRaw(f.entry)).toContain("Sample Distributor B");
+  });
+});
+
+describe("unmatched, duplicate and malformed SMS outcomes", () => {
+  it("keeps an unmatched Amharic distribution half visible and pending", () => {
+    const f = loaded.find((x) => x.entry.id === "sms.float.dist.case-05")!;
+    expect(f.expected.languageHalves).toEqual(["am"]);
+    expect(f.expected.expectedEvents.length).toBe(1);
+    const e = f.expected.expectedEvents[0];
+    expect(e.pairing).toBe("amharic_only");
+    expect(e.pairingStatus).toBe("pending");
+    expect(e.counterpartyLabel).toBeNull();
+    expect(e.shopLabel).toBeNull();
+    expect(e.amharicEvidenceText).toBeTruthy();
+    expect(e.recipientCode).toBe("70004");
+  });
+
+  it("collapses a duplicate bilingual delivery of one reference into one event", () => {
+    const f = loaded.find((x) => x.entry.id === "sms.float.dist.case-06")!;
+    const raw = readRaw(f.entry);
+    const refs = [...raw.matchAll(/SYN\d{7}/g)].map((m) => m[0]);
+    expect(refs.length).toBe(3);
+    expect(new Set(refs).size).toBe(1);
+    expect(f.expected.expectedEvents.length).toBe(1);
+    expect(f.expected.reviewRows.length).toBe(0);
+    expect(f.expected.expectedEvents[0].pairing).toBe("paired");
+  });
+
+  it("abstains on a truncated reference instead of completing it", () => {
+    const f = loaded.find((x) => x.entry.id === TRUNCATED_REFERENCE_FIXTURE)!;
+    const e = f.expected.expectedEvents[0];
+    expect(e.transactionReference).toBeNull();
+    expect(e.amountMinor).toBe(-2200000);
+    expect(f.expected.reviewRows.map((r) => r.reason)).toEqual(["missing_reference"]);
+    expect(readRaw(f.entry)).toContain("Ref: SYN44710");
+  });
+
+  it("emits no financial event for a malformed message", () => {
+    const f = loaded.find((x) => x.entry.id === "sms.float.dist.case-08")!;
+    expect(f.expected.expectedEvents.length).toBe(0);
+    expect(f.expected.reviewRows.map((r) => r.reason)).toEqual(["missing_amount"]);
+    const raw = readRaw(f.entry);
+    expect(raw).not.toMatch(/SYN\d/);
+    expect(raw).not.toMatch(/\d[\d,]*\.\d{2}/);
+  });
+
+  it("requires a review row when a fixture reports no events", () => {
+    const f = loaded.find((x) => x.entry.id === "sms.float.dist.case-08")!;
+    const mutated = { ...f.expected, reviewRows: [] };
+    expect(SmsGoldenExpectationSchema.safeParse(mutated).success).toBe(false);
+  });
+
+  it("keeps repeated float receipts separate when references differ", () => {
+    const f = loaded.find((x) => x.entry.id === "sms.float.recv.case-02")!;
+    const [a, b] = f.expected.expectedEvents;
+    expect(a.amountMinor).toBe(b.amountMinor);
+    expect(a.transactionReference).not.toBe(b.transactionReference);
+    expect(a.pairing).toBe("paired");
+    expect(b.pairing).toBe("english_only");
+    expect(f.expected.expectedEvents.length).toBe(2);
+  });
+
+  it("keeps every review outcome visible and ordered", () => {
+    for (const { entry, expected } of loaded) {
+      for (const r of expected.reviewRows) {
+        expect(r.observedText.length, entry.id).toBeGreaterThan(0);
+        expect(r.sourceOrder, entry.id).toBeGreaterThanOrEqual(0);
+      }
+    }
+    const totalReviews = loaded.reduce((a, f) => a + f.expected.reviewRows.length, 0);
+    expect(totalReviews).toBe(3);
+  });
+
+  it("allows a truncated reference token in exactly one fixture", () => {
+    for (const entry of active) {
+      const shortRefs = [...readRaw(entry).matchAll(/SYN\d+/g)]
+        .map((m) => m[0])
+        .filter((r) => r.length !== 10);
+      if (entry.id === TRUNCATED_REFERENCE_FIXTURE) expect(shortRefs.length).toBe(1);
+      else expect(shortRefs.length, entry.id).toBe(0);
     }
   });
 });

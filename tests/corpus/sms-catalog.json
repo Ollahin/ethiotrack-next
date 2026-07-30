@@ -48,6 +48,54 @@
     "expectedFixturePath": "tests/corpus/fixtures/sms/float-distribution/case-04.expected.json"
   },
   {
+    "id": "sms.float.dist.case-05",
+    "family": "float_distribution",
+    "platformHint": "mpesa",
+    "languageHalves": ["am"],
+    "status": "active",
+    "privacyStatus": "sanitized",
+    "expected": { "eventCount": 1, "reviewRowCount": 0 },
+    "tags": ["amharic-only", "unmatched-half", "pending-pair", "codes-present"],
+    "rawFixturePath": "tests/corpus/fixtures/sms/float-distribution/case-05.raw.txt",
+    "expectedFixturePath": "tests/corpus/fixtures/sms/float-distribution/case-05.expected.json"
+  },
+  {
+    "id": "sms.float.dist.case-06",
+    "family": "float_distribution",
+    "platformHint": "mpesa",
+    "languageHalves": ["en", "am"],
+    "status": "active",
+    "privacyStatus": "sanitized",
+    "expected": { "eventCount": 1, "reviewRowCount": 0 },
+    "tags": ["duplicate-delivery", "same-reference", "single-event"],
+    "rawFixturePath": "tests/corpus/fixtures/sms/float-distribution/case-06.raw.txt",
+    "expectedFixturePath": "tests/corpus/fixtures/sms/float-distribution/case-06.expected.json"
+  },
+  {
+    "id": "sms.float.dist.case-07",
+    "family": "float_distribution",
+    "platformHint": "mpesa",
+    "languageHalves": ["en"],
+    "status": "active",
+    "privacyStatus": "sanitized",
+    "expected": { "eventCount": 1, "reviewRowCount": 1 },
+    "tags": ["truncated-reference", "missing-reference", "review-visible"],
+    "rawFixturePath": "tests/corpus/fixtures/sms/float-distribution/case-07.raw.txt",
+    "expectedFixturePath": "tests/corpus/fixtures/sms/float-distribution/case-07.expected.json"
+  },
+  {
+    "id": "sms.float.dist.case-08",
+    "family": "float_distribution",
+    "platformHint": "mpesa",
+    "languageHalves": ["en"],
+    "status": "active",
+    "privacyStatus": "sanitized",
+    "expected": { "eventCount": 0, "reviewRowCount": 1 },
+    "tags": ["malformed-message", "abstention", "missing-amount", "no-invented-fields"],
+    "rawFixturePath": "tests/corpus/fixtures/sms/float-distribution/case-08.raw.txt",
+    "expectedFixturePath": "tests/corpus/fixtures/sms/float-distribution/case-08.expected.json"
+  },
+  {
     "id": "sms.evd.case-01",
     "family": "evd_receipt",
     "platformHint": "evd_shortcode",
@@ -72,6 +120,30 @@
     "expectedFixturePath": "tests/corpus/fixtures/sms/evd-receipt/case-02.expected.json"
   },
   {
+    "id": "sms.evd.case-03",
+    "family": "evd_receipt",
+    "platformHint": "evd_shortcode",
+    "languageHalves": ["en"],
+    "status": "active",
+    "privacyStatus": "sanitized",
+    "expected": { "eventCount": 1, "reviewRowCount": 0 },
+    "tags": ["no-timestamp", "user-selected-date", "date-precision", "no-invented-time"],
+    "rawFixturePath": "tests/corpus/fixtures/sms/evd-receipt/case-03.raw.txt",
+    "expectedFixturePath": "tests/corpus/fixtures/sms/evd-receipt/case-03.expected.json"
+  },
+  {
+    "id": "sms.evd.case-04",
+    "family": "evd_receipt",
+    "platformHint": "evd_shortcode",
+    "languageHalves": ["en"],
+    "status": "active",
+    "privacyStatus": "sanitized",
+    "expected": { "eventCount": 1, "reviewRowCount": 0 },
+    "tags": ["unrecognized-distributor", "unassigned-counterparty", "strict-matching"],
+    "rawFixturePath": "tests/corpus/fixtures/sms/evd-receipt/case-04.raw.txt",
+    "expectedFixturePath": "tests/corpus/fixtures/sms/evd-receipt/case-04.expected.json"
+  },
+  {
     "id": "sms.float.recv.case-01",
     "family": "float_receipt",
     "platformHint": "mpesa",
@@ -82,5 +154,17 @@
     "tags": ["inbound-float", "reference", "resulting-balance"],
     "rawFixturePath": "tests/corpus/fixtures/sms/float-receipt/case-01.raw.txt",
     "expectedFixturePath": "tests/corpus/fixtures/sms/float-receipt/case-01.expected.json"
+  },
+  {
+    "id": "sms.float.recv.case-02",
+    "family": "float_receipt",
+    "platformHint": "mpesa",
+    "languageHalves": ["en", "am"],
+    "status": "active",
+    "privacyStatus": "sanitized",
+    "expected": { "eventCount": 2, "reviewRowCount": 0 },
+    "tags": ["repeated-receipt", "distinct-reference", "bilingual-pair", "no-deduplication"],
+    "rawFixturePath": "tests/corpus/fixtures/sms/float-receipt/case-02.raw.txt",
+    "expectedFixturePath": "tests/corpus/fixtures/sms/float-receipt/case-02.expected.json"
   }
 ]
