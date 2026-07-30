@@ -56,14 +56,15 @@ Stage 1 — Corpus and ingestion baseline
 - Ratcheted non-regression floor and passing release gate
 - Ordered MJ unresolved-window diagnostics contract
 - MJ boundary regression suite and legacy-path removal
+- Float and EVD SMS corpus design
 
 ## Current task
 
-Task 0.3B-f — MJ boundary regression suite and integration cleanup
+Task 0.3C-a — Float and EVD SMS corpus design
 
 ## Next task
 
-Task 0.3C-a — Float and EVD SMS corpus design
+Task 0.3C-b — Sanitized SMS fixture schema and first representative fixtures
 
 ## Execution contract
 
