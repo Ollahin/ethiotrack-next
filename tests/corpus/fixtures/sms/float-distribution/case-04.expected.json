@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "sms.float.dist.case-04",
+  "family": "float_distribution",
+  "platformHint": "mpesa",
+  "languageHalves": ["en", "am"],
+  "expectedEvents": [
+    {
+      "sourceOrder": 0,
+      "eventKind": "float_sent_to_agent",
+      "direction": "outbound",
+      "amountMinor": -2500000,
+      "rawAmountText": "25,000.00",
+      "resultingBalanceMinor": 107700000,
+      "rawBalanceText": "1,077,000.00",
+      "transactionReference": "SYN4471033",
+      "occurredAt": "2026-08-13T11:20",
+      "datePrecision": "minute",
+      "dateSource": "in_message",
+      "counterpartyLabel": "Sample Administrator",
+      "shopLabel": "Sample Shop A",
+      "counterpartyMatch": "unassigned",
+      "senderCode": null,
+      "recipientCode": null,
+      "pairing": "english_only",
+      "pairingStatus": "pending",
+      "amharicEvidenceText": null,
+      "evidence": {
+        "amountMinor": { "observedText": "ETB 25,000.00 removed", "confidence": "high" },
+        "transactionReference": { "observedText": "Ref: SYN4471033", "confidence": "high" }
+      }
+    },
+    {
+      "sourceOrder": 1,
+      "eventKind": "float_sent_to_agent",
+      "direction": "outbound",
+      "amountMinor": -2500000,
+      "rawAmountText": "25,000.00",
+      "resultingBalanceMinor": null,
+      "rawBalanceText": null,
+      "transactionReference": "SYN4471034",
+      "occurredAt": "2026-08-13T11:20",
+      "datePrecision": "minute",
+      "dateSource": "in_message",
+      "counterpartyLabel": null,
+      "shopLabel": null,
+      "counterpartyMatch": "unassigned",
+      "senderCode": "70001",
+      "recipientCode": "70002",
+      "pairing": "amharic_only",
+      "pairingStatus": "pending",
+      "amharicEvidenceText": "ብር 25,000.00 ከኤም-ፔሳ ፍሎት ተቀንሶ ወደ 70002 ተልኳል። ላኪ ኮድ 70001። ቀን 2026-08-13 11:20። ማጣቀሻ SYN4471034።",
+      "evidence": {
+        "amountMinor": { "observedText": "ብር 25,000.00", "confidence": "high" },
+        "transactionReference": { "observedText": "ማጣቀሻ SYN4471034", "confidence": "high" },
+        "recipientCode": { "observedText": "ወደ 70002", "confidence": "high" }
+      }
+    }
+  ],
+  "reviewRows": [
+    {
+      "sourceOrder": 0,
+      "reason": "reference_mismatch",
+      "observedText": "SYN4471033 versus SYN4471034"
+    }
+  ],
+  "notes": [
+    "Reference mismatch prevents automatic pairing.",
+    "Equal amount and equal minute are not pairing evidence.",
+    "Amharic content is retained as evidence even when extraction is partial."
+  ]
+}

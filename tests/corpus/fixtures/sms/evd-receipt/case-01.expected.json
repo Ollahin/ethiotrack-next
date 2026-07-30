@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "sms.evd.case-01",
+  "family": "evd_receipt",
+  "platformHint": "evd_shortcode",
+  "languageHalves": ["en"],
+  "expectedEvents": [
+    {
+      "sourceOrder": 0,
+      "eventKind": "evd_received_from_distributor",
+      "direction": "inbound",
+      "amountMinor": 2000000,
+      "rawAmountText": "20,000.00",
+      "resultingBalanceMinor": null,
+      "rawBalanceText": null,
+      "transactionReference": null,
+      "occurredAt": "2026-08-13T15:42",
+      "datePrecision": "minute",
+      "dateSource": "sms_app",
+      "counterpartyLabel": "Sample Distributor A",
+      "shopLabel": null,
+      "counterpartyMatch": "unassigned",
+      "senderCode": null,
+      "recipientCode": null,
+      "pairing": "english_only",
+      "pairingStatus": "pending",
+      "amharicEvidenceText": null,
+      "evidence": {
+        "amountMinor": { "observedText": "credited with ETB 20,000.00", "confidence": "high" },
+        "occurredAt": { "observedText": "[SMS-APP 2026-08-13 15:42]", "confidence": "medium" },
+        "counterpartyLabel": { "observedText": "Sample Distributor A", "confidence": "medium" }
+      }
+    }
+  ],
+  "reviewRows": [],
+  "notes": [
+    "The message carries no embedded reference and no embedded date.",
+    "The date comes from SMS-app metadata and is never invented."
+  ]
+}

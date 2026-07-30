@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "sms.float.dist.case-02",
+  "family": "float_distribution",
+  "platformHint": "mpesa",
+  "languageHalves": ["en", "am"],
+  "expectedEvents": [
+    {
+      "sourceOrder": 0,
+      "eventKind": "float_sent_to_agent",
+      "direction": "outbound",
+      "amountMinor": -3000000,
+      "rawAmountText": "30,000.00",
+      "resultingBalanceMinor": 122500000,
+      "rawBalanceText": "1,225,000.00",
+      "transactionReference": "SYN4471030",
+      "occurredAt": "2026-08-12T09:05",
+      "datePrecision": "minute",
+      "dateSource": "in_message",
+      "counterpartyLabel": "Sample Administrator",
+      "shopLabel": "Sample Shop A",
+      "counterpartyMatch": "unassigned",
+      "senderCode": "70001",
+      "recipientCode": "70002",
+      "pairing": "paired",
+      "pairingStatus": "complete",
+      "amharicEvidenceText": "ብር 30,000.00 ከኤም-ፔሳ ፍሎት ተቀንሶ ወደ 70002 ተልኳል። ላኪ ኮድ 70001። ቀን 2026-08-12 09:05። ማጣቀሻ SYN4471030።",
+      "evidence": {
+        "amountMinor": { "observedText": "ETB 30,000.00 removed", "confidence": "high" },
+        "transactionReference": { "observedText": "Ref: SYN4471030", "confidence": "high" },
+        "occurredAt": { "observedText": "on 2026-08-12 09:05", "confidence": "high" },
+        "recipientCode": { "observedText": "ወደ 70002", "confidence": "high" }
+      }
+    },
+    {
+      "sourceOrder": 1,
+      "eventKind": "float_sent_to_agent",
+      "direction": "outbound",
+      "amountMinor": -3000000,
+      "rawAmountText": "30,000.00",
+      "resultingBalanceMinor": 119500000,
+      "rawBalanceText": "1,195,000.00",
+      "transactionReference": "SYN4471031",
+      "occurredAt": "2026-08-12T09:05",
+      "datePrecision": "minute",
+      "dateSource": "in_message",
+      "counterpartyLabel": "Sample Administrator",
+      "shopLabel": "Sample Shop A",
+      "counterpartyMatch": "unassigned",
+      "senderCode": "70001",
+      "recipientCode": "70003",
+      "pairing": "paired",
+      "pairingStatus": "complete",
+      "amharicEvidenceText": "ብር 30,000.00 ከኤም-ፔሳ ፍሎት ተቀንሶ ወደ 70003 ተልኳል። ላኪ ኮድ 70001። ቀን 2026-08-12 09:05። ማጣቀሻ SYN4471031።",
+      "evidence": {
+        "amountMinor": { "observedText": "ETB 30,000.00 removed", "confidence": "high" },
+        "transactionReference": { "observedText": "Ref: SYN4471031", "confidence": "high" },
+        "occurredAt": { "observedText": "on 2026-08-12 09:05", "confidence": "high" },
+        "recipientCode": { "observedText": "ወደ 70003", "confidence": "high" }
+      }
+    }
+  ],
+  "reviewRows": [],
+  "notes": [
+    "Equal amount and equal minute never deduplicate two events.",
+    "Distinct references prove two distinct financial events."
+  ]
+}

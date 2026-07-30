@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "sms.float.dist.case-01",
+  "family": "float_distribution",
+  "platformHint": "mpesa",
+  "languageHalves": ["en", "am"],
+  "expectedEvents": [
+    {
+      "sourceOrder": 0,
+      "eventKind": "float_sent_to_agent",
+      "direction": "outbound",
+      "amountMinor": -4500000,
+      "rawAmountText": "45,000.00",
+      "resultingBalanceMinor": 125500000,
+      "rawBalanceText": "1,255,000.00",
+      "transactionReference": "SYN4471029",
+      "occurredAt": "2026-08-11T10:14",
+      "datePrecision": "minute",
+      "dateSource": "in_message",
+      "counterpartyLabel": "Sample Administrator",
+      "shopLabel": "Sample Shop A",
+      "counterpartyMatch": "unassigned",
+      "senderCode": "70001",
+      "recipientCode": "70002",
+      "pairing": "paired",
+      "pairingStatus": "complete",
+      "amharicEvidenceText": "ብር 45,000.00 ከኤም-ፔሳ ፍሎት ተቀንሶ ወደ 70002 ተልኳል። ላኪ ኮድ 70001። ቀን 2026-08-11 10:14። ማጣቀሻ SYN4471029።",
+      "evidence": {
+        "amountMinor": { "observedText": "ETB 45,000.00 removed", "confidence": "high" },
+        "resultingBalanceMinor": {
+          "observedText": "New float balance ETB 1,255,000.00",
+          "confidence": "high"
+        },
+        "transactionReference": { "observedText": "Ref: SYN4471029", "confidence": "high" },
+        "occurredAt": { "observedText": "on 2026-08-11 10:14", "confidence": "high" },
+        "counterpartyLabel": { "observedText": "by Sample Administrator", "confidence": "medium" },
+        "senderCode": { "observedText": "ላኪ ኮድ 70001", "confidence": "high" },
+        "recipientCode": { "observedText": "ወደ 70002", "confidence": "high" }
+      }
+    }
+  ],
+  "reviewRows": [],
+  "notes": [
+    "One bilingual pair creates one event, not two.",
+    "The transaction reference is the pairing key.",
+    "The resulting balance is not the transaction amount."
+  ]
+}

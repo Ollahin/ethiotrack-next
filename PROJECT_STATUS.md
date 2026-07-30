@@ -57,14 +57,15 @@ Stage 1 — Corpus and ingestion baseline
 - Ordered MJ unresolved-window diagnostics contract
 - MJ boundary regression suite and legacy-path removal
 - Float and EVD SMS corpus design
+- Sanitized SMS fixture schema and first representative fixtures
 
 ## Current task
 
-Task 0.3C-a — Float and EVD SMS corpus design
+Task 0.3C-b — Sanitized SMS fixture schema and first representative fixtures
 
 ## Next task
 
-Task 0.3C-b — Sanitized SMS fixture schema and first representative fixtures
+Task 0.3C-c — Complete the 14-case sanitized SMS corpus
 
 ## Execution contract
 
