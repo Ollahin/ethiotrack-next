@@ -39,6 +39,15 @@ material and are not committed.
 - Refill History row recall: 26 / 26, 100%.
 - 2 known reversal rows in the current catalog.
 
+## Sanitized SMS corpus (Task 0.3C-b)
+
+- 7 active sanitized SMS fixtures: 4 `float_distribution`, 2 `evd_receipt`,
+  1 `float_receipt`.
+- 10 expected events and 1 expected review row.
+- 2 bilingual pairs, 1 pending English-only half, 1 pending Amharic-only half.
+- 0 fixtures invoke the production parser; these validate meaning only.
+- Screenshot corpus unchanged: 9 fixtures, 56/56 exact, both gates passing.
+
 ## Activation status (Task 0.2C-c)
 
 - All 9 screenshot fixtures are active and sanitized: 6 MJ Transfers → Sent
