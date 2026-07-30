@@ -59,14 +59,15 @@ Stage 1 — Corpus and ingestion baseline
 - Float and EVD SMS corpus design
 - Sanitized SMS fixture schema and first representative fixtures
 - Complete 14-case sanitized SMS corpus
+- Deterministic Float and EVD SMS parser design
 
 ## Current task
 
-Task 0.3C-c — Complete the 14-case sanitized SMS corpus
+Task 0.3C-d — Deterministic Float and EVD SMS parser design
 
 ## Next task
 
-Task 0.3C-d — Deterministic Float and EVD SMS parser design
+Task 0.3C-e — SMS classification and field-extraction primitives
 
 ## Execution contract
 

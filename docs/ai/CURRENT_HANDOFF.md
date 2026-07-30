@@ -16,7 +16,8 @@
 - `tests/corpus/production-baseline.json` is the frozen reference baseline.
 - Sanitized SMS corpus: 14 active fixtures, 17 expected events, 3 review rows
   (8 float_distribution, 4 evd_receipt, 2 float_receipt). The 14-case plan is
-  complete. Meaning-only; no production SMS parser exists yet.
+  complete. Meaning-only; no production SMS parser exists yet. The deterministic
+  parser design is recorded in `docs/float-evd-sms-parser-design.md`.
 
 ## MJ milestone completion
 
@@ -42,6 +43,7 @@ a boundary regression suite is in place.
 - `docs/blueprint/03-production-execution-playbook.md`
 - `docs/mj-row-reconstruction-design.md`
 - `docs/float-evd-sms-corpus-design.md`
+- `docs/float-evd-sms-parser-design.md`
 - `docs/corpus-baseline.md`, `docs/parser-failure-report.md`
 - `tests/corpus/catalog.json`, `tests/corpus/schema.ts`,
   `tests/corpus/production-baseline.json`
@@ -49,8 +51,8 @@ a boundary regression suite is in place.
 
 ## Current task
 
-Task 0.3C-c — Complete the 14-case sanitized SMS corpus
+Task 0.3C-d — Deterministic Float and EVD SMS parser design
 
 ## Next task
 
-Task 0.3C-d — Deterministic Float and EVD SMS parser design
+Task 0.3C-e — SMS classification and field-extraction primitives
