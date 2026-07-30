@@ -38,27 +38,35 @@ function readExpected(entry: SmsFixtureCatalogEntry): SmsGoldenExpectation {
 const loaded = active.map((entry) => ({ entry, expected: readExpected(entry) }));
 const allEvents: SmsExpectedEvent[] = loaded.flatMap((f) => f.expected.expectedEvents);
 
-const ALLOWED_LABELS = ["Sample Administrator", "Sample Shop A", "Sample Distributor A"];
+const ALLOWED_LABELS = [
+  "Sample Administrator",
+  "Sample Shop A",
+  "Sample Distributor A",
+  "Sample Distributor B",
+];
+
+/** The only fixture allowed to carry a deliberately truncated reference token. */
+const TRUNCATED_REFERENCE_FIXTURE = "sms.float.dist.case-07";
 
 const FORBIDDEN = [
   { name: "http-url", re: /https?:\/\//i },
   { name: "masked-account", re: /\d\*{1,}\d/ },
   { name: "phone-number", re: /(?:\+251|\b0)\d{8,9}\b/ },
   { name: "raw-sms-opening", re: /^\s*Dear\b/im },
-  { name: "non-synthetic-reference", re: /\bRef:\s*(?!SYN\d{7}\b)\S+/ },
+  { name: "non-synthetic-reference", re: /\bRef:\s*(?!SYN\d{1,7}\b)\S+/ },
 ];
 
 describe("sanitized SMS fixture catalog", () => {
-  it("has seven active fixtures across the three families", () => {
-    expect(active.length).toBe(7);
-    expect(active.filter((e) => e.family === "float_distribution").length).toBe(4);
-    expect(active.filter((e) => e.family === "evd_receipt").length).toBe(2);
-    expect(active.filter((e) => e.family === "float_receipt").length).toBe(1);
+  it("has fourteen active fixtures across the three families", () => {
+    expect(active.length).toBe(14);
+    expect(active.filter((e) => e.family === "float_distribution").length).toBe(8);
+    expect(active.filter((e) => e.family === "evd_receipt").length).toBe(4);
+    expect(active.filter((e) => e.family === "float_receipt").length).toBe(2);
   });
 
-  it("has 10 expected events and 1 review row", () => {
-    expect(active.reduce((a, e) => a + e.expected.eventCount, 0)).toBe(10);
-    expect(active.reduce((a, e) => a + e.expected.reviewRowCount, 0)).toBe(1);
+  it("has 17 expected events and 3 review rows", () => {
+    expect(active.reduce((a, e) => a + e.expected.eventCount, 0)).toBe(17);
+    expect(active.reduce((a, e) => a + e.expected.reviewRowCount, 0)).toBe(3);
   });
 
   it("has unique fixture ids", () => {
