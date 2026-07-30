@@ -16,8 +16,13 @@
 - `tests/corpus/production-baseline.json` is the frozen reference baseline.
 - Sanitized SMS corpus: 14 active fixtures, 17 expected events, 3 review rows
   (8 float_distribution, 4 evd_receipt, 2 float_receipt). The 14-case plan is
-  complete. Meaning-only; no production SMS parser exists yet. The deterministic
-  parser design is recorded in `docs/float-evd-sms-parser-design.md`.
+  complete. The deterministic parser design is recorded in
+  `docs/float-evd-sms-parser-design.md`.
+- SMS parser primitives: `src/lib/float-evd-sms-parser.ts` implements pure
+  segmentation, normalization, language/family classification and per-block
+  field extraction with evidence and warnings (46 tests). It is deliberately
+  not wired into any capture, import or production parser entry point, and it
+  performs no pairing, deduplication or event creation yet.
 
 ## MJ milestone completion
 
@@ -48,11 +53,12 @@ a boundary regression suite is in place.
 - `tests/corpus/catalog.json`, `tests/corpus/schema.ts`,
   `tests/corpus/production-baseline.json`
 - `tests/corpus/sms-schema.ts`, `tests/corpus/sms-catalog.json`
+- `src/lib/float-evd-sms-parser.ts`
 
 ## Current task
 
-Task 0.3C-d — Deterministic Float and EVD SMS parser design
+Task 0.3C-e — SMS classification and field-extraction primitives
 
 ## Next task
 
-Task 0.3C-e — SMS classification and field-extraction primitives
+Task 0.3C-f — Bilingual pairing and reference-based deduplication
