@@ -39,12 +39,18 @@ material and are not committed.
 - Refill History row recall: 26 / 26, 100%.
 - 2 known reversal rows in the current catalog.
 
-## Sanitized SMS corpus (Task 0.3C-b)
+## Sanitized SMS corpus (Task 0.3C-c)
 
-- 7 active sanitized SMS fixtures: 4 `float_distribution`, 2 `evd_receipt`,
-  1 `float_receipt`.
-- 10 expected events and 1 expected review row.
-- 2 bilingual pairs, 1 pending English-only half, 1 pending Amharic-only half.
+- 14 active sanitized SMS fixtures: 8 `float_distribution`, 4 `evd_receipt`,
+  2 `float_receipt`.
+- 17 expected events and 3 expected review rows.
+- 3 bilingual pairs, 2 pending Amharic-only halves, 6 pending English-only
+  halves.
+- Review reasons in use: `reference_mismatch`, `missing_reference`,
+  `missing_amount`.
+- 1 fixture legitimately produces zero events and exposes a review row only.
+- Date provenance covered: `in_message`, `sms_app` and `user_selected`
+  (day precision, no invented time).
 - 0 fixtures invoke the production parser; these validate meaning only.
 - Screenshot corpus unchanged: 9 fixtures, 56/56 exact, both gates passing.
 
