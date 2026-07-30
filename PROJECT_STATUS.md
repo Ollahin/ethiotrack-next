@@ -58,14 +58,15 @@ Stage 1 — Corpus and ingestion baseline
 - MJ boundary regression suite and legacy-path removal
 - Float and EVD SMS corpus design
 - Sanitized SMS fixture schema and first representative fixtures
+- Complete 14-case sanitized SMS corpus
 
 ## Current task
 
-Task 0.3C-b — Sanitized SMS fixture schema and first representative fixtures
+Task 0.3C-c — Complete the 14-case sanitized SMS corpus
 
 ## Next task
 
-Task 0.3C-c — Complete the 14-case sanitized SMS corpus
+Task 0.3C-d — Deterministic Float and EVD SMS parser design
 
 ## Execution contract
 
