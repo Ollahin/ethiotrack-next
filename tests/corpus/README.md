@@ -195,19 +195,28 @@ The Float and EVD SMS corpus lives beside the screenshot corpus:
 - `fixtures/sms/float-distribution`, `fixtures/sms/evd-receipt`,
   `fixtures/sms/float-receipt` — sanitized raw text and expected JSON.
 
-Seven fully synthetic cases are active (10 events, 1 review row). Governing
-rules, from `docs/float-evd-sms-corpus-design.md`:
+All fourteen fully synthetic cases are active (17 events, 3 review rows).
+Governing rules, from `docs/float-evd-sms-corpus-design.md`:
 
 - One bilingual English/Amharic pair creates one event, not two.
 - The transaction reference is the primary pairing key; a mismatch prevents
   automatic pairing and both halves stay pending and visible.
+- A duplicate delivery of the same proven reference produces one event; two
+  different references always remain separate events.
 - Equal amount and equal minute never deduplicate events.
 - The resulting balance is never the transaction amount.
 - A recipient code is never invented from English text.
 - EVD receipt dates come from SMS-app metadata or a user-selected date; a time
   is never invented.
+- A truncated reference is never completed, and a malformed message emits a
+  review row instead of an event; no amount, sign, date, code, reference or
+  counterparty is ever invented.
+- An unrecognized distributor label stays `unassigned` with its raw label
+  preserved.
 - Only synthetic labels (`Sample Administrator`, `Sample Shop A`,
-  `Sample Distributor A`), `700xx` codes and `SYN#######` references appear.
+  `Sample Distributor A`, `Sample Distributor B`), `700xx` codes and
+  `SYN#######` references appear. Exactly one fixture
+  (`sms.float.dist.case-07`) carries a deliberately truncated reference token.
   No private SMS text, screenshot or source document is committed.
 - Amharic content is retained as evidence even when extraction is partial.
 - These fixtures invoke no production parser.
