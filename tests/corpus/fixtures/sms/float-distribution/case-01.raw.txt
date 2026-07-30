@@ -1,5 +1,5 @@
 [EN 2026-08-11 10:14]
-ETB 45,000.00 removed from your M-PESA float by Sample Administrator at Sample Shop A on 2026-08-11 10:14. Ref: SYN4471029. New float balance ETB 1,255,000.00.
+Dear Agent, 45,000.00 Birr was removed from your M-PESA float by Sample Administrator at Sample Shop A on 11/8/26 at 10:14 AM. Your Transaction Number is SYN4471029. Current M-PESA balance is 1,255,000.00 Birr.
 
 [AM 2026-08-11 10:14]
-ብር 45,000.00 ከኤም-ፔሳ ፍሎት ተቀንሶ ወደ 70002 ተልኳል። ላኪ ኮድ 70001። ቀን 2026-08-11 10:14። ማጣቀሻ SYN4471029።
+45,000.00 ብር ከ70001 ለ70002 በ 11/8/26 10:14 AM ከኤም-ፔሳ ፍሎት ተቀንሶ ተልኳል። ማጣቀሻ SYN4471029።
