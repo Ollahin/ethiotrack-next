@@ -538,7 +538,8 @@ export function extractCodes(block: SmsBlock): {
   }
 
   const sender = SENDER_CODE_RX.exec(block.text);
-  const recipient = RECIPIENT_CODE_EXPLICIT_RX.exec(block.text) ?? RECIPIENT_CODE_TO_RX.exec(block.text);
+  const recipient =
+    RECIPIENT_CODE_EXPLICIT_RX.exec(block.text) ?? RECIPIENT_CODE_TO_RX.exec(block.text);
 
   if (sender) evidence.senderCode = { observedText: sender[0].trim(), confidence: "high" };
   if (recipient) evidence.recipientCode = { observedText: recipient[0].trim(), confidence: "high" };
@@ -574,11 +575,7 @@ export function extractSmsFields(
   if (reference.evidence) evidence.transactionReference = reference.evidence;
   if (when.evidence) evidence.occurredAt = when.evidence;
 
-  const warnings: SmsWarning[] = [
-    ...amounts.warnings,
-    ...reference.warnings,
-    ...when.warnings,
-  ];
+  const warnings: SmsWarning[] = [...amounts.warnings, ...reference.warnings, ...when.warnings];
   if (classification.family === "unknown") {
     warnings.unshift({
       reason: "ambiguous_direction",
