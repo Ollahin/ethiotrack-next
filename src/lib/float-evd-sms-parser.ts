@@ -241,7 +241,11 @@ const FAMILY_RULES: FamilyRule[] = [
   {
     family: "evd_receipt",
     direction: "inbound",
-    test: (t) => firstMatchText(t, /credited with\s+ETB/i),
+    test: (t) =>
+      firstMatchText(
+        t,
+        /credited with\s+(?:ETB\s*[\d,]+(?:\.\d{1,2})?|[\d,]+(?:\.\d{1,2})?\s*ETB)/i,
+      ),
   },
 ];
 
@@ -285,7 +289,12 @@ export function parseSantim(token: string): number | null {
   return Number.isSafeInteger(value) ? value : null;
 }
 
-const CURRENCY_AMOUNT_RX = /(ETB|ብር)\s*(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)/g;
+/**
+ * Both observed money shapes: currency-before-amount (`ETB 45,000.00`) and
+ * amount-before-currency (`45,000.00 Birr`). Nothing else is money.
+ */
+const CURRENCY_AMOUNT_RX =
+  /(?:(ETB|Birr|ብር)\s*(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)|(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)\s*(?:(ETB|Birr)\b|(ብር)))/gi;
 const BALANCE_PREFIX_RX = /(balance|ቀሪ ሂሳብ)[^\d]*$/i;
 
 /**
@@ -309,13 +318,15 @@ export function extractAmountAndBalance(
   let match: RegExpExecArray | null;
   while ((match = CURRENCY_AMOUNT_RX.exec(text)) !== null) {
     const before = text.slice(Math.max(0, match.index - 40), match.index);
-    const santim = parseSantim(match[2]);
+    const amountToken = match[2] ?? match[3];
+    if (!amountToken) continue;
+    const santim = parseSantim(amountToken);
     if (santim === null) continue;
 
     if (BALANCE_PREFIX_RX.test(before)) {
       if (resultingBalanceMinor === null) {
         resultingBalanceMinor = santim;
-        rawBalanceText = match[2];
+        rawBalanceText = amountToken;
         const lineStart = text.lastIndexOf("\n", match.index) + 1;
         const clauseStart = Math.max(lineStart, text.lastIndexOf(". ", match.index) + 2);
         evidence.resultingBalanceMinor = {
@@ -328,12 +339,14 @@ export function extractAmountAndBalance(
 
     if (amountMinor === null) {
       const after = text.slice(match.index + match[0].length);
-      const trailer = /^\s+(removed|added|credited)\b/i.exec(after);
+      const trailer = /^\s+(?:was\s+|has been\s+)?(?:successfully\s+)?(removed|added|credited)\b/i.exec(
+        after,
+      );
       amountMinor = santim;
-      rawAmountText = match[2];
+      rawAmountText = amountToken;
       const creditedBefore = /credited with\s*$/i.test(before) ? "credited with " : "";
       evidence.amountMinor = {
-        observedText: `${creditedBefore}${match[0]}${trailer ? ` ${trailer[1]}` : ""}`,
+        observedText: `${creditedBefore}${match[0]}${trailer ? trailer[0] : ""}`,
         confidence: "high",
       };
     }
@@ -362,9 +375,9 @@ export function extractAmountAndBalance(
 /* Reference                                                           */
 /* ------------------------------------------------------------------ */
 
-const REFERENCE_RX = /(?:Ref:|ማጣቀሻ)\s*([A-Za-z0-9]+)/;
-/** A complete synthetic-shaped reference: three letters plus seven digits. */
-const REFERENCE_SHAPE_RX = /^[A-Za-z]{3}\d{7}$/;
+const REFERENCE_RX = /(?:Ref:|Your Transaction Number is|ማጣቀሻ)\s*([A-Za-z0-9]+)/i;
+/** A complete synthetic-shaped reference: three letters plus seven alphanumerics. */
+const REFERENCE_SHAPE_RX = /^[A-Za-z]{3}[A-Za-z0-9]{7}$/;
 
 export function extractReference(block: SmsBlock): {
   reference: string | null;
@@ -398,6 +411,21 @@ export function extractReference(block: SmsBlock): {
 /* ------------------------------------------------------------------ */
 
 const IN_MESSAGE_STAMP_RX = /(?:\bon\b|ቀን)\s+(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2}))?/;
+/** `on 11/8/26 at 10:14 AM` / `በ 11/8/26 10:14 AM` — day/month/two-digit year. */
+const SLASH_STAMP_RX =
+  /(?:\bon\b|በ)\s*(\d{1,2})\/(\d{1,2})\/(\d{2})(?:\s+at)?\s+(\d{1,2}):(\d{2})\s*(AM|PM)/i;
+
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+/** Deterministic 12-hour → 24-hour conversion. No `Date`, no timezone math. */
+function to24Hour(hour: number, meridiem: string): number | null {
+  if (hour < 1 || hour > 12) return null;
+  const pm = meridiem.toUpperCase() === "PM";
+  if (hour === 12) return pm ? 12 : 0;
+  return pm ? hour + 12 : hour;
+}
 
 /** Message-local timestamp; never parsed through `Date`, never converted. */
 export function extractLocalStamp(block: SmsBlock): {
@@ -406,7 +434,22 @@ export function extractLocalStamp(block: SmsBlock): {
   evidence: SmsFieldEvidence | null;
 } {
   const m = IN_MESSAGE_STAMP_RX.exec(block.text);
-  if (!m) return { stamp: null, precision: null, evidence: null };
+  if (!m) {
+    const s = SLASH_STAMP_RX.exec(block.text);
+    if (!s) return { stamp: null, precision: null, evidence: null };
+    const day = Number(s[1]);
+    const month = Number(s[2]);
+    const hour24 = to24Hour(Number(s[4]), s[6]);
+    if (day < 1 || day > 31 || month < 1 || month > 12 || hour24 === null) {
+      return { stamp: null, precision: null, evidence: null };
+    }
+    const year = 2000 + Number(s[3]);
+    return {
+      stamp: `${year}-${pad2(month)}-${pad2(day)}T${pad2(hour24)}:${s[5]}`,
+      precision: "minute",
+      evidence: { observedText: s[0].trim(), confidence: "high" },
+    };
+  }
   if (!m[2]) {
     return {
       stamp: m[1],
@@ -525,6 +568,8 @@ export function extractLabels(block: SmsBlock): {
 const SENDER_CODE_RX = /ላኪ ኮድ\s*(\d+)/;
 const RECIPIENT_CODE_EXPLICIT_RX = /ተቀባይ ኮድ\s*(\d+)/;
 const RECIPIENT_CODE_TO_RX = /ወደ\s*(\d+)/;
+const SENDER_CODE_FROM_RX = /ከ\s*(\d+)/;
+const RECIPIENT_CODE_FOR_RX = /ለ\s*(\d+)/;
 
 /** Codes exist only where Amharic evidence exists. English never invents them. */
 export function extractCodes(block: SmsBlock): {
@@ -537,9 +582,11 @@ export function extractCodes(block: SmsBlock): {
     return { senderCode: null, recipientCode: null, evidence };
   }
 
-  const sender = SENDER_CODE_RX.exec(block.text);
+  const sender = SENDER_CODE_RX.exec(block.text) ?? SENDER_CODE_FROM_RX.exec(block.text);
   const recipient =
-    RECIPIENT_CODE_EXPLICIT_RX.exec(block.text) ?? RECIPIENT_CODE_TO_RX.exec(block.text);
+    RECIPIENT_CODE_EXPLICIT_RX.exec(block.text) ??
+    RECIPIENT_CODE_TO_RX.exec(block.text) ??
+    RECIPIENT_CODE_FOR_RX.exec(block.text);
 
   if (sender) evidence.senderCode = { observedText: sender[0].trim(), confidence: "high" };
   if (recipient) evidence.recipientCode = { observedText: recipient[0].trim(), confidence: "high" };
