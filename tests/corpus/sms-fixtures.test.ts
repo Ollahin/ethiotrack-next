@@ -52,8 +52,12 @@ const FORBIDDEN = [
   { name: "http-url", re: /https?:\/\//i },
   { name: "masked-account", re: /\d\*{1,}\d/ },
   { name: "phone-number", re: /(?:\+251|\b0)\d{8,9}\b/ },
-  { name: "raw-sms-opening", re: /^\s*Dear\b/im },
-  { name: "non-synthetic-reference", re: /\bRef:\s*(?!SYN\d{1,7}\b)\S+/ },
+  // Generic salutations are structural; any other salutation would be private.
+  { name: "non-generic-salutation", re: /^\s*Dear\s+(?!Agent,|customer,)/im },
+  {
+    name: "non-synthetic-reference",
+    re: /\b(?:Ref:|Your Transaction Number is)\s*(?!SYN\d{1,7}\b)\S+/,
+  },
 ];
 
 describe("sanitized SMS fixture catalog", () => {

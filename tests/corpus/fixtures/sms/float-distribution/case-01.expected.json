@@ -24,18 +24,36 @@
       "recipientCode": "70002",
       "pairing": "paired",
       "pairingStatus": "complete",
-      "amharicEvidenceText": "ብር 45,000.00 ከኤም-ፔሳ ፍሎት ተቀንሶ ወደ 70002 ተልኳል። ላኪ ኮድ 70001። ቀን 2026-08-11 10:14። ማጣቀሻ SYN4471029።",
+      "amharicEvidenceText": "45,000.00 ብር ከ70001 ለ70002 በ 11/8/26 10:14 AM ከኤም-ፔሳ ፍሎት ተቀንሶ ተልኳል። ማጣቀሻ SYN4471029።",
       "evidence": {
-        "amountMinor": { "observedText": "ETB 45,000.00 removed", "confidence": "high" },
-        "resultingBalanceMinor": {
-          "observedText": "New float balance ETB 1,255,000.00",
+        "amountMinor": {
+          "observedText": "45,000.00 Birr was removed",
           "confidence": "high"
         },
-        "transactionReference": { "observedText": "Ref: SYN4471029", "confidence": "high" },
-        "occurredAt": { "observedText": "on 2026-08-11 10:14", "confidence": "high" },
-        "counterpartyLabel": { "observedText": "by Sample Administrator", "confidence": "medium" },
-        "senderCode": { "observedText": "ላኪ ኮድ 70001", "confidence": "high" },
-        "recipientCode": { "observedText": "ወደ 70002", "confidence": "high" }
+        "resultingBalanceMinor": {
+          "observedText": "Current M-PESA balance is 1,255,000.00 Birr",
+          "confidence": "high"
+        },
+        "transactionReference": {
+          "observedText": "Your Transaction Number is SYN4471029",
+          "confidence": "high"
+        },
+        "occurredAt": {
+          "observedText": "on 11/8/26 at 10:14 AM",
+          "confidence": "high"
+        },
+        "counterpartyLabel": {
+          "observedText": "by Sample Administrator",
+          "confidence": "medium"
+        },
+        "senderCode": {
+          "observedText": "ከ70001",
+          "confidence": "high"
+        },
+        "recipientCode": {
+          "observedText": "ለ70002",
+          "confidence": "high"
+        }
       }
     }
   ],
@@ -43,6 +61,7 @@
   "notes": [
     "One bilingual pair creates one event, not two.",
     "The transaction reference is the pairing key.",
-    "The resulting balance is not the transaction amount."
+    "The resulting balance is not the transaction amount.",
+    "Source-structure faithful: amount-before-Birr, d/M/yy 12-hour time, transaction-number reference."
   ]
 }

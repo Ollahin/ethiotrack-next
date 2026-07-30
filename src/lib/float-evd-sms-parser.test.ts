@@ -546,3 +546,126 @@ describe("per-block extraction over every fixture message", () => {
     }
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* Source-structure faithful forms (batch 0.3C-e1)                     */
+/* ------------------------------------------------------------------ */
+
+const REAL_EN_DISTRIBUTION = `[EN 2026-08-11 10:14]
+Dear Agent, 45,000.00 Birr was removed from your M-PESA float by Sample Administrator at Sample Shop A on 11/8/26 at 10:14 AM. Your Transaction Number is SYN4471029. Current M-PESA balance is 1,255,000.00 Birr.`;
+
+const REAL_AM_DISTRIBUTION = `[AM 2026-08-11 10:14]
+45,000.00 ብር ከ70001 ለ70002 በ 11/8/26 10:14 AM ከኤም-ፔሳ ፍሎት ተቀንሶ ተልኳል። ማጣቀሻ SYN4471029።`;
+
+const REAL_EN_RECEIPT = `[EN 2026-08-14 08:20]
+Dear Agent, 500,000.00 Birr was added to your M-PESA float by Sample Administrator at Sample Shop A on 14/8/26 at 8:20 AM. Your Transaction Number is SYN4471040. Current M-PESA balance is 1,755,000.00 Birr.`;
+
+const REAL_EVD = `[SMS-APP 2026-08-13 15:42]
+Dear customer, your account has been successfully credited with 20,000.00 ETB. Sample Distributor A`;
+
+describe("source-structure faithful English float distribution", () => {
+  const [x] = extractSmsBlocks(REAL_EN_DISTRIBUTION);
+
+  it("classifies an amount-before-Birr removal as an outbound distribution", () => {
+    expect(x.classification.family).toBe("float_distribution");
+    expect(x.classification.direction).toBe("outbound");
+    expect(x.amountMinor).toBe(-4500000);
+    expect(x.rawAmountText).toBe("45,000.00");
+    expect(x.evidence.amountMinor.observedText).toBe("45,000.00 Birr was removed");
+  });
+
+  it("keeps the current balance distinct from the transaction amount", () => {
+    expect(x.resultingBalanceMinor).toBe(125500000);
+    expect(x.rawBalanceText).toBe("1,255,000.00");
+    expect(x.evidence.resultingBalanceMinor.observedText).toBe(
+      "Current M-PESA balance is 1,255,000.00 Birr",
+    );
+  });
+
+  it("reads the transaction-number reference", () => {
+    expect(x.transactionReference).toBe("SYN4471029");
+    expect(x.referenceLooksTruncated).toBe(false);
+    expect(x.evidence.transactionReference.observedText).toBe(
+      "Your Transaction Number is SYN4471029",
+    );
+  });
+
+  it("converts d/M/yy plus 12-hour time to a local minute stamp", () => {
+    expect(x.occurredAt).toBe("2026-08-11T10:14");
+    expect(x.datePrecision).toBe("minute");
+    expect(x.dateSource).toBe("in_message");
+  });
+
+  it("keeps administrator and shop labels and invents no codes", () => {
+    expect(x.counterpartyLabel).toBe("Sample Administrator");
+    expect(x.shopLabel).toBe("Sample Shop A");
+    expect(x.senderCode).toBeNull();
+    expect(x.recipientCode).toBeNull();
+    expect(x.warnings).toEqual([]);
+  });
+});
+
+describe("source-structure faithful Amharic float distribution", () => {
+  const [x] = extractSmsBlocks(REAL_AM_DISTRIBUTION);
+
+  it("extracts ከsender and ለrecipient codes", () => {
+    expect(x.senderCode).toBe("70001");
+    expect(x.recipientCode).toBe("70002");
+    expect(x.evidence.senderCode.observedText).toBe("ከ70001");
+    expect(x.evidence.recipientCode.observedText).toBe("ለ70002");
+  });
+
+  it("signs the amount-before-ብር value outbound and dates it from በ d/M/yy", () => {
+    expect(x.amountMinor).toBe(-4500000);
+    expect(x.occurredAt).toBe("2026-08-11T10:14");
+    expect(x.datePrecision).toBe("minute");
+    expect(x.transactionReference).toBe("SYN4471029");
+  });
+
+  it("yields no English labels", () => {
+    expect(x.counterpartyLabel).toBeNull();
+    expect(x.shopLabel).toBeNull();
+  });
+});
+
+describe("source-structure faithful float receipt and EVD receipt", () => {
+  it("treats an amount-before-Birr addition as inbound float", () => {
+    const [x] = extractSmsBlocks(REAL_EN_RECEIPT);
+    expect(x.classification.family).toBe("float_receipt");
+    expect(x.amountMinor).toBe(50000000);
+    expect(x.resultingBalanceMinor).toBe(175500000);
+    expect(x.occurredAt).toBe("2026-08-14T08:20");
+    expect(x.transactionReference).toBe("SYN4471040");
+  });
+
+  it("classifies credited-with amount ETB as an EVD receipt", () => {
+    const [x] = extractSmsBlocks(REAL_EVD);
+    expect(x.classification.family).toBe("evd_receipt");
+    expect(x.amountMinor).toBe(2000000);
+    expect(x.evidence.amountMinor.observedText).toBe("credited with 20,000.00 ETB");
+    expect(x.distributorLabel).toBe("Sample Distributor A");
+    expect(x.occurredAt).toBe("2026-08-13T15:42");
+    expect(x.dateSource).toBe("sms_app");
+    expect(x.transactionReference).toBeNull();
+  });
+
+  it("converts 12 AM and 12 PM deterministically", () => {
+    const midnight = extractSmsBlocks(
+      "Dear Agent, 1,000.00 Birr was removed from your M-PESA float by Sample Administrator at Sample Shop A on 3/9/26 at 12:05 AM. Your Transaction Number is SYN4471050.",
+    )[0];
+    const noon = extractSmsBlocks(
+      "Dear Agent, 1,000.00 Birr was removed from your M-PESA float by Sample Administrator at Sample Shop A on 3/9/26 at 12:05 PM. Your Transaction Number is SYN4471051.",
+    )[0];
+    expect(midnight.occurredAt).toBe("2026-09-03T00:05");
+    expect(noon.occurredAt).toBe("2026-09-03T12:05");
+  });
+
+  it("still abstains on a truncated transaction number", () => {
+    const [x] = extractSmsBlocks(
+      "Dear Agent, 22,000.00 Birr was removed from your M-PESA float by Sample Administrator at Sample Shop A on 16/8/26 at 10:30 AM. Your Transaction Number is SYN44710",
+    );
+    expect(x.transactionReference).toBeNull();
+    expect(x.referenceLooksTruncated).toBe(true);
+    expect(x.warnings.some((w) => w.reason === "missing_reference")).toBe(true);
+  });
+});
