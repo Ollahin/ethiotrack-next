@@ -70,14 +70,15 @@ Stage 1 — Corpus and ingestion baseline
 - Reconciliation week navigation and per-distributor airtime history
 - Agent history route and pure agent ledger
 - Orientation-aware end-to-end screenshot OCR import
+- Distributor payments as trackable EVD purchase intents
 
 ## Current task
 
-Task 0.4A-4 — Real screenshot OCR functional end to end
+Task 0.4B-a — Distributor payment and EVD fulfillment functional flow
 
 ## Next task
 
-Task 0.4B-a — Distributor payment and EVD fulfillment functional flow
+Task 0.4B-b — Agent distribution and settlement functional flow
 
 ## Execution contract
 

@@ -19,6 +19,7 @@ import {
   type AirtimeMovement,
 } from "@/lib/distributor-ledger";
 import { Input } from "@/components/ui/input";
+import { FulfillmentQueue } from "@/components/FulfillmentQueue";
 import type { Bank, Distributor, Transaction } from "@/lib/types";
 
 export const Route = createFileRoute("/reconcile")({
@@ -532,6 +533,8 @@ function ReconcilePage() {
           </div>
         )}
       </section>
+
+      <FulfillmentQueue />
 
       <p className="text-[11px] text-ink-soft">
         Actual counts entered here are not saved — this is a live worksheet. Persist final closing
