@@ -66,14 +66,15 @@ Stage 1 — Corpus and ingestion baseline
 - Safe sent-versus-received airtime semantics
 - SMS review, distributor linking and safe persistence
 - Enforced SMS distributor form and telecom compatibility
+- Direction-aware airtime history display and receipt review semantics
 
 ## Current task
 
-Task 0.3C-g2a — Enforce SMS distributor compatibility
+Task 0.4A-1 — Airtime direction display and receipt review status
 
 ## Next task
 
-Task 0.4A — Manual functional MVP smoke test and blocking fixes
+Task 0.4A-2 — Functional MVP smoke-test completion
 
 ## Execution contract
 
