@@ -510,6 +510,18 @@ export function PasteImport() {
                           {airtime && !distributor && (
                             <span className="text-airtime"> · no distributor linked</span>
                           )}
+                          {transfer && payee && (
+                            <span className="text-money-in font-semibold">
+                              {" "}
+                              · paid to → {payee.name}
+                            </span>
+                          )}
+                          {transfer && !payee && (
+                            <span className="text-money-out font-semibold">
+                              {" "}
+                              · recipient not a configured distributor — pick one below
+                            </span>
+                          )}
                           {row.needsReview && (
                             <span className="ml-1 inline-flex items-center rounded bg-airtime/15 text-airtime text-[10px] font-semibold px-1.5 py-0.5">
                               review
@@ -521,7 +533,50 @@ export function PasteImport() {
                             </span>
                           )}
                         </div>
-                        {(suggestedBank || partyIsReal || airtime) && (
+                        {row.ok && transfer && (
+                          <div className="text-[11px] rounded border border-border bg-muted/40 px-2 py-1 space-y-0.5">
+                            <div className="flex flex-wrap gap-x-3 tabular-nums">
+                              <span>
+                                <span className="text-ink-soft">Expected EVD (principal): </span>
+                                {formatEtb(row.principalSantim ?? row.amountSantim)}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">Bank debit: </span>
+                                {formatEtb(row.amountSantim)}
+                              </span>
+                              {row.feeSantim !== undefined && (
+                                <span>
+                                  <span className="text-ink-soft">Charge: </span>
+                                  {formatEtb(row.feeSantim)}
+                                </span>
+                              )}
+                              {row.vatSantim !== undefined && (
+                                <span>
+                                  <span className="text-ink-soft">VAT: </span>
+                                  {formatEtb(row.vatSantim)}
+                                </span>
+                              )}
+                              {row.drChargeSantim !== undefined && (
+                                <span>
+                                  <span className="text-ink-soft">DR charge: </span>
+                                  {formatEtb(row.drChargeSantim)}
+                                </span>
+                              )}
+                            </div>
+                            {row.missingFields && row.missingFields.length > 0 && (
+                              <div className="text-money-out">
+                                Not stated in the message (left empty):{" "}
+                                {row.missingFields.join(", ")}
+                              </div>
+                            )}
+                            {!row.date && (
+                              <div className="text-money-out">
+                                No date in the message — this row will not be imported.
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {(suggestedBank || partyIsReal || airtime || transfer) && (
                           <div className="flex flex-wrap gap-2 pt-1">
                             {suggestedBank && (
                               <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
@@ -545,10 +600,12 @@ export function PasteImport() {
                                 </Select>
                               </div>
                             )}
-                            {airtime && (
+                            {(airtime || transfer) && (
                               <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
                                 <span className="text-ink-soft">
-                                  {airtimeForm === "float" ? "Float" : "EVD"} from →
+                                  {transfer
+                                    ? "Paid to distributor →"
+                                    : `${airtimeForm === "float" ? "Float" : "EVD"} from →`}
                                 </span>
                                 <Select
                                   value={dAction.kind === "link" ? `link:${dAction.id}` : "none"}
