@@ -1,14 +1,11 @@
 /**
- * Deterministic Float / EVD SMS primitives — batch 0.3C-e.
+ * Deterministic Float / EVD SMS parser — pure stages through resolution.
  *
- * Pure, per-block helpers only: segmentation, normalization, language and
- * family classification, and field extraction with structured evidence and
- * warnings.
+ * Stages: segment → normalize → classify → extract → resolve. Everything is a
+ * pure function of its inputs: no clock, locale, timezone, storage or `Date`.
  *
  * Explicitly NOT in this batch (per `docs/float-evd-sms-parser-design.md`):
- *  - pairing of bilingual halves
- *  - reference-based deduplication
- *  - event creation or any production-shape adapter
+ *  - the production-shape adapter
  *  - any wiring into `parseStatementText`, capture or import UI
  *
  * Invariants:
@@ -298,6 +295,15 @@ const CURRENCY_AMOUNT_RX =
 const BALANCE_PREFIX_RX = /(balance|ቀሪ ሂሳብ)[^\d]*$/i;
 
 /**
+ * The leading claim clause of a line: everything before the first location or
+ * time preposition. Deterministic, evidence-preserving and layout-agnostic.
+ */
+function leadingClause(line: string): string {
+  const cut = /\s+(?:at|on)\s/.exec(line);
+  return (cut ? line.slice(0, cut.index) : line).trim();
+}
+
+/**
  * Splits currency tokens into transaction amount versus resulting balance.
  * A balance-keyworded token is never promoted to the transaction amount.
  */
@@ -354,7 +360,7 @@ export function extractAmountAndBalance(
   if (amountMinor === null) {
     warnings.push({
       reason: "missing_amount",
-      observedText: block.lines[0] ?? block.text,
+      observedText: leadingClause(block.lines[0] ?? block.text),
     });
   } else if (classification.direction === "outbound") {
     amountMinor = -amountMinor;
@@ -659,4 +665,270 @@ export function extractSmsBlocks(
   opts?: { userSelectedDate?: string },
 ): SmsExtraction[] {
   return segmentSmsBlocks(text).map((block) => extractSmsFields(block, opts));
+}
+
+/* ------------------------------------------------------------------ */
+/* Resolution: pairing, reference deduplication, review rows           */
+/* ------------------------------------------------------------------ */
+
+export type SmsEventKind =
+  | "float_sent_to_agent"
+  | "evd_received_from_distributor"
+  | "float_received_from_distributor";
+
+export type SmsPairing = "paired" | "english_only" | "amharic_only";
+export type SmsPairingStatus = "complete" | "pending";
+export type SmsResolvedDatePrecision = "none" | "date" | "minute";
+export type SmsResolvedDateSource = "in_message" | "sms_app" | "user_selected" | "absent";
+
+export interface SmsResolvedEvent {
+  sourceOrder: number;
+  eventKind: SmsEventKind;
+  direction: SmsDirection;
+  /** Signed integer santim. Outbound negative, inbound positive. */
+  amountMinor: number;
+  rawAmountText: string;
+  resultingBalanceMinor: number | null;
+  rawBalanceText: string | null;
+  transactionReference: string | null;
+  occurredAt: string | null;
+  datePrecision: SmsResolvedDatePrecision;
+  dateSource: SmsResolvedDateSource;
+  counterpartyLabel: string | null;
+  shopLabel: string | null;
+  counterpartyMatch: "unassigned";
+  senderCode: string | null;
+  recipientCode: string | null;
+  pairing: SmsPairing;
+  pairingStatus: SmsPairingStatus;
+  amharicEvidenceText: string | null;
+  evidence: Record<string, SmsFieldEvidence>;
+}
+
+export interface SmsReviewRow {
+  sourceOrder: number;
+  reason: SmsWarningReason;
+  observedText: string;
+}
+
+export interface SmsOrderedEntry {
+  sourceOrder: number;
+  kind: "event" | "review";
+  index: number;
+}
+
+export interface SmsParseResult {
+  events: SmsResolvedEvent[];
+  reviewRows: SmsReviewRow[];
+  ordered: SmsOrderedEntry[];
+}
+
+const EVENT_KIND: Record<Exclude<SmsFamily, "unknown">, SmsEventKind> = {
+  float_distribution: "float_sent_to_agent",
+  evd_receipt: "evd_received_from_distributor",
+  float_receipt: "float_received_from_distributor",
+};
+
+interface SmsGroup {
+  /** Null means "identity provable only by this single block". */
+  key: string | null;
+  members: SmsExtraction[];
+}
+
+/** Reference plus family is the only identity. Amount and time never are. */
+function identityKey(item: SmsExtraction): string | null {
+  if (item.classification.family === "unknown") return null;
+  if (!item.transactionReference) return null;
+  return `${item.classification.family}::${item.transactionReference}`;
+}
+
+/** Common amount, direction and date must agree before two halves merge. */
+function mergeable(a: SmsExtraction, b: SmsExtraction): boolean {
+  if (a.classification.direction !== b.classification.direction) return false;
+  if (a.amountMinor !== b.amountMinor) return false;
+  if (a.occurredAt !== null && b.occurredAt !== null && a.occurredAt !== b.occurredAt) return false;
+  return true;
+}
+
+function groupByIdentity(items: SmsExtraction[]): {
+  groups: SmsGroup[];
+  conflicts: Array<{ groupIndex: number; reason: SmsWarningReason; observedText: string }>;
+} {
+  const groups: SmsGroup[] = [];
+  const byKey = new Map<string, number>();
+  const conflicts: Array<{ groupIndex: number; reason: SmsWarningReason; observedText: string }> =
+    [];
+
+  for (const item of items) {
+    const key = identityKey(item);
+    if (key === null) {
+      groups.push({ key: null, members: [item] });
+      continue;
+    }
+    const existing = byKey.get(key);
+    if (existing === undefined) {
+      byKey.set(key, groups.length);
+      groups.push({ key, members: [item] });
+      continue;
+    }
+    const target = groups[existing];
+    if (mergeable(target.members[0], item)) {
+      target.members.push(item);
+      continue;
+    }
+    // Same reference but disagreeing facts: never merge conflicting values.
+    const reason: SmsWarningReason =
+      target.members[0].classification.direction !== item.classification.direction
+        ? "ambiguous_direction"
+        : "code_conflict";
+    groups.push({ key: null, members: [item] });
+    conflicts.push({
+      groupIndex: groups.length - 1,
+      reason,
+      observedText: `${target.members[0].block.text} versus ${item.block.text}`,
+    });
+  }
+
+  return { groups, conflicts };
+}
+
+function buildEvent(group: SmsGroup, sourceOrder: number): SmsResolvedEvent | null {
+  const english = group.members.find((m) => m.block.language === "en") ?? null;
+  const amharic = group.members.find((m) => m.block.language === "am") ?? null;
+  const primary = english ?? group.members[0];
+
+  if (primary.classification.family === "unknown") return null;
+  if (primary.amountMinor === null || primary.rawAmountText === null) return null;
+  if (primary.classification.direction === null) return null;
+
+  const pairing: SmsPairing =
+    english && amharic
+      ? "paired"
+      : primary.block.language === "am"
+        ? "amharic_only"
+        : "english_only";
+
+  const evidence: Record<string, SmsFieldEvidence> = { ...primary.evidence };
+  if (pairing === "paired" && amharic) {
+    // The Amharic half supplies codes only; it never overrides English facts.
+    if (amharic.evidence.senderCode) evidence.senderCode = amharic.evidence.senderCode;
+    if (amharic.evidence.recipientCode) evidence.recipientCode = amharic.evidence.recipientCode;
+  }
+
+  return {
+    sourceOrder,
+    eventKind: EVENT_KIND[primary.classification.family],
+    direction: primary.classification.direction,
+    amountMinor: primary.amountMinor,
+    rawAmountText: primary.rawAmountText,
+    resultingBalanceMinor: primary.resultingBalanceMinor,
+    rawBalanceText: primary.rawBalanceText,
+    transactionReference: primary.transactionReference,
+    occurredAt: primary.occurredAt,
+    datePrecision: primary.datePrecision ?? "none",
+    dateSource: primary.dateSource ?? "absent",
+    counterpartyLabel: primary.counterpartyLabel,
+    shopLabel: primary.shopLabel,
+    counterpartyMatch: "unassigned",
+    senderCode: amharic
+      ? amharic.senderCode
+      : primary.block.language === "am"
+        ? primary.senderCode
+        : null,
+    recipientCode: amharic
+      ? amharic.recipientCode
+      : primary.block.language === "am"
+        ? primary.recipientCode
+        : null,
+    pairing,
+    pairingStatus: pairing === "paired" ? "complete" : "pending",
+    amharicEvidenceText: amharic ? amharic.amharicEvidenceText : primary.amharicEvidenceText,
+    evidence,
+  };
+}
+
+/**
+ * Resolves extracted blocks into events plus visible review rows.
+ *
+ * Identity is `family + complete reference`. Matching English/Amharic halves
+ * collapse into one paired event; repeated delivery of the same reference
+ * collapses too. Different references never pair and never deduplicate.
+ * Amount, minute and counterparty alone never create identity.
+ */
+export function resolveSmsEvents(extractions: SmsExtraction[]): SmsParseResult {
+  const { groups, conflicts } = groupByIdentity(extractions);
+
+  const events: SmsResolvedEvent[] = [];
+  const reviewRows: SmsReviewRow[] = [];
+  const ordered: SmsOrderedEntry[] = [];
+  /** Group index → emitted event sourceOrder, for review-row anchoring. */
+  const eventOrderByGroup = new Map<number, number>();
+
+  const pushReview = (sourceOrder: number, reason: SmsWarningReason, observedText: string) => {
+    if (reviewRows.some((r) => r.reason === reason && r.observedText === observedText)) return;
+    ordered.push({ sourceOrder, kind: "review", index: reviewRows.length });
+    reviewRows.push({ sourceOrder, reason, observedText });
+  };
+
+  groups.forEach((group, groupIndex) => {
+    const event = buildEvent(group, events.length);
+    if (event) {
+      eventOrderByGroup.set(groupIndex, event.sourceOrder);
+      ordered.push({ sourceOrder: event.sourceOrder, kind: "event", index: events.length });
+      events.push(event);
+    }
+
+    const anchor = eventOrderByGroup.get(groupIndex) ?? events.length;
+    const conflict = conflicts.find((c) => c.groupIndex === groupIndex);
+    if (conflict) pushReview(anchor, conflict.reason, conflict.observedText);
+
+    for (const member of group.members) {
+      for (const warning of member.warnings) {
+        pushReview(anchor, warning.reason, warning.observedText);
+      }
+    }
+  });
+
+  // Adjacent complementary-language halves that agree on amount and date but
+  // carry different references stay two pending events plus a visible review.
+  for (let i = 0; i + 1 < groups.length; i += 1) {
+    const a = groups[i];
+    const b = groups[i + 1];
+    if (a.members.length !== 1 || b.members.length !== 1) continue;
+    const [x] = a.members;
+    const [y] = b.members;
+    if (x.block.language === y.block.language) continue;
+    if (x.block.language === "unknown" || y.block.language === "unknown") continue;
+    if (x.classification.family !== y.classification.family) continue;
+    if (!x.transactionReference || !y.transactionReference) continue;
+    if (x.transactionReference === y.transactionReference) continue;
+    if (x.amountMinor === null || x.amountMinor !== y.amountMinor) continue;
+    if (x.occurredAt === null || x.occurredAt !== y.occurredAt) continue;
+    const anchor = eventOrderByGroup.get(i) ?? events.length;
+    pushReview(
+      anchor,
+      "reference_mismatch",
+      `${x.transactionReference} versus ${y.transactionReference}`,
+    );
+  }
+
+  ordered.sort((p, q) =>
+    p.sourceOrder !== q.sourceOrder
+      ? p.sourceOrder - q.sourceOrder
+      : p.kind === q.kind
+        ? p.index - q.index
+        : p.kind === "event"
+          ? -1
+          : 1,
+  );
+
+  return { events, reviewRows, ordered };
+}
+
+/** Convenience pure pipeline: segment → extract → resolve. */
+export function parseFloatEvdSms(
+  text: string,
+  opts?: { userSelectedDate?: string },
+): SmsParseResult {
+  return resolveSmsEvents(extractSmsBlocks(text, opts));
 }
