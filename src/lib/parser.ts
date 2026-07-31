@@ -725,10 +725,11 @@ export function parseOne(raw: string): ParsedRow {
   if (!line) return { ok: false, raw, reason: "empty" };
   const tpl = matchTemplates(line);
   if (tpl && tpl.type !== undefined && tpl.amountSantim !== undefined) {
+    const info = parseDateInfo(line);
     return {
       ok: true,
       raw: line,
-      date: parseDate(line) ?? new Date().toISOString(),
+      ...(info ? { date: info.iso, dateIsDayOnly: info.dayOnly } : {}),
       note: line,
       needsReview: false,
       ...tpl,
@@ -742,6 +743,7 @@ export function parseOne(raw: string): ParsedRow {
       const partial = rule.parse(m, line);
       if (partial.type === undefined || partial.amountSantim === undefined) continue;
       const refM = line.match(REF_RX);
+      const info = parseDateInfo(line);
       // Prefer a keyword-detected channel over the rule's own default.
       // "Other" is the generic fallback and should be replaced whenever a
       // real bank/wallet keyword shows up anywhere in the message.
@@ -757,7 +759,7 @@ export function parseOne(raw: string): ParsedRow {
         party: partial.party,
         reference: refM?.[1],
         accountTail: detectAccountTail(line),
-        date: parseDate(line) ?? new Date().toISOString(),
+        ...(info ? { date: info.iso, dateIsDayOnly: info.dayOnly } : {}),
         // Keep the full original message as the description — truncating it
         // loses reference numbers, dates, and context we need 1 year later.
         note: line,
