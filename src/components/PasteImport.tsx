@@ -33,6 +33,7 @@ import {
   useTransactions,
 } from "@/lib/db";
 import { matchAgent } from "@/lib/brain/fuzzy";
+import { matchDistributorForPayment } from "@/lib/purchase-fulfillment";
 import { openCreditsFor, planFifoSettlement } from "@/lib/brain/credits";
 import { formatEtb } from "@/lib/format";
 import type { AirtimeForm, Bank, Distributor, Transaction } from "@/lib/types";
@@ -50,6 +51,23 @@ type DistributorAction = { kind: "none" } | { kind: "link"; id: string };
 
 function isAirtimeRow(t: ParsedOk["type"]): boolean {
   return t === "airtime_evd" || (t as string) === "airtime_float";
+}
+
+/** A parsed CBE outgoing transfer — the bank leg of an EVD purchase. */
+function isBankTransferRow(row: ParsedRow): boolean {
+  return row.ok && row.template === "cbe.transfer.out";
+}
+
+/**
+ * Strict distributor match for a bank transfer: exact name, exact alias or a
+ * configured account tail. Never fuzzy, never auto-created.
+ */
+function matchTransferDistributor(row: ParsedRow, distributors: Distributor[]): Distributor | null {
+  if (!row.ok || !isBankTransferRow(row)) return null;
+  return matchDistributorForPayment(
+    { partyName: row.party, note: row.note, reference: row.reference },
+    distributors,
+  );
 }
 
 function airtimeFormOf(t: ParsedOk["type"]): AirtimeForm | undefined {
