@@ -103,6 +103,7 @@ function suggestBankName(channel: string, accountTail?: string): string {
 
 export function PasteImport() {
   const [text, setText] = useState("");
+  const [mode, setMode] = useState<"general" | "sms">("general");
   const [isPersonal, setPersonal] = useState(false);
   const [rows, setRows] = useState<ParsedRow[] | null>(null);
   const agents = useAgents();
@@ -315,6 +316,24 @@ export function PasteImport() {
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-3">
+      <div className="flex gap-1 rounded-md border border-border bg-muted/40 p-1 w-fit">
+        {(["general", "sms"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            className={
+              "px-3 py-1 text-xs rounded " +
+              (mode === m ? "bg-card font-semibold shadow-sm" : "text-ink-soft")
+            }
+          >
+            {m === "general" ? "General / bank SMS" : "Float and EVD SMS"}
+          </button>
+        ))}
+      </div>
+      {mode === "sms" && <SmsFloatEvdImport />}
+      {mode === "general" && (
+        <>
       <div className="flex items-baseline justify-between">
         <div>
           <div className="font-semibold">Paste bank SMS</div>
@@ -624,6 +643,8 @@ export function PasteImport() {
             ))}
           </ul>
         </div>
+      )}
+        </>
       )}
     </div>
   );
