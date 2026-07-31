@@ -74,6 +74,13 @@ export interface Distributor {
   telecoms?: Telecom[];
   /** Which airtime form(s) this distributor supplies (EVD, Float, or both). */
   forms?: AirtimeForm[];
+  /**
+   * Extra exact names this distributor is known by on bank statements.
+   * Matching normalizes case and whitespace only — never fuzzy.
+   */
+  aliases?: string[];
+  /** Configured bank account tails (digits only) used to identify payments. */
+  accountTails?: string[];
   createdAt: string;
 }
 
@@ -153,6 +160,17 @@ export interface Transaction {
   telecom?: Telecom;
   /** Airtime stock direction (airtime_evd / airtime_float only). Missing = "sent". */
   airtimeDirection?: AirtimeDirection;
+  /**
+   * Principal amount of an outgoing distributor payment, i.e. the airtime value
+   * bought. `amountSantim` stays the final bank debit (principal + charges +
+   * VAT). Absent means principal equals the debit.
+   */
+  principalSantim?: number;
+  /**
+   * True when the source only gave a calendar date and no clock time. Overdue
+   * timing must never be computed from a fabricated timestamp.
+   */
+  dateIsDayOnly?: boolean;
   isPersonal?: boolean;
   isSettled?: boolean;
   settledAt?: string;
@@ -235,4 +253,60 @@ export interface BrainAlert {
   reason: string;
   txnIds?: string[];
   agentId?: string;
+}
+
+// -- distributor payment → EVD purchase intents ------------------------------
+
+export type PurchaseIntentStatus =
+  | "pending"
+  | "partially_fulfilled"
+  | "fulfilled"
+  | "overdue"
+  | "disputed"
+  | "cancelled"
+  | "personal";
+
+export const PURCHASE_STATUS_LABEL: Record<PurchaseIntentStatus, string> = {
+  pending: "Pending",
+  partially_fulfilled: "Partially fulfilled",
+  fulfilled: "Fulfilled",
+  overdue: "Overdue",
+  disputed: "Disputed",
+  cancelled: "Cancelled / refunded",
+  personal: "Personal",
+};
+
+/** How an amount received above the expected EVD is explained. */
+export type SurplusClassification = "unexplained_surplus" | "bonus" | "commission" | "loan";
+
+export const SURPLUS_LABEL: Record<SurplusClassification, string> = {
+  unexplained_surplus: "Unexplained surplus",
+  bonus: "Bonus",
+  commission: "Commission",
+  loan: "Loan",
+};
+
+export type FulfillmentExceptionAction = "disputed" | "cancelled" | "personal" | "correction";
+
+/**
+ * Immutable, append-only ledger entry against one purchase intent (a bank
+ * payment transaction). Nothing here is ever rewritten: corrections append an
+ * "adjustment" entry that points at the entry being corrected.
+ */
+export interface FulfillmentEntry {
+  id: string;
+  /** Transaction id of the bank payment this entry belongs to. */
+  intentTxnId: string;
+  kind: "receipt" | "adjustment" | "exception";
+  /** Signed santim applied to the fulfilled total (0 for exception entries). */
+  amountSantim: number;
+  /** Portion of `amountSantim` above the expected EVD, when explicitly accepted. */
+  surplusSantim?: number;
+  surplusClassification?: SurplusClassification;
+  /** Exception entries only. */
+  action?: FulfillmentExceptionAction;
+  note?: string;
+  /** Adjustment entries only: the earlier entry being corrected. */
+  correctsEntryId?: string;
+  recordedAt: string;
 }

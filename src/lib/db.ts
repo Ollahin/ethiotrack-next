@@ -7,6 +7,7 @@ import type {
   DailyClosing,
   DailyOpening,
   Distributor,
+  FulfillmentEntry,
   PeriodClosing,
   PeriodOpening,
   StatementImport,
@@ -55,6 +56,7 @@ class EthioTrackDB extends Dexie {
   periodClosings!: Table<PeriodClosing, string>;
   transactions!: Table<Transaction, string>;
   statementImports!: Table<StatementImport, string>;
+  fulfillments!: Table<FulfillmentEntry, string>;
   meta!: Table<{ key: string; value: unknown }, string>;
 
   constructor() {
@@ -134,6 +136,22 @@ class EthioTrackDB extends Dexie {
             }
           });
       });
+    // v5: additive only — append-only EVD purchase fulfilment ledger.
+    // No existing store, index or record is changed, so old accounts open
+    // unchanged and simply start with an empty `fulfillments` table.
+    this.version(5).stores({
+      agents: "id, name, phone",
+      distributors: "id, name",
+      banks: "id, name, channel",
+      dailyOpenings: "id, date",
+      dailyClosings: "id, date, openingId",
+      periodOpenings: "id, weekStart",
+      periodClosings: "id, weekStart, openingId",
+      transactions: "id, date, type, partyId, channel, isSettled, isPersonal, statementImportId",
+      statementImports: "id, distributorId, importedAt",
+      fulfillments: "id, intentTxnId, recordedAt",
+      meta: "key",
+    });
   }
 }
 
@@ -309,6 +327,24 @@ export function useStatementImports(): StatementImport[] {
   return (
     useLiveQuery(() => db().statementImports.orderBy("importedAt").reverse().toArray(), []) ?? []
   );
+}
+
+// -- purchase fulfilment ledger (append-only) --------------------------------
+
+export function useFulfillmentEntries(): FulfillmentEntry[] {
+  return useLiveQuery(() => db().fulfillments.orderBy("recordedAt").toArray(), []) ?? [];
+}
+
+/** Append one immutable fulfilment entry. Existing entries are never rewritten. */
+export async function appendFulfillmentEntry(entry: FulfillmentEntry): Promise<FulfillmentEntry> {
+  await db().fulfillments.add(entry);
+  return entry;
+}
+
+export async function fulfillmentEntriesFor(intentTxnId: string): Promise<FulfillmentEntry[]> {
+  const rows = await db().fulfillments.where("intentTxnId").equals(intentTxnId).toArray();
+  rows.sort((a, b) => (a.recordedAt < b.recordedAt ? -1 : 1));
+  return rows;
 }
 
 export function useDailyOpening(date: string): DailyOpening | undefined {
@@ -677,6 +713,8 @@ export interface Backup {
   periodClosings?: PeriodClosing[];
   transactions: Transaction[];
   statementImports: StatementImport[];
+  /** Added in v5 — optional so older backups still import. */
+  fulfillments?: FulfillmentEntry[];
 }
 
 export async function exportBackup(): Promise<Backup> {
@@ -691,6 +729,7 @@ export async function exportBackup(): Promise<Backup> {
     periodClosings,
     transactions,
     statementImports,
+    fulfillments,
   ] = await Promise.all([
     d.agents.toArray(),
     d.distributors.toArray(),
@@ -701,6 +740,7 @@ export async function exportBackup(): Promise<Backup> {
     d.periodClosings.toArray(),
     d.transactions.toArray(),
     d.statementImports.toArray(),
+    d.fulfillments.toArray(),
   ]);
   return {
     version: 2,
@@ -714,6 +754,7 @@ export async function exportBackup(): Promise<Backup> {
     periodClosings,
     transactions,
     statementImports,
+    fulfillments,
   };
 }
 
@@ -731,6 +772,7 @@ export async function importBackup(b: Backup): Promise<void> {
       d.periodClosings,
       d.transactions,
       d.statementImports,
+      d.fulfillments,
     ],
     async () => {
       if (b.agents) await d.agents.bulkPut(b.agents);
@@ -742,6 +784,7 @@ export async function importBackup(b: Backup): Promise<void> {
       if (b.periodClosings) await d.periodClosings.bulkPut(b.periodClosings);
       if (b.transactions) await d.transactions.bulkPut(b.transactions);
       if (b.statementImports) await d.statementImports.bulkPut(b.statementImports);
+      if (b.fulfillments) await d.fulfillments.bulkPut(b.fulfillments);
     },
   );
 }
@@ -760,6 +803,7 @@ export async function clearAll(): Promise<void> {
       d.periodClosings,
       d.transactions,
       d.statementImports,
+      d.fulfillments,
       d.meta,
     ],
     async () => {
@@ -773,6 +817,7 @@ export async function clearAll(): Promise<void> {
         d.periodClosings.clear(),
         d.transactions.clear(),
         d.statementImports.clear(),
+        d.fulfillments.clear(),
         // keep meta so PIN stays; caller decides
       ]);
     },
