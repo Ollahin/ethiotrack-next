@@ -218,7 +218,7 @@ function matchCbeOutgoingTransfer(raw: string): TemplateFields | null {
   const balance = amountAfter(text, String.raw`(?:current\s+)?balance(?:\s+is)?`);
 
   const reference =
-    text.match(/\bid=(?:FT|TT)?([A-Za-z0-9]{6,})/i)?.[1] ??
+    text.match(/\bid=((?:FT|TT)?[A-Za-z0-9]{6,})/i)?.[1] ??
     text.match(/\b(?:Ref(?:erence)?|Transaction(?:\s+Number)?|Receipt)\s*(?:no\.?|number|is)?\s*[:#]?\s*((?:FT|TT)?[A-Za-z0-9]{6,})/i)?.[1];
 
   const dateInfo = parseDateInfo(text);
