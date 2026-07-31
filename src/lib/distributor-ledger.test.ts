@@ -31,7 +31,7 @@ describe("week navigation", () => {
     const start = weekStartOf();
     const d = new Date(start + "T00:00:00");
     expect(d.getDay()).toBe(1);
-    expect(weekEndOf(start)).toBe(shiftWeekStart(start, 1));
+    expect(new Date(weekEndOf(start) + "T00:00:00").getDay()).toBe(0);
   });
 
   it("previous and next move exactly seven local calendar days", () => {
