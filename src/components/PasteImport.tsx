@@ -425,6 +425,18 @@ export function PasteImport() {
               </Button>
             )}
           </div>
+          {rows !== null && enriched.filter((e) => e.row.ok).length === 0 && (
+            <div className="rounded-md border border-money-out/40 bg-money-out/5 p-2 text-xs space-y-1">
+              <div className="font-semibold text-money-out">
+                Nothing recognised in this message.
+              </div>
+              <div className="text-ink-soft">
+                {enriched.length === 0
+                  ? "The paste contained only greetings or footers — no amount was found."
+                  : "The amount, direction or channel could not be read. Nothing was guessed; the text is kept above so you can paste the full message or enter it manually."}
+              </div>
+            </div>
+          )}
           {enriched.length > 0 && (
             <ul className="text-sm divide-y divide-border rounded-md border border-border overflow-hidden">
               {enriched.map((e, i) => {
