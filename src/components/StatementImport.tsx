@@ -131,6 +131,8 @@ export function StatementImport() {
       return {
         type: row.airtimeType!,
         amountSantim: row.amountSantim!,
+        // Screenshot / PDF statements record airtime leaving stock to agents.
+        airtimeDirection: "sent",
         partyName: row.agentName ?? "Unknown",
         partyId: linkedId,
         partyType: linkedId ? "agent" : undefined,
