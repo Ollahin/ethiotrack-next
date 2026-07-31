@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -156,7 +156,13 @@ function DistPage() {
         {list.map((d) => (
           <li key={d.id} className="p-3 flex items-center justify-between">
             <div>
-              <div className="font-semibold">{d.name}</div>
+              <Link
+                to="/distributors/$distributorId"
+                params={{ distributorId: d.id }}
+                className="font-semibold hover:text-primary hover:underline"
+              >
+                {d.name}
+              </Link>
               <div className="flex flex-wrap gap-1 mt-1">
                 {(d.telecoms ?? []).map((t) => (
                   <span
