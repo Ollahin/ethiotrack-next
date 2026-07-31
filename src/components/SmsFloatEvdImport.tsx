@@ -53,7 +53,7 @@ export function SmsFloatEvdImport() {
   const agents = useAgents();
   const distributors = useDistributors();
 
-  const events = result?.events ?? [];
+  const events = useMemo(() => result?.events ?? [], [result]);
 
   const defaults = useMemo(() => {
     const map: Record<number, RowState> = {};
