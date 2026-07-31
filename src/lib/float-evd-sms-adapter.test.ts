@@ -208,7 +208,11 @@ describe("distributor compatibility", () => {
 
   it("blocks persistence for an incompatible selected distributor", () => {
     expect(
-      adaptSmsEvent(event("evd_received_from_distributor"), { ...dist, ...float }),
+      adaptSmsEvent(event("evd_received_from_distributor"), {
+        ...dist,
+        distributorForms: float.forms,
+        distributorTelecoms: float.telecoms,
+      }),
     ).toEqual({ ok: false, reason: "missing_distributor" });
     expect(
       adaptSmsEvent(event("float_sent_to_agent"), {
