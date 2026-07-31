@@ -33,6 +33,7 @@ import {
   useTransactions,
 } from "@/lib/db";
 import { matchAgent } from "@/lib/brain/fuzzy";
+import { matchDistributorForPayment } from "@/lib/purchase-fulfillment";
 import { openCreditsFor, planFifoSettlement } from "@/lib/brain/credits";
 import { formatEtb } from "@/lib/format";
 import type { AirtimeForm, Bank, Distributor, Transaction } from "@/lib/types";
@@ -50,6 +51,23 @@ type DistributorAction = { kind: "none" } | { kind: "link"; id: string };
 
 function isAirtimeRow(t: ParsedOk["type"]): boolean {
   return t === "airtime_evd" || (t as string) === "airtime_float";
+}
+
+/** A parsed CBE outgoing transfer — the bank leg of an EVD purchase. */
+function isBankTransferRow(row: ParsedRow): boolean {
+  return row.ok && row.template === "cbe.transfer.out";
+}
+
+/**
+ * Strict distributor match for a bank transfer: exact name, exact alias or a
+ * configured account tail. Never fuzzy, never auto-created.
+ */
+function matchTransferDistributor(row: ParsedRow, distributors: Distributor[]): Distributor | null {
+  if (!row.ok || !isBankTransferRow(row)) return null;
+  return matchDistributorForPayment(
+    { partyName: row.party ?? "", note: row.note, reference: row.reference },
+    distributors,
+  );
 }
 
 function airtimeFormOf(t: ParsedOk["type"]): AirtimeForm | undefined {
@@ -141,13 +159,21 @@ export function PasteImport() {
       const match = r.ok && r.party ? matchAgent(r.party, agents) : null;
       const bank = matchBank(r);
       const distributor = matchDistributor(r, distributors);
-      return { row: r, agent: match, bank, distributor };
+      const payee = matchTransferDistributor(r, distributors);
+      return { row: r, agent: match, bank, distributor, payee };
     });
   }, [rows, agents, banks, distributors]);
 
   function partyActionFor(i: number, e: (typeof enriched)[number]): PartyAction {
     const override = partyActions[i];
     if (override) return override;
+    // A bank transfer to a distributor is never turned into a new agent, and
+    // is only linked when the payee matched strictly.
+    if (isBankTransferRow(e.row)) {
+      return e.payee
+        ? { kind: "link", partyType: "distributor", id: e.payee.id }
+        : { kind: "none" };
+    }
     if (e.agent) return { kind: "link", partyType: "agent", id: e.agent.id };
     if (e.row.ok && e.row.party && !isGenericParty(e.row.party)) return { kind: "new-agent" };
     return { kind: "none" };
@@ -166,6 +192,8 @@ export function PasteImport() {
   function distActionFor(i: number, e: (typeof enriched)[number]): DistributorAction {
     const override = distActions[i];
     if (override) return override;
+    if (isBankTransferRow(e.row))
+      return e.payee ? { kind: "link", id: e.payee.id } : { kind: "none" };
     if (e.distributor) return { kind: "link", id: e.distributor.id };
     return { kind: "none" };
   }
@@ -190,6 +218,7 @@ export function PasteImport() {
     let createdBanks = 0,
       createdAgents = 0,
       createdDistributors = 0;
+    let blockedNoDate = 0;
     const inputs: Array<Omit<Transaction, "id" | "createdAt">> = [];
 
     for (let i = 0; i < enriched.length; i++) {
@@ -233,7 +262,7 @@ export function PasteImport() {
 
       // ----- Distributor resolution (airtime rows only)
       let distributorId: string | undefined;
-      if (isAirtimeRow(row.type)) {
+      if (isAirtimeRow(row.type) || isBankTransferRow(row)) {
         const dAction = distActionFor(i, e);
         if (dAction.kind === "link") distributorId = dAction.id;
         // If the party itself was linked as a distributor, prefer that link
@@ -241,9 +270,20 @@ export function PasteImport() {
         if (partyType === "distributor" && partyId) distributorId = partyId;
       }
 
+      // A message that never stated a date is never given one. The row stays
+      // visible in review instead of being persisted with an invented time.
+      if (!row.date) {
+        blockedNoDate++;
+        continue;
+      }
+
       inputs.push({
         type: row.type,
         amountSantim: row.amountSantim,
+        // Principal is kept apart from the final debit; the fulfilment queue
+        // expects EVD equal to the principal, never the debited total.
+        principalSantim: row.principalSantim,
+        dateIsDayOnly: row.dateIsDayOnly,
         // Pasted alerts describe airtime distributed out to agents.
         airtimeDirection: isAirtimeTransaction({ type: row.type }) ? "sent" : undefined,
         partyName: row.party ?? "Unknown",
@@ -254,7 +294,7 @@ export function PasteImport() {
         distributorId,
         reference: row.reference,
         note: row.note ?? row.raw,
-        date: row.date ?? new Date().toISOString(),
+        date: row.date,
         isPersonal,
         needsReview: row.needsReview,
         source: "paste_parse",
@@ -291,11 +331,18 @@ export function PasteImport() {
         (res.skipped ? `, skipped ${res.skipped} duplicate(s)` : "") +
         (extras ? ` · registered ${extras}` : ""),
     );
-    setText("");
-    setRows(null);
-    setPartyActions({});
-    setBankActions({});
-    setDistActions({});
+    if (blockedNoDate > 0) {
+      toast.error(
+        `${blockedNoDate} row(s) not imported: the message states no date, and none is invented.`,
+      );
+    }
+    if (blockedNoDate === 0) {
+      setText("");
+      setRows(null);
+      setPartyActions({});
+      setBankActions({});
+      setDistActions({});
+    }
   }
 
   async function forceImportSkipped() {
@@ -381,10 +428,22 @@ export function PasteImport() {
               </Button>
             )}
           </div>
+          {rows !== null && enriched.filter((e) => e.row.ok).length === 0 && (
+            <div className="rounded-md border border-money-out/40 bg-money-out/5 p-2 text-xs space-y-1">
+              <div className="font-semibold text-money-out">
+                Nothing recognised in this message.
+              </div>
+              <div className="text-ink-soft">
+                {enriched.length === 0
+                  ? "The paste contained only greetings or footers — no amount was found."
+                  : "The amount, direction or channel could not be read. Nothing was guessed; the text is kept above so you can paste the full message or enter it manually."}
+              </div>
+            </div>
+          )}
           {enriched.length > 0 && (
             <ul className="text-sm divide-y divide-border rounded-md border border-border overflow-hidden">
               {enriched.map((e, i) => {
-                const { row, agent, bank, distributor } = e;
+                const { row, agent, bank, distributor, payee } = e;
                 const pAction = partyActionFor(i, e);
                 const bAction = bankActionFor(i, e);
                 const dAction = distActionFor(i, e);
@@ -392,18 +451,21 @@ export function PasteImport() {
                   row.ok && !bank && row.channel && row.channel !== "Other"
                     ? suggestBankName(row.channel, row.accountTail)
                     : null;
-                const partyIsReal = row.ok && row.party && !isGenericParty(row.party);
+                const transfer = isBankTransferRow(row);
+                const partyIsReal = row.ok && row.party && !isGenericParty(row.party) && !transfer;
                 const airtime = row.ok && isAirtimeRow(row.type);
                 const airtimeForm = airtime ? airtimeFormOf(row.type) : undefined;
-                const distributorChoices = airtime
-                  ? distributors.filter(
-                      (d) =>
-                        !airtimeForm ||
-                        !d.forms ||
-                        d.forms.length === 0 ||
-                        d.forms.includes(airtimeForm),
-                    )
-                  : [];
+                const distributorChoices = transfer
+                  ? distributors
+                  : airtime
+                    ? distributors.filter(
+                        (d) =>
+                          !airtimeForm ||
+                          !d.forms ||
+                          d.forms.length === 0 ||
+                          d.forms.includes(airtimeForm),
+                      )
+                    : [];
                 return (
                   <li key={i} className={"p-2 " + (row.ok ? "" : "bg-money-out/5")}>
                     {row.ok ? (
@@ -462,6 +524,18 @@ export function PasteImport() {
                           {airtime && !distributor && (
                             <span className="text-airtime"> · no distributor linked</span>
                           )}
+                          {transfer && payee && (
+                            <span className="text-money-in font-semibold">
+                              {" "}
+                              · paid to → {payee.name}
+                            </span>
+                          )}
+                          {transfer && !payee && (
+                            <span className="text-money-out font-semibold">
+                              {" "}
+                              · recipient not a configured distributor — pick one below
+                            </span>
+                          )}
                           {row.needsReview && (
                             <span className="ml-1 inline-flex items-center rounded bg-airtime/15 text-airtime text-[10px] font-semibold px-1.5 py-0.5">
                               review
@@ -473,7 +547,50 @@ export function PasteImport() {
                             </span>
                           )}
                         </div>
-                        {(suggestedBank || partyIsReal || airtime) && (
+                        {row.ok && transfer && (
+                          <div className="text-[11px] rounded border border-border bg-muted/40 px-2 py-1 space-y-0.5">
+                            <div className="flex flex-wrap gap-x-3 tabular-nums">
+                              <span>
+                                <span className="text-ink-soft">Expected EVD (principal): </span>
+                                {formatEtb(row.principalSantim ?? row.amountSantim)}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">Bank debit: </span>
+                                {formatEtb(row.amountSantim)}
+                              </span>
+                              {row.feeSantim !== undefined && (
+                                <span>
+                                  <span className="text-ink-soft">Charge: </span>
+                                  {formatEtb(row.feeSantim)}
+                                </span>
+                              )}
+                              {row.vatSantim !== undefined && (
+                                <span>
+                                  <span className="text-ink-soft">VAT: </span>
+                                  {formatEtb(row.vatSantim)}
+                                </span>
+                              )}
+                              {row.drChargeSantim !== undefined && (
+                                <span>
+                                  <span className="text-ink-soft">DR charge: </span>
+                                  {formatEtb(row.drChargeSantim)}
+                                </span>
+                              )}
+                            </div>
+                            {row.missingFields && row.missingFields.length > 0 && (
+                              <div className="text-money-out">
+                                Not stated in the message (left empty):{" "}
+                                {row.missingFields.join(", ")}
+                              </div>
+                            )}
+                            {!row.date && (
+                              <div className="text-money-out">
+                                No date in the message — this row will not be imported.
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {(suggestedBank || partyIsReal || airtime || transfer) && (
                           <div className="flex flex-wrap gap-2 pt-1">
                             {suggestedBank && (
                               <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
@@ -497,10 +614,12 @@ export function PasteImport() {
                                 </Select>
                               </div>
                             )}
-                            {airtime && (
+                            {(airtime || transfer) && (
                               <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
                                 <span className="text-ink-soft">
-                                  {airtimeForm === "float" ? "Float" : "EVD"} from →
+                                  {transfer
+                                    ? "Paid to distributor →"
+                                    : `${airtimeForm === "float" ? "Float" : "EVD"} from →`}
                                 </span>
                                 <Select
                                   value={dAction.kind === "link" ? `link:${dAction.id}` : "none"}

@@ -35,6 +35,22 @@ export interface ParsedOk {
   vatSantim?: number;
   /** Reported balance after the txn, in santim. */
   balanceSantim?: number;
+  /**
+   * Principal (transferred) amount of an outgoing transfer, in santim, when the
+   * source states it separately from the final debit. Never inferred.
+   */
+  principalSantim?: number;
+  /** Disaster Recovery charge in santim, when the source states one. */
+  drChargeSantim?: number;
+  /** Last 4 digits of the counterparty/destination account, when stated. */
+  counterpartyAccountTail?: string;
+  /** True when the source gave a calendar date but no clock time. */
+  dateIsDayOnly?: boolean;
+  /**
+   * Fields the source did not state and which were therefore NOT filled in.
+   * Surfaced in review so the user can see exactly what is missing.
+   */
+  missingFields?: string[];
   /** Which named template matched — for debugging & UI badges. */
   template?: string;
 }
@@ -84,33 +100,170 @@ const MONTHS: Record<string, number> = {
   dec: 11,
 };
 
-/** Parse the many date shapes bank SMS use. Returns ISO string or undefined. */
-function parseDate(raw: string): string | undefined {
-  const m1 = raw.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?\b/);
+export interface ParsedDateInfo {
+  iso: string;
+  /** The source stated a calendar day but no clock time. */
+  dayOnly: boolean;
+}
+
+function to24h(hour: number, meridiem: string | undefined): number {
+  if (!meridiem) return hour;
+  const up = meridiem.toUpperCase();
+  if (up === "AM") return hour === 12 ? 0 : hour;
+  return hour === 12 ? 12 : hour + 12;
+}
+
+/**
+ * Parse the many date shapes bank SMS use. Returns the ISO value plus whether
+ * the source stated a clock time. Never invents a date or a time.
+ */
+export function parseDateInfo(raw: string): ParsedDateInfo | undefined {
+  const m1 = raw.match(
+    /\b(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[\s,]+(?:at\s+)?(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?/i,
+  );
   if (m1) {
+    const hasTime = m1[4] !== undefined;
     const dt = new Date(
-      Date.UTC(+m1[3], +m1[2] - 1, +m1[1], +(m1[4] ?? 0), +(m1[5] ?? 0), +(m1[6] ?? 0)),
+      Date.UTC(
+        +m1[3],
+        +m1[2] - 1,
+        +m1[1],
+        hasTime ? to24h(+m1[4], m1[7]) : 0,
+        +(m1[5] ?? 0),
+        +(m1[6] ?? 0),
+      ),
     );
-    if (!isNaN(dt.getTime())) return dt.toISOString();
+    if (!isNaN(dt.getTime())) return { iso: dt.toISOString(), dayOnly: !hasTime };
   }
-  const m2 = raw.match(/\bON\s+(\d{1,2})\s+([A-Za-z]{3,4})\s+(\d{4})(?:\s+(\d{1,2}):(\d{2}))?\b/i);
+  const m2 = raw.match(
+    /\bON\s+(\d{1,2})\s+([A-Za-z]{3,4})\s+(\d{4})(?:[\s,]+(?:at\s+)?(\d{1,2}):(\d{2}))?/i,
+  );
   if (m2) {
     const mo = MONTHS[m2[2].toLowerCase()];
     if (mo !== undefined) {
+      const hasTime = m2[4] !== undefined;
       const dt = new Date(Date.UTC(+m2[3], mo, +m2[1], +(m2[4] ?? 0), +(m2[5] ?? 0)));
-      if (!isNaN(dt.getTime())) return dt.toISOString();
+      if (!isNaN(dt.getTime())) return { iso: dt.toISOString(), dayOnly: !hasTime };
     }
   }
-  const m3 = raw.match(/\b(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?\b/);
+  const m3 = raw.match(/\b(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?\b/);
   if (m3) {
-    const dt = new Date(`${m3[1]}-${m3[2]}-${m3[3]}T${m3[4]}:${m3[5]}:${m3[6] ?? "00"}Z`);
-    if (!isNaN(dt.getTime())) return dt.toISOString();
+    const hasTime = m3[4] !== undefined;
+    const dt = new Date(
+      `${m3[1]}-${m3[2]}-${m3[3]}T${m3[4] ?? "00"}:${m3[5] ?? "00"}:${m3[6] ?? "00"}Z`,
+    );
+    if (!isNaN(dt.getTime())) return { iso: dt.toISOString(), dayOnly: !hasTime };
   }
   return undefined;
 }
 
+function parseDate(raw: string): string | undefined {
+  return parseDateInfo(raw)?.iso;
+}
+
+// ---------------------------------------------------------------------------
+// CBE outgoing transfer ("successfully transferred")
+//
+// Source-faithful field scan rather than one monolithic regex: each field is
+// located independently so line wrapping, extra punctuation and optional
+// clauses (Disaster Recovery charge, receipt link, greeting) never destroy the
+// whole message. Nothing absent from the source is ever filled in.
+// ---------------------------------------------------------------------------
+
+/** Trigger phrase for a CBE outgoing transfer, tolerant of the "transfered" typo. */
+export const CBE_TRANSFER_TRIGGER_RX = /successfully\s+transferr?ed/i;
+
+const AMOUNT_BODY = String.raw`\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?`;
+
+/** First amount following `label`, with the currency word on either side. */
+function amountAfter(text: string, label: string): number | undefined {
+  const rx = new RegExp(
+    String.raw`${label}[^0-9]{0,40}?(?:ETB|Birr|Br\.?)?\s*(${AMOUNT_BODY})(?:\s*(?:ETB|Birr|Br\.?))?`,
+    "i",
+  );
+  const m = text.match(rx);
+  return m ? toSantim(m[1]) : undefined;
+}
+
+/** Collapse wrapped lines so a multiline SMS reads as one sentence. */
+export function flattenSms(raw: string): string {
+  return normalizeSms(raw)
+    .replace(/\s*\n+\s*/g, " ")
+    .replace(/[ \t]{2,}/g, " ");
+}
+
+function matchCbeOutgoingTransfer(raw: string): TemplateFields | null {
+  const text = flattenSms(raw);
+  if (!CBE_TRANSFER_TRIGGER_RX.test(text)) return null;
+
+  // Principal — the transferred amount itself. Required.
+  const principal =
+    amountAfter(text, String.raw`successfully\s+transferr?ed`) ??
+    amountAfter(text, String.raw`\btransferr?ed\b`);
+  if (principal === undefined) return null;
+
+  const missing: string[] = [];
+
+  // Source account: "from your account 1000****4599" / "from account 1000...".
+  const srcM = text.match(
+    /\bfrom\s+(?:your\s+)?(?:account|a\/c)\s*(?:no\.?|number)?\s*([\d*Xx]{4,})/i,
+  );
+  // Destination account and recipient: "to 1000****1086 (NAME)" — either part
+  // may be absent; the parenthesised name is the recipient/distributor label.
+  const dstM = text.match(/\bto\s+(?:account\s*)?([\d*Xx]{4,})/i);
+  const nameM = text.match(/\(([^)]{2,60})\)/);
+
+  const serviceCharge = amountAfter(text, String.raw`service\s+charge`);
+  const vat = amountAfter(text, String.raw`\bVAT\b`);
+  const drCharge = amountAfter(text, String.raw`disaster\s+recovery(?:\s+charge)?`);
+  const totalDebit =
+    amountAfter(text, String.raw`total\s+(?:amount\s+)?debit(?:ed|s)?`) ??
+    amountAfter(text, String.raw`total\s+deduct(?:ion|ed)`);
+  const balance = amountAfter(text, String.raw`(?:current\s+)?balance(?:\s+is)?`);
+
+  const reference =
+    text.match(/\bid=((?:FT|TT)?[A-Za-z0-9]{6,})/i)?.[1] ??
+    text.match(
+      /\b(?:Ref(?:erence)?|Transaction(?:\s+Number)?|Receipt)\s*(?:no\.?|number|is)?\s*[:#]?\s*((?:FT|TT)?[A-Za-z0-9]{6,})/i,
+    )?.[1];
+
+  const dateInfo = parseDateInfo(text);
+  if (!dateInfo) missing.push("date");
+  else if (dateInfo.dayOnly) missing.push("time");
+  if (totalDebit === undefined) missing.push("final total debit");
+  if (!nameM) missing.push("recipient");
+  if (!reference) missing.push("reference");
+
+  const recipient = nameM?.[1].trim();
+
+  return {
+    channel: "CBE",
+    type: "out",
+    // The bank cash-out is the final debit when stated; otherwise the row is
+    // preserved on the principal alone and the gap is reported, never invented.
+    amountSantim: totalDebit ?? principal,
+    principalSantim: principal,
+    party: recipient || "Unresolved recipient",
+    accountTail: last4(srcM?.[1]),
+    counterpartyAccountTail: last4(dstM?.[1]),
+    feeSantim: serviceCharge,
+    vatSantim: vat,
+    drChargeSantim: drCharge,
+    balanceSantim: balance,
+    reference,
+    ...(dateInfo ? { date: dateInfo.iso, dateIsDayOnly: dateInfo.dayOnly } : {}),
+    missingFields: missing.length ? missing : undefined,
+    needsReview: missing.length > 0,
+    template: "cbe.transfer.out",
+  };
+}
+
 /** High-precision templates for known Ethiopian bank/wallet SMS. */
 function matchTemplates(raw: string): TemplateFields | null {
+  // -------- CBE outgoing transfer (principal vs final debit) --------
+  const cbeTransfer = matchCbeOutgoingTransfer(raw);
+  if (cbeTransfer) return cbeTransfer;
+
   // -------- CBE --------
   let m = raw.match(
     /Account\s+([\d*]+)\s+has been credited by\s+(.+?)\s+with ETB\s*([\d,]+(?:\.\d+)?)\.?\s*Your Current Balance is ETB\s*([\d,]+(?:\.\d+)?)/i,
@@ -578,10 +731,11 @@ export function parseOne(raw: string): ParsedRow {
   if (!line) return { ok: false, raw, reason: "empty" };
   const tpl = matchTemplates(line);
   if (tpl && tpl.type !== undefined && tpl.amountSantim !== undefined) {
+    const info = parseDateInfo(line);
     return {
       ok: true,
       raw: line,
-      date: parseDate(line) ?? new Date().toISOString(),
+      ...(info ? { date: info.iso, dateIsDayOnly: info.dayOnly } : {}),
       note: line,
       needsReview: false,
       ...tpl,
@@ -595,6 +749,7 @@ export function parseOne(raw: string): ParsedRow {
       const partial = rule.parse(m, line);
       if (partial.type === undefined || partial.amountSantim === undefined) continue;
       const refM = line.match(REF_RX);
+      const info = parseDateInfo(line);
       // Prefer a keyword-detected channel over the rule's own default.
       // "Other" is the generic fallback and should be replaced whenever a
       // real bank/wallet keyword shows up anywhere in the message.
@@ -610,7 +765,7 @@ export function parseOne(raw: string): ParsedRow {
         party: partial.party,
         reference: refM?.[1],
         accountTail: detectAccountTail(line),
-        date: parseDate(line) ?? new Date().toISOString(),
+        ...(info ? { date: info.iso, dateIsDayOnly: info.dayOnly } : {}),
         // Keep the full original message as the description — truncating it
         // loses reference numbers, dates, and context we need 1 year later.
         note: line,
@@ -635,7 +790,39 @@ function isBoilerplateBlock(s: string): boolean {
   const t = s.trim();
   if (!t) return true;
   if (t.length < 20 && !/\d/.test(t)) return true;
+  // A greeting glued to the real sentence ("Dear X, You have successfully
+  // transferred ETB ...") is content, not boilerplate. Only discard a block
+  // that carries no money signal of its own.
+  if (/(?:ETB|Birr|ብር)\s*[\d,]|[\d,]+(?:\.\d+)?\s*(?:ETB|Birr|ብር)/i.test(t)) return false;
   return BOILERPLATE_RX.test(t);
+}
+
+/**
+ * Split a paste into whole CBE transfer messages, or null when none is
+ * present. Each trigger phrase marks one message; a greeting immediately
+ * preceding a trigger stays with its own message.
+ */
+export function segmentCbeTransfers(text: string): string[] | null {
+  const flat = flattenSms(text);
+  const rx = new RegExp(CBE_TRANSFER_TRIGGER_RX.source, "gi");
+  const triggers: number[] = [];
+  for (let m = rx.exec(flat); m; m = rx.exec(flat)) triggers.push(m.index);
+  if (triggers.length === 0) return null;
+
+  const greetRx = /\b(?:Dear|Hello|Hi)\b/gi;
+  const starts: number[] = [0];
+  for (let i = 1; i < triggers.length; i++) {
+    let start = triggers[i];
+    greetRx.lastIndex = triggers[i - 1];
+    for (let g = greetRx.exec(flat); g && g.index < triggers[i]; g = greetRx.exec(flat)) {
+      start = g.index;
+      break;
+    }
+    starts.push(start);
+  }
+  return starts
+    .map((s, i) => flat.slice(s, i + 1 < starts.length ? starts[i + 1] : undefined).trim())
+    .filter(Boolean);
 }
 
 export function parseMany(text: string): ParsedRow[] {
@@ -651,6 +838,13 @@ export function parseMany(text: string): ParsedRow[] {
     const results = parseBankTransferOcr(text);
     if (results.length > 0) return results;
   }
+
+  // ── Gate 3: CBE outgoing transfers ──
+  // These messages wrap across many lines and mid-sentence, so line/blank-line
+  // splitting destroys them. Each occurrence of the trigger phrase is one
+  // message; the text is segmented on the trigger and parsed whole.
+  const cbeSegments = segmentCbeTransfers(text);
+  if (cbeSegments) return cbeSegments.map(parseOne);
 
   const rawBlocks = text
     .split(/\n\s*\n+/)
