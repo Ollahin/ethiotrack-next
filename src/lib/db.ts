@@ -1,5 +1,6 @@
 import Dexie, { type Table } from "dexie";
 import { useLiveQuery } from "dexie-react-hooks";
+import { airtimeStockDelta } from "./airtime-movement";
 import type {
   Agent,
   Bank,
