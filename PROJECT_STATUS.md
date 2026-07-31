@@ -64,14 +64,15 @@ Stage 1 — Corpus and ingestion baseline
 - Source-structure faithful SMS primitives and representative fixtures
 - Bilingual SMS pairing and reference-based deduplication
 - Safe sent-versus-received airtime semantics
+- SMS review, distributor linking and safe persistence
 
 ## Current task
 
-Task 0.3C-g1 — Safe sent-versus-received airtime semantics
+Task 0.3C-g2 — SMS review, distributor linking and safe persistence
 
 ## Next task
 
-Task 0.3C-g2 — SMS review, distributor linking and safe persistence
+Task 0.4A — End-to-end functional MVP smoke test and blocking fixes
 
 ## Execution contract
 

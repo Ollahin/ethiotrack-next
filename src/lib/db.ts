@@ -1,6 +1,6 @@
 import Dexie, { type Table } from "dexie";
 import { useLiveQuery } from "dexie-react-hooks";
-import { airtimeStockDelta } from "./airtime-movement";
+import { airtimeDirectionOf, airtimeStockDelta } from "./airtime-movement";
 import type {
   Agent,
   Bank,
@@ -23,9 +23,24 @@ import { makeId } from "./ids";
  */
 export const DUPLICATE_WINDOW_MS = 10 * 60_000;
 export function duplicateKey(
-  t: Pick<Transaction, "type" | "amountSantim" | "partyName" | "channel">,
+  t: Pick<Transaction, "type" | "amountSantim" | "partyName" | "channel" | "airtimeDirection">,
 ): string {
-  return `${t.type}|${t.amountSantim}|${(t.partyName ?? "").toLowerCase()}|${t.channel}`;
+  // Airtime sent out and airtime received in are never the same event, so the
+  // direction (legacy missing = "sent") is part of the identity.
+  const dir = airtimeDirectionOf(t) ?? "-";
+  return `${t.type}|${dir}|${t.amountSantim}|${(t.partyName ?? "").toLowerCase()}|${t.channel}`;
+}
+
+/**
+ * Authoritative duplicate identity for a referenced transaction. A reference is
+ * only unique within the same channel, type and airtime direction.
+ */
+export function referenceKey(
+  t: Pick<Transaction, "type" | "channel" | "airtimeDirection">,
+  reference: string,
+): string {
+  const dir = airtimeDirectionOf(t) ?? "-";
+  return `${t.channel}|${t.type}|${dir}|${reference.trim().toUpperCase()}`;
 }
 
 // -- schema ------------------------------------------------------------------
@@ -455,13 +470,11 @@ export async function addTransactionsBulk(
   const existing = await db().transactions.toArray();
   const seen = new Map<string, number[]>();
   const seenRefs = new Set<string>();
-  const refKey = (channel: string, reference: string) =>
-    `${channel}|${reference.trim().toUpperCase()}`;
   for (const t of existing) {
     const k = duplicateKey(t);
     seen.set(k, [...(seen.get(k) ?? []), new Date(t.date).getTime()]);
     if (t.reference && t.reference.trim()) {
-      seenRefs.add(refKey(t.channel, t.reference));
+      seenRefs.add(referenceKey(t, t.reference));
     }
   }
   const inserted: Transaction[] = [];
@@ -475,7 +488,7 @@ export async function addTransactionsBulk(
     const input = inputs[i];
     // Authoritative: same channel + same reference => duplicate, regardless of amount/party/time.
     if (input.reference && input.reference.trim()) {
-      const rk = refKey(input.channel, input.reference);
+      const rk = referenceKey(input, input.reference);
       if (seenRefs.has(rk)) {
         skipped++;
         skippedRows.push({ index: i, input, reason: "reference" });
