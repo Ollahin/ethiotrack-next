@@ -428,7 +428,7 @@ export function PasteImport() {
           {enriched.length > 0 && (
             <ul className="text-sm divide-y divide-border rounded-md border border-border overflow-hidden">
               {enriched.map((e, i) => {
-                const { row, agent, bank, distributor } = e;
+                const { row, agent, bank, distributor, payee } = e;
                 const pAction = partyActionFor(i, e);
                 const bAction = bankActionFor(i, e);
                 const dAction = distActionFor(i, e);
@@ -436,18 +436,22 @@ export function PasteImport() {
                   row.ok && !bank && row.channel && row.channel !== "Other"
                     ? suggestBankName(row.channel, row.accountTail)
                     : null;
-                const partyIsReal = row.ok && row.party && !isGenericParty(row.party);
+                const transfer = isBankTransferRow(row);
+                const partyIsReal =
+                  row.ok && row.party && !isGenericParty(row.party) && !transfer;
                 const airtime = row.ok && isAirtimeRow(row.type);
                 const airtimeForm = airtime ? airtimeFormOf(row.type) : undefined;
-                const distributorChoices = airtime
-                  ? distributors.filter(
-                      (d) =>
-                        !airtimeForm ||
-                        !d.forms ||
-                        d.forms.length === 0 ||
-                        d.forms.includes(airtimeForm),
-                    )
-                  : [];
+                const distributorChoices = transfer
+                  ? distributors
+                  : airtime
+                    ? distributors.filter(
+                        (d) =>
+                          !airtimeForm ||
+                          !d.forms ||
+                          d.forms.length === 0 ||
+                          d.forms.includes(airtimeForm),
+                      )
+                    : [];
                 return (
                   <li key={i} className={"p-2 " + (row.ok ? "" : "bg-money-out/5")}>
                     {row.ok ? (
