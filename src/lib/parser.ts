@@ -781,6 +781,8 @@ const BOILERPLATE_RX =
   /^(dear\s|hi\s|hello\s|thank you|thanks for|regards|sincerely|ethio\s*telecom|safaricom(?:\s+ethiopia)?\s*$|--\s*$)/i;
 
 function isBoilerplateBlock(s: string): boolean {
+  const t0 = s;
+  void t0;
   const t = s.trim();
   if (!t) return true;
   if (t.length < 20 && !/\d/.test(t)) return true;
