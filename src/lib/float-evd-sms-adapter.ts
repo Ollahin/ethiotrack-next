@@ -147,10 +147,11 @@ export function adaptSmsEvent(
       "Unassigned agent"
     : selection.distributorName?.trim() || event.counterpartyLabel || "Distributor";
 
+  // Incoming receipts are complete on their own: they never require bilingual
+  // pairing. Only outbound distribution depends on pairing and agent linkage.
   const needsReview =
-    event.pairingStatus === "pending" ||
     event.transactionReference === null ||
-    (outbound && !agentLinked);
+    (outbound && (event.pairingStatus === "pending" || !agentLinked));
 
   const input: TransactionInput = {
     type: map.type,
