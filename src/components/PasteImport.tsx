@@ -3,6 +3,7 @@ import { SmsFloatEvdImport } from "@/components/SmsFloatEvdImport";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
@@ -132,6 +133,10 @@ export function PasteImport() {
   const [partyActions, setPartyActions] = useState<Record<number, PartyAction>>({});
   const [bankActions, setBankActions] = useState<Record<number, BankAction>>({});
   const [distActions, setDistActions] = useState<Record<number, DistributorAction>>({});
+  /** User-supplied transaction date/time for messages that stated none. */
+  const [manualDates, setManualDates] = useState<Record<number, { date: string; time: string }>>(
+    {},
+  );
   const [skippedInfo, setSkippedInfo] = useState<
     Array<{ input: Omit<Transaction, "id" | "createdAt">; reason: "reference" | "heuristic" }>
   >([]);
@@ -204,6 +209,7 @@ export function PasteImport() {
     setPartyActions({});
     setBankActions({});
     setDistActions({});
+    setManualDates({});
   }
 
   async function importAll() {
