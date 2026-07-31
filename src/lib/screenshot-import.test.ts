@@ -163,18 +163,25 @@ describe("failure handling", () => {
 });
 
 describe("sanitized image fixtures", () => {
-  const names = [
-    "mj-clean.png",
-    "mj-reversal.png",
-    "refill-clean.png",
-    "mj-rotated-90.png",
-    "mj-cropped.png",
-  ];
-  it("ships all five generated screenshots", () => {
-    for (const n of names) {
+  // Images are never committed (corpus guard); the generator + README are.
+  it("ships the deterministic generator and its documentation", () => {
+    for (const n of ["generate.py", "README.md"]) {
       const p = resolve(IMAGES, n);
       expect(existsSync(p), n).toBe(true);
-      expect(readFileSync(p).byteLength).toBeGreaterThan(1000);
+      expect(readFileSync(p, "utf8").length).toBeGreaterThan(200);
+    }
+  });
+
+  it("documents all five smoke-test screenshots", () => {
+    const doc = readFileSync(resolve(IMAGES, "README.md"), "utf8");
+    for (const n of [
+      "mj-clean.png",
+      "mj-reversal.png",
+      "refill-clean.png",
+      "mj-rotated-90.png",
+      "mj-cropped.png",
+    ]) {
+      expect(doc, n).toContain(n);
     }
   });
 });
