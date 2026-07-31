@@ -11,6 +11,7 @@ import {
   getWeekEnd,
 } from "@/lib/db";
 import { formatEtb, parseEtbToSantim } from "@/lib/format";
+import { airtimeStockDelta } from "@/lib/airtime-movement";
 import { Input } from "@/components/ui/input";
 import type { Bank, Distributor, Transaction } from "@/lib/types";
 
@@ -168,8 +169,9 @@ function ReconcilePage() {
       for (const t of weekTxns) {
         if (t.distributorId !== dist.id) continue;
         count++;
-        if (t.type === "airtime_evd") evdSold += t.amountSantim;
-        else if (t.type === "airtime_float") fltSold += t.amountSantim;
+        // Net outflow: sent (and legacy) rows add, received rows subtract.
+        if (t.type === "airtime_evd") evdSold -= airtimeStockDelta(t);
+        else if (t.type === "airtime_float") fltSold -= airtimeStockDelta(t);
       }
       const evdOpen = opening?.evdStockByDistributor?.[dist.id] ?? 0;
       const fltOpen = opening?.floatStockByDistributor?.[dist.id] ?? 0;
