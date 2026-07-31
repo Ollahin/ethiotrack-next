@@ -5,7 +5,7 @@
 // deterministic reason so the review UI can show it instead of guessing.
 
 import type { SmsEventKind, SmsResolvedEvent } from "./float-evd-sms-parser";
-import type { AirtimeDirection, Telecom, Transaction, TxnType } from "./types";
+import type { AirtimeDirection, AirtimeForm, Telecom, Transaction, TxnType } from "./types";
 import { TELECOM_LABEL } from "./types";
 
 export type SmsAdaptBlockReason = "missing_date" | "missing_distributor";
@@ -39,6 +39,9 @@ export interface SmsEventSelection {
   /** Explicitly selected distributor. Required for every persisted event. */
   distributorId?: string;
   distributorName?: string;
+  /** Declared metadata of the selected distributor, used for compatibility. */
+  distributorForms?: AirtimeForm[];
+  distributorTelecoms?: Telecom[];
   /** Optional for outbound events only. Never guessed. */
   agentId?: string;
   agentName?: string;
@@ -60,18 +63,53 @@ export function normalizeName(name: string): string {
   return name.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
+/** The airtime form an event kind moves. */
+export function formForEventKind(kind: SmsEventKind): AirtimeForm {
+  return SMS_EVENT_MAPPING[kind].type === "airtime_evd" ? "evd" : "float";
+}
+
+export interface DistributorCompatibilityInput {
+  forms?: AirtimeForm[] | null;
+  telecoms?: Telecom[] | null;
+}
+
+/**
+ * Whether a distributor may carry an event of this kind. Absent or empty
+ * declared metadata stays backward-compatible (treated as unrestricted).
+ * No fuzzy matching, no inference.
+ */
+export function isDistributorCompatible(
+  kind: SmsEventKind,
+  distributor: DistributorCompatibilityInput | null | undefined,
+): boolean {
+  if (!distributor) return false;
+  const map = SMS_EVENT_MAPPING[kind];
+  const form = formForEventKind(kind);
+  const forms = distributor.forms ?? [];
+  const telecoms = distributor.telecoms ?? [];
+  if (forms.length > 0 && !forms.includes(form)) return false;
+  if (telecoms.length > 0 && !telecoms.includes(map.telecom)) return false;
+  return true;
+}
+
 /**
  * Exact normalized-name match against known distributors, or null. Used to
  * preselect a distributor; never to link one automatically at import time.
+ * When an event kind is given, incompatible distributors never preselect.
  */
-export function matchDistributorByLabel<T extends { id: string; name: string }>(
+export function matchDistributorByLabel<
+  T extends { id: string; name: string } & DistributorCompatibilityInput,
+>(
   label: string | null,
   distributors: T[],
+  kind?: SmsEventKind,
 ): T | null {
   if (!label || !label.trim()) return null;
   const key = normalizeName(label);
   const hits = distributors.filter((d) => normalizeName(d.name) === key);
-  return hits.length === 1 ? hits[0] : null;
+  if (hits.length !== 1) return null;
+  if (kind && !isDistributorCompatible(kind, hits[0])) return null;
+  return hits[0];
 }
 
 /** The source-local date string this event may be persisted with, or null. */
@@ -93,6 +131,15 @@ export function adaptSmsEvent(
   const date = resolveSmsDate(event, selection.userSelectedDate);
   if (date === null) return { ok: false, reason: "missing_date" };
   if (!selection.distributorId) return { ok: false, reason: "missing_distributor" };
+  // An incompatible distributor is treated as if none had been selected.
+  if (
+    !isDistributorCompatible(event.eventKind, {
+      forms: selection.distributorForms,
+      telecoms: selection.distributorTelecoms,
+    })
+  ) {
+    return { ok: false, reason: "missing_distributor" };
+  }
 
   const outbound = map.airtimeDirection === "sent";
   const agentLinked = outbound && Boolean(selection.agentId);
