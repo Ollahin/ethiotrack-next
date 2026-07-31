@@ -333,11 +333,13 @@ export function PasteImport() {
         `${blockedNoDate} row(s) not imported: the message states no date, and none is invented.`,
       );
     }
-    setText("");
-    setRows(null);
-    setPartyActions({});
-    setBankActions({});
-    setDistActions({});
+    if (blockedNoDate === 0) {
+      setText("");
+      setRows(null);
+      setPartyActions({});
+      setBankActions({});
+      setDistActions({});
+    }
   }
 
   async function forceImportSkipped() {
