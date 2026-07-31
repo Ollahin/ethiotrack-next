@@ -22,6 +22,7 @@ import {
 } from "@/lib/db";
 import { formatDateTime, formatEtb } from "@/lib/format";
 import { CHANNELS, TYPE_LABEL, type TxnType } from "@/lib/types";
+import { airtimeDirectionOf, isInflowTransaction } from "@/lib/airtime-movement";
 import { Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -109,7 +110,7 @@ function HistoryPage() {
     let inSum = 0,
       outSum = 0;
     for (const t of filtered) {
-      if (t.type === "in") inSum += t.amountSantim;
+      if (isInflowTransaction(t)) inSum += t.amountSantim;
       else outSum += t.amountSantim;
     }
     return { inSum, outSum, count: filtered.length };
@@ -264,12 +265,15 @@ function HistoryPage() {
           <div className="p-10 text-center text-sm text-ink-soft">No transactions match.</div>
         ) : (
           <ul className="divide-y divide-border">
-            {filtered.map((t) => (
+            {filtered.map((t) => {
+              const dir = airtimeDirectionOf(t);
+              const inflow = isInflowTransaction(t);
+              return (
               <li key={t.id} className="p-3 flex items-center gap-3 hover:bg-muted/40">
                 <span
                   className={
                     "w-1.5 self-stretch rounded-full " +
-                    (t.type === "in"
+                    (inflow
                       ? "bg-money-in"
                       : t.type === "out"
                         ? "bg-money-out"
@@ -288,14 +292,20 @@ function HistoryPage() {
                     <span
                       className={
                         "font-bold tabular-nums text-sm " +
-                        (t.type === "in" ? "text-money-in" : "text-foreground")
+                        (inflow ? "text-money-in" : "text-money-out")
                       }
                     >
-                      {t.type === "in" ? "+" : "−"} {formatEtb(t.amountSantim)}
+                      {inflow ? "+" : "−"} {formatEtb(t.amountSantim)}
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-soft mt-0.5">
                     <span className="uppercase font-semibold">{TYPE_LABEL[t.type]}</span>
+                    {dir && (
+                      <>
+                        <span>·</span>
+                        <span className="uppercase font-semibold">{dir}</span>
+                      </>
+                    )}
                     <span>·</span>
                     <span>{t.channel}</span>
                     <span>·</span>
@@ -337,7 +347,8 @@ function HistoryPage() {
                   <Trash2 className="h-4 w-4 text-money-out" />
                 </Button>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </div>
