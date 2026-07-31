@@ -781,8 +781,6 @@ const BOILERPLATE_RX =
   /^(dear\s|hi\s|hello\s|thank you|thanks for|regards|sincerely|ethio\s*telecom|safaricom(?:\s+ethiopia)?\s*$|--\s*$)/i;
 
 function isBoilerplateBlock(s: string): boolean {
-  const t0 = s;
-  void t0;
   const t = s.trim();
   if (!t) return true;
   if (t.length < 20 && !/\d/.test(t)) return true;
@@ -791,6 +789,34 @@ function isBoilerplateBlock(s: string): boolean {
   // that carries no money signal of its own.
   if (/(?:ETB|Birr|ብር)\s*[\d,]|[\d,]+(?:\.\d+)?\s*(?:ETB|Birr|ብር)/i.test(t)) return false;
   return BOILERPLATE_RX.test(t);
+}
+
+/**
+ * Split a paste into whole CBE transfer messages, or null when none is
+ * present. Each trigger phrase marks one message; a greeting immediately
+ * preceding a trigger stays with its own message.
+ */
+export function segmentCbeTransfers(text: string): string[] | null {
+  const flat = flattenSms(text);
+  const rx = new RegExp(CBE_TRANSFER_TRIGGER_RX.source, "gi");
+  const triggers: number[] = [];
+  for (let m = rx.exec(flat); m; m = rx.exec(flat)) triggers.push(m.index);
+  if (triggers.length === 0) return null;
+
+  const greetRx = /\b(?:Dear|Hello|Hi)\b/gi;
+  const starts: number[] = [0];
+  for (let i = 1; i < triggers.length; i++) {
+    let start = triggers[i];
+    greetRx.lastIndex = triggers[i - 1];
+    for (let g = greetRx.exec(flat); g && g.index < triggers[i]; g = greetRx.exec(flat)) {
+      start = g.index;
+      break;
+    }
+    starts.push(start);
+  }
+  return starts
+    .map((s, i) => flat.slice(s, i + 1 < starts.length ? starts[i + 1] : undefined).trim())
+    .filter(Boolean);
 }
 
 export function parseMany(text: string): ParsedRow[] {
