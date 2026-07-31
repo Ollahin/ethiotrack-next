@@ -470,13 +470,11 @@ export async function addTransactionsBulk(
   const existing = await db().transactions.toArray();
   const seen = new Map<string, number[]>();
   const seenRefs = new Set<string>();
-  const refKey = (channel: string, reference: string) =>
-    `${channel}|${reference.trim().toUpperCase()}`;
   for (const t of existing) {
     const k = duplicateKey(t);
     seen.set(k, [...(seen.get(k) ?? []), new Date(t.date).getTime()]);
     if (t.reference && t.reference.trim()) {
-      seenRefs.add(refKey(t.channel, t.reference));
+      seenRefs.add(referenceKey(t, t.reference));
     }
   }
   const inserted: Transaction[] = [];
@@ -490,7 +488,7 @@ export async function addTransactionsBulk(
     const input = inputs[i];
     // Authoritative: same channel + same reference => duplicate, regardless of amount/party/time.
     if (input.reference && input.reference.trim()) {
-      const rk = refKey(input.channel, input.reference);
+      const rk = referenceKey(input, input.reference);
       if (seenRefs.has(rk)) {
         skipped++;
         skippedRows.push({ index: i, input, reason: "reference" });
