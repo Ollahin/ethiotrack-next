@@ -241,6 +241,8 @@ export function PasteImport() {
       inputs.push({
         type: row.type,
         amountSantim: row.amountSantim,
+        // Pasted alerts describe airtime distributed out to agents.
+        airtimeDirection: row.type === "airtime_evd" || row.type === "airtime_float" ? "sent" : undefined,
         partyName: row.party ?? "Unknown",
         partyId,
         partyType,
