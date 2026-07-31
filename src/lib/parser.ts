@@ -161,8 +161,104 @@ function parseDate(raw: string): string | undefined {
   return parseDateInfo(raw)?.iso;
 }
 
+// ---------------------------------------------------------------------------
+// CBE outgoing transfer ("successfully transferred")
+//
+// Source-faithful field scan rather than one monolithic regex: each field is
+// located independently so line wrapping, extra punctuation and optional
+// clauses (Disaster Recovery charge, receipt link, greeting) never destroy the
+// whole message. Nothing absent from the source is ever filled in.
+// ---------------------------------------------------------------------------
+
+/** Trigger phrase for a CBE outgoing transfer, tolerant of the "transfered" typo. */
+export const CBE_TRANSFER_TRIGGER_RX = /successfully\s+transferr?ed/i;
+
+const AMOUNT_BODY = String.raw`\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?`;
+
+/** First amount following `label`, with the currency word on either side. */
+function amountAfter(text: string, label: string): number | undefined {
+  const rx = new RegExp(
+    String.raw`${label}[^0-9]{0,40}?(?:ETB|Birr|Br\.?)?\s*(${AMOUNT_BODY})(?:\s*(?:ETB|Birr|Br\.?))?`,
+    "i",
+  );
+  const m = text.match(rx);
+  return m ? toSantim(m[1]) : undefined;
+}
+
+/** Collapse wrapped lines so a multiline SMS reads as one sentence. */
+export function flattenSms(raw: string): string {
+  return normalizeSms(raw).replace(/\s*\n+\s*/g, " ").replace(/[ \t]{2,}/g, " ");
+}
+
+function matchCbeOutgoingTransfer(raw: string): TemplateFields | null {
+  const text = flattenSms(raw);
+  if (!CBE_TRANSFER_TRIGGER_RX.test(text)) return null;
+
+  // Principal — the transferred amount itself. Required.
+  const principal =
+    amountAfter(text, String.raw`successfully\s+transferr?ed`) ??
+    amountAfter(text, String.raw`\btransferr?ed\b`);
+  if (principal === undefined) return null;
+
+  const missing: string[] = [];
+
+  // Source account: "from your account 1000****4599" / "from account 1000...".
+  const srcM = text.match(/\bfrom\s+(?:your\s+)?(?:account|a\/c)\s*(?:no\.?|number)?\s*([\d*Xx]{4,})/i);
+  // Destination account and recipient: "to 1000****1086 (NAME)" — either part
+  // may be absent; the parenthesised name is the recipient/distributor label.
+  const dstM = text.match(/\bto\s+(?:account\s*)?([\d*Xx]{4,})/i);
+  const nameM = text.match(/\(([^)]{2,60})\)/);
+
+  const serviceCharge = amountAfter(text, String.raw`service\s+charge`);
+  const vat = amountAfter(text, String.raw`\bVAT\b`);
+  const drCharge = amountAfter(text, String.raw`disaster\s+recovery(?:\s+charge)?`);
+  const totalDebit =
+    amountAfter(text, String.raw`total\s+(?:amount\s+)?debit(?:ed|s)?`) ??
+    amountAfter(text, String.raw`total\s+deduct(?:ion|ed)`);
+  const balance = amountAfter(text, String.raw`(?:current\s+)?balance(?:\s+is)?`);
+
+  const reference =
+    text.match(/\bid=(?:FT|TT)?([A-Za-z0-9]{6,})/i)?.[1] ??
+    text.match(/\b(?:Ref(?:erence)?|Transaction(?:\s+Number)?|Receipt)\s*(?:no\.?|number|is)?\s*[:#]?\s*((?:FT|TT)?[A-Za-z0-9]{6,})/i)?.[1];
+
+  const dateInfo = parseDateInfo(text);
+  if (!dateInfo) missing.push("date");
+  else if (dateInfo.dayOnly) missing.push("time");
+  if (totalDebit === undefined) missing.push("final total debit");
+  if (!nameM) missing.push("recipient");
+  if (!reference) missing.push("reference");
+
+  const recipient = nameM?.[1].trim();
+
+  return {
+    channel: "CBE",
+    type: "out",
+    // The bank cash-out is the final debit when stated; otherwise the row is
+    // preserved on the principal alone and the gap is reported, never invented.
+    amountSantim: totalDebit ?? principal,
+    principalSantim: principal,
+    party: recipient || "Unresolved recipient",
+    accountTail: last4(srcM?.[1]),
+    counterpartyAccountTail: last4(dstM?.[1]),
+    feeSantim: serviceCharge,
+    vatSantim: vat,
+    drChargeSantim: drCharge,
+    balanceSantim: balance,
+    reference,
+    date: dateInfo?.iso,
+    dateIsDayOnly: dateInfo?.dayOnly,
+    missingFields: missing.length ? missing : undefined,
+    needsReview: missing.length > 0,
+    template: "cbe.transfer.out",
+  };
+}
+
 /** High-precision templates for known Ethiopian bank/wallet SMS. */
 function matchTemplates(raw: string): TemplateFields | null {
+  // -------- CBE outgoing transfer (principal vs final debit) --------
+  const cbeTransfer = matchCbeOutgoingTransfer(raw);
+  if (cbeTransfer) return cbeTransfer;
+
   // -------- CBE --------
   let m = raw.match(
     /Account\s+([\d*]+)\s+has been credited by\s+(.+?)\s+with ETB\s*([\d,]+(?:\.\d+)?)\.?\s*Your Current Balance is ETB\s*([\d,]+(?:\.\d+)?)/i,
