@@ -178,6 +178,16 @@ export interface StatementImport {
   sourceKind?: "pdf" | "image" | "sms";
   /** 0..1 — only set for OCR sources. Low values indicate the raw text may be unreliable. */
   ocrConfidence?: number;
+  /** Lifecycle of a screenshot import. The raw image is kept in every state. */
+  status?: "pending" | "parsed" | "empty" | "failed";
+  /** Detected capture orientation in degrees (0/90/180/270). */
+  orientation?: number;
+  /** Layout the production parser matched ("mj" | "refill" | "generic"). */
+  layout?: string;
+  /** Failure message preserved with the raw image so the import can be retried. */
+  parseError?: string;
+  /** Original uploaded screenshot, persisted before OCR begins. */
+  rawImage?: Blob;
 }
 
 export const CHANNELS = [

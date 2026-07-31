@@ -1,20 +1,25 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { extractPdfText } from "@/lib/pdf-parser";
-import { extractImageText, OCR_LOW_CONFIDENCE } from "@/lib/ocr";
-import {
-  detectStatementTemplate,
-  type StatementRow,
-  type TemplateMatch,
-} from "@/lib/distributor-parser";
+import { extractImageTextAt, OCR_LOW_CONFIDENCE } from "@/lib/ocr";
+import { detectStatementTemplate, type StatementRow } from "@/lib/distributor-parser";
 import {
   addTransactionsBulk,
   recordStatementImport,
+  updateStatementImport,
   upsertAgent,
   useAgents,
   useDistributors,
 } from "@/lib/db";
-import { matchAgent } from "@/lib/brain/fuzzy";
+import {
+  failedOutcome,
+  isRowComplete,
+  outcomeFrom,
+  runOrientedOcr,
+  scoreCandidate,
+  type Orientation,
+  type ScreenshotOutcome,
+} from "@/lib/screenshot-import";
 import { formatEtb } from "@/lib/format";
 import type { Agent, Transaction, DistributorStatementFormat } from "@/lib/types";
 import {
@@ -24,148 +29,206 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { UploadCloud, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  UploadCloud,
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  RotateCw,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 type SourceKind = "pdf" | "image";
+
+interface Job {
+  key: string;
+  file: File;
+  kind: SourceKind;
+  importId?: string;
+  busy: boolean;
+  saved: boolean;
+  outcome: ScreenshotOutcome | null;
+  overrides: Record<number, string>;
+  showRaw: boolean;
+}
+
+/** Exact, case/whitespace-normalized agent match only — never fuzzy. */
+function exactAgent(name: string | undefined, agents: Agent[]): Agent | null {
+  if (!name) return null;
+  const key = name.trim().toLowerCase().replace(/\s+/g, " ");
+  return agents.find((a) => a.name.trim().toLowerCase().replace(/\s+/g, " ") === key) ?? null;
+}
 
 export function StatementImport() {
   const agents = useAgents();
   const distributors = useDistributors();
   const [distributorId, setDistributorId] = useState<string>("");
-  const [rows, setRows] = useState<
-    Array<{ row: StatementRow; agent: Agent | null; overrideAgentId?: string }>
-  >([]);
-  const [rawText, setRawText] = useState("");
-  const [fileName, setFileName] = useState("");
-  const [sourceKind, setSourceKind] = useState<SourceKind | null>(null);
-  const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [showRaw, setShowRaw] = useState(false);
-  const [match, setMatch] = useState<TemplateMatch | null>(null);
+  const [jobs, setJobs] = useState<Job[]>([]);
 
   const selectedDistributor = distributors.find((d) => d.id === distributorId);
   const activeFormat: DistributorStatementFormat =
     selectedDistributor?.statementFormat ?? "generic";
 
-  async function handleFile(file: File) {
-    setBusy(true);
-    setShowRaw(false);
+  function patchJob(key: string, patch: Partial<Job>) {
+    setJobs((js) => js.map((j) => (j.key === key ? { ...j, ...patch } : j)));
+  }
+
+  /** Persist the raw file FIRST, so a later OCR failure never loses the capture. */
+  async function ensureImportRecord(job: Job): Promise<string> {
+    if (job.importId) return job.importId;
+    const rec = await recordStatementImport({
+      distributorId: distributorId || undefined,
+      fileName: job.file.name,
+      rowCount: 0,
+      totalSantim: 0,
+      rawText: "",
+      sourceKind: job.kind,
+      status: "pending",
+      rawImage: job.kind === "image" ? job.file : undefined,
+    });
+    patchJob(job.key, { importId: rec.id });
+    return rec.id;
+  }
+
+  async function processJob(job: Job) {
+    patchJob(job.key, { busy: true });
+    let importId: string | undefined;
     try {
-      const kind: SourceKind = file.type.startsWith("image/") ? "image" : "pdf";
-      let text = "";
-      let confidence: number | null = null;
-      if (kind === "image") {
-        const res = await extractImageText(file);
-        text = res.text;
-        confidence = res.confidence;
+      importId = await ensureImportRecord(job);
+      let outcome: ScreenshotOutcome;
+      if (job.kind === "image") {
+        const { best } = await runOrientedOcr(async (orientation: Orientation) => {
+          const res = await extractImageTextAt(job.file, orientation);
+          return { orientation, text: res.text, confidence: res.confidence };
+        }, activeFormat);
+        outcome = outcomeFrom(best);
       } else {
-        text = await extractPdfText(file);
+        const text = await extractPdfText(job.file);
+        outcome = outcomeFrom(
+          scoreCandidate({ orientation: 0, text, confidence: 1 }, activeFormat),
+        );
       }
-      setSourceKind(kind);
-      setOcrConfidence(confidence);
-      setRawText(text);
-      setFileName(file.name);
-      const detected = detectStatementTemplate(text, activeFormat);
-      setMatch(detected);
-      const parsed = detected.rows.filter((row) => row.ok);
-      setRows(
-        parsed.map((row) => ({
-          row,
-          agent: matchAgent(row.agentName, agents) ?? matchAgent(row.phone, agents),
-        })),
-      );
-      if (confidence !== null && confidence < OCR_LOW_CONFIDENCE) {
-        toast.warning("Low OCR confidence — check the extracted text below before committing.");
+      await updateStatementImport(importId, {
+        rawText: outcome.text.slice(0, 40_000),
+        status: outcome.status,
+        orientation: outcome.orientation ?? undefined,
+        layout: outcome.match?.kind,
+        ocrConfidence: job.kind === "image" ? (outcome.confidence ?? undefined) : undefined,
+        parseError: undefined,
+      });
+      patchJob(job.key, { outcome, busy: false });
+      if (outcome.confidence !== null && outcome.confidence < OCR_LOW_CONFIDENCE) {
+        toast.warning(`${job.file.name}: low OCR confidence — review the extracted text.`);
+      }
+      if (outcome.status === "empty") {
+        toast.warning(`${job.file.name}: no complete rows found — image kept for retry.`);
       }
     } catch (e) {
-      toast.error("Couldn't read file");
       console.error(e);
-    } finally {
-      setBusy(false);
+      const outcome = failedOutcome(e);
+      if (importId) {
+        await updateStatementImport(importId, { status: "failed", parseError: outcome.error });
+      }
+      patchJob(job.key, { outcome, busy: false });
+      toast.error(`${job.file.name}: couldn't read file — image kept, you can retry.`);
     }
   }
 
-  const okRows = rows.filter((r) => r.row.ok);
-  const linked = okRows.filter((r) => r.agent || r.overrideAgentId);
-  const flagged = okRows.length - linked.length;
-  const reviewCount = okRows.filter((r) => r.row.needsReview).length;
-  const total = okRows.reduce((s, r) => s + (r.row.amountSantim ?? 0), 0);
+  async function handleFiles(files: File[]) {
+    const next: Job[] = files.map((file, i) => ({
+      key: `${Date.now()}-${i}-${file.name}`,
+      file,
+      kind: file.type.startsWith("image/") ? "image" : "pdf",
+      busy: true,
+      saved: false,
+      outcome: null,
+      overrides: {},
+      showRaw: false,
+    }));
+    setJobs((js) => [...js, ...next]);
+    // Each screenshot is processed independently: one failure never discards
+    // results already parsed from the other files.
+    for (const job of next) {
+      await processJob(job).catch((e) => console.error(e));
+    }
+  }
 
-  async function commit() {
-    if (!okRows.length) return;
-    const importRec = await recordStatementImport({
-      distributorId: distributorId || undefined,
-      fileName,
-      rowCount: okRows.length,
-      totalSantim: total,
-      rawText: rawText.slice(0, 40_000),
-      sourceKind: sourceKind ?? undefined,
-      ocrConfidence: ocrConfidence ?? undefined,
-    });
-    // Auto-register any agent name that OCR discovered but the user hasn't
-    // linked yet — mirrors the auto-register-bank behaviour on paste import.
-    // Only names that pass the strict alphabetic guard are eligible.
+  function toggleRow(key: string, index: number) {
+    setJobs((js) =>
+      js.map((j) =>
+        j.key === key && j.outcome
+          ? {
+              ...j,
+              outcome: {
+                ...j.outcome,
+                selected: j.outcome.selected.map((s, i) => (i === index ? !s : s)),
+              },
+            }
+          : j,
+      ),
+    );
+  }
+
+  async function saveJob(job: Job) {
+    const outcome = job.outcome;
+    if (!outcome) return;
+    const picked = outcome.rows
+      .map((row, i) => ({ row, i }))
+      .filter(({ row, i }) => outcome.selected[i] && isRowComplete(row));
+    if (!picked.length) {
+      toast.error("Nothing selected to save.");
+      return;
+    }
     const NAME_OK = /^[A-Za-z\u1200-\u137F][A-Za-z\u1200-\u137F\s'.-]{1,58}$/;
-    const created: Record<string, string> = {}; // normalized name -> agent id
-    const resolvedIds = new Map<number, string | undefined>();
+    const created: Record<string, string> = {};
     let autoCreated = 0;
-    for (let i = 0; i < okRows.length; i++) {
-      const { row, agent, overrideAgentId } = okRows[i];
-      let id = overrideAgentId || agent?.id;
+    const inputs: Array<Omit<Transaction, "id" | "createdAt">> = [];
+    for (const { row, i } of picked) {
+      let id: string | undefined = job.overrides[i] || exactAgent(row.agentName, agents)?.id;
       if (!id && row.agentName && NAME_OK.test(row.agentName)) {
         const key = row.agentName.trim().toLowerCase();
-        if (created[key]) {
-          id = created[key];
-        } else {
+        if (created[key]) id = created[key];
+        else {
           const rec = await upsertAgent({ name: row.agentName.trim() });
           created[key] = rec.id;
           id = rec.id;
           autoCreated++;
         }
       }
-      resolvedIds.set(i, id);
-    }
-    const inputs: Array<Omit<Transaction, "id" | "createdAt">> = okRows.map(({ row }, i) => {
-      const linkedId = resolvedIds.get(i);
-      return {
+      inputs.push({
         type: row.airtimeType!,
         amountSantim: row.amountSantim!,
-        // Screenshot / PDF statements record airtime leaving stock to agents.
         airtimeDirection: "sent",
         partyName: row.agentName ?? "Unknown",
-        partyId: linkedId,
-        partyType: linkedId ? "agent" : undefined,
+        partyId: id,
+        partyType: id ? "agent" : undefined,
         channel: "Distributor",
-        // Fix from prior audit: distributorId belongs on each transaction too,
-        // not only on the batch record — otherwise per-distributor stock reports
-        // silently miss imported rows.
         distributorId: distributorId || undefined,
         reference: row.reference,
         note: row.raw,
         date: new Date().toISOString(),
         isSettled: false,
-        needsReview: row.needsReview,
-        source: sourceKind === "image" ? "screenshot_import" : "pdf_import",
-        statementImportId: importRec.id,
-      };
-    });
+        needsReview: row.needsReview || row.isReversal,
+        source: job.kind === "image" ? "screenshot_import" : "pdf_import",
+        statementImportId: job.importId,
+      });
+    }
     const res = await addTransactionsBulk(inputs);
+    if (job.importId) {
+      await updateStatementImport(job.importId, {
+        rowCount: inputs.length,
+        totalSantim: inputs.reduce((s, t) => s + t.amountSantim, 0),
+        status: "parsed",
+      });
+    }
+    patchJob(job.key, { saved: true });
     toast.success(
-      `Imported ${res.inserted} rows` +
-        (res.skipped ? `, skipped ${res.skipped}` : "") +
+      `${job.file.name}: saved ${res.inserted} rows` +
+        (res.skipped ? `, skipped ${res.skipped} duplicate` : "") +
         (autoCreated ? ` · added ${autoCreated} new agent${autoCreated === 1 ? "" : "s"}` : ""),
     );
-    setRows([]);
-    setRawText("");
-    setFileName("");
-    setSourceKind(null);
-    setOcrConfidence(null);
-    setMatch(null);
   }
-
-  const confidencePct = ocrConfidence !== null ? Math.round(ocrConfidence * 100) : null;
-  const lowConfidence = ocrConfidence !== null && ocrConfidence < OCR_LOW_CONFIDENCE;
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-3">
@@ -197,134 +260,192 @@ export function StatementImport() {
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault();
-          const f = e.dataTransfer.files[0];
-          if (f) void handleFile(f);
+          const fs = Array.from(e.dataTransfer.files);
+          if (fs.length) void handleFiles(fs);
         }}
       >
         <UploadCloud className="h-6 w-6 text-ink-soft" />
-        <div className="text-sm">
-          {busy ? "Reading file…" : fileName || "Drop PDF or screenshot here, or click to browse"}
+        <div className="text-sm">Drop PDFs or screenshots here, or click to browse</div>
+        <div className="text-[11px] text-ink-soft">
+          Multiple screenshots supported · rotation is detected automatically
         </div>
         <input
           type="file"
+          multiple
           accept="application/pdf,image/*"
           className="hidden"
           onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void handleFile(f);
+            const fs = Array.from(e.target.files ?? []);
+            if (fs.length) void handleFiles(fs);
+            e.target.value = "";
           }}
         />
       </label>
 
-      {match && (
-        <div className="rounded-md border border-border bg-muted/30 p-2 text-xs flex items-center gap-2 flex-wrap">
-          <span className="font-semibold">Matched:</span>
-          <span
-            className={`px-1.5 py-0.5 rounded font-semibold ${match.kind === "generic" ? "bg-money-out/10 text-money-out" : "bg-money-in/10 text-money-in"}`}
-          >
-            {match.label}
-          </span>
-          {match.forced && (
-            <span className="text-[10px] uppercase font-semibold text-ink-soft px-1 py-0.5 rounded bg-muted">
-              forced
-            </span>
-          )}
-          <span className="text-ink-soft">· {match.reason}</span>
-          <span className="ml-auto tabular-nums font-semibold">
-            {Math.round(match.confidence * 100)}%
-          </span>
-        </div>
-      )}
-
-      {rawText && (
-        <div className="rounded-md border border-border">
-          <button
-            type="button"
-            onClick={() => setShowRaw((s) => !s)}
-            className="w-full flex items-center justify-between px-3 py-2 text-xs"
-          >
-            <span className="flex items-center gap-2">
-              {showRaw ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-              Extracted text ({sourceKind === "image" ? "OCR" : "PDF"})
-            </span>
-            {confidencePct !== null && (
-              <span
-                className={`px-1.5 py-0.5 rounded font-semibold ${lowConfidence ? "bg-money-out/10 text-money-out" : "bg-money-in/10 text-money-in"}`}
-              >
-                {lowConfidence && <AlertTriangle className="h-3 w-3 inline mr-1" />}
-                {confidencePct}%
-              </span>
-            )}
-          </button>
-          {showRaw && (
-            <pre className="px-3 pb-3 text-[11px] whitespace-pre-wrap max-h-48 overflow-y-auto text-ink-soft">
-              {rawText}
-            </pre>
-          )}
-        </div>
-      )}
-
-      {okRows.length > 0 && (
-        <>
-          <div className="rounded-md border border-border bg-money-in/5 p-3 text-sm">
-            <div className="font-semibold">Import summary</div>
-            <div className="text-xs text-ink-soft mt-0.5">
-              {okRows.length} rows parsed · {linked.length} auto-linked · {flagged} need agent
-              {reviewCount > 0 && ` · ${reviewCount} flagged for review`}
+      {jobs.map((job) => {
+        const o = job.outcome;
+        const confPct = o?.confidence != null ? Math.round(o.confidence * 100) : null;
+        const low = o?.confidence != null && o.confidence < OCR_LOW_CONFIDENCE;
+        return (
+          <div key={job.key} className="rounded-lg border border-border p-3 space-y-2">
+            <div className="flex items-center gap-2 flex-wrap text-sm">
+              <span className="font-semibold truncate max-w-[14rem]">{job.file.name}</span>
+              {job.busy && <Loader2 className="h-3.5 w-3.5 animate-spin text-ink-soft" />}
+              {o && (
+                <span
+                  className={`text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded ${
+                    o.status === "parsed"
+                      ? "bg-money-in/10 text-money-in"
+                      : "bg-money-out/10 text-money-out"
+                  }`}
+                >
+                  {job.saved ? "saved" : o.status}
+                </span>
+              )}
+              {o?.match && <span className="text-xs text-ink-soft">{o.match.label}</span>}
+              {o?.orientation != null && job.kind === "image" && (
+                <span className="text-[10px] text-ink-soft flex items-center gap-1">
+                  <RotateCw className="h-3 w-3" />
+                  {o.orientation}°
+                </span>
+              )}
+              {confPct !== null && (
+                <span
+                  className={`ml-auto text-[11px] px-1.5 py-0.5 rounded font-semibold ${low ? "bg-money-out/10 text-money-out" : "bg-muted text-ink-soft"}`}
+                >
+                  {low && <AlertTriangle className="h-3 w-3 inline mr-1" />}
+                  {confPct}%
+                </span>
+              )}
             </div>
-            <div className="text-xs mt-0.5">
-              Total: <span className="font-semibold">{formatEtb(total)}</span>
+
+            {o?.error && <div className="text-xs text-money-out">{o.error}</div>}
+
+            {o && (
+              <div className="text-xs text-ink-soft">
+                {o.summary.complete} complete · {o.summary.incomplete} incomplete ·{" "}
+                {o.summary.reversals} reversal{o.summary.reversals === 1 ? "" : "s"} · total{" "}
+                <span className="font-semibold text-foreground">
+                  {formatEtb(o.summary.totalSantim)}
+                </span>
+              </div>
+            )}
+
+            {o && o.rows.length > 0 && (
+              <ul className="text-sm divide-y divide-border rounded-md border border-border max-h-72 overflow-y-auto">
+                {o.rows.map((row, i) => {
+                  const complete = isRowComplete(row);
+                  const agent = exactAgent(row.agentName, agents);
+                  return (
+                    <li key={i} className="p-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <input
+                          type="checkbox"
+                          checked={!!o.selected[i]}
+                          disabled={!complete || job.saved}
+                          onChange={() => toggleRow(job.key, i)}
+                        />
+                        <span className="font-medium">{row.agentName ?? "—"}</span>
+                        {!complete && (
+                          <span className="text-[10px] uppercase font-semibold px-1 py-0.5 rounded bg-muted text-ink-soft">
+                            Incomplete
+                          </span>
+                        )}
+                        {row.isReversal && (
+                          <span className="text-[10px] uppercase font-semibold px-1 py-0.5 rounded bg-money-out/10 text-money-out">
+                            Reversal
+                          </span>
+                        )}
+                        {row.needsReview && (
+                          <span className="text-[10px] uppercase font-semibold px-1 py-0.5 rounded bg-money-out/10 text-money-out">
+                            Review
+                          </span>
+                        )}
+                        <span className="ml-auto font-bold tabular-nums text-airtime">
+                          {row.amountSantim != null ? formatEtb(row.amountSantim) : "—"}
+                        </span>
+                        <span className="text-[10px] uppercase font-semibold text-ink-soft">
+                          {row.airtimeType === "airtime_evd" ? "EVD" : "FLOAT"}
+                        </span>
+                        {agent ? (
+                          <span className="w-full text-xs text-money-in">→ {agent.name}</span>
+                        ) : (
+                          complete &&
+                          !job.saved && (
+                            <Select
+                              value={job.overrides[i] ?? ""}
+                              onValueChange={(v) =>
+                                patchJob(job.key, { overrides: { ...job.overrides, [i]: v } })
+                              }
+                            >
+                              <SelectTrigger className="w-full h-7 text-xs mt-1">
+                                <SelectValue placeholder="Link to agent…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {agents.map((a) => (
+                                  <SelectItem key={a.id} value={a.id}>
+                                    {a.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            {o?.text && (
+              <div className="rounded-md border border-border">
+                <button
+                  type="button"
+                  onClick={() => patchJob(job.key, { showRaw: !job.showRaw })}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs"
+                >
+                  {job.showRaw ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3" />
+                  )}
+                  Extracted text ({job.kind === "image" ? "OCR" : "PDF"})
+                </button>
+                {job.showRaw && (
+                  <pre className="px-3 pb-3 text-[11px] whitespace-pre-wrap max-h-48 overflow-y-auto text-ink-soft">
+                    {o.text}
+                  </pre>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                disabled={job.busy}
+                onClick={() => void processJob(job)}
+              >
+                Retry
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={job.busy || job.saved || !o || o.summary.complete === 0}
+                onClick={() => void saveJob(job)}
+              >
+                {job.saved ? "Saved" : "Save rows"}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setJobs((js) => js.filter((j) => j.key !== job.key))}
+              >
+                Dismiss
+              </Button>
             </div>
           </div>
-          <ul className="text-sm divide-y divide-border rounded-md border border-border max-h-80 overflow-y-auto">
-            {okRows.map(({ row, agent, overrideAgentId }, i) => (
-              <li key={i} className="p-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-medium">{row.agentName}</span>
-                  <span className="text-xs text-ink-soft">{row.phone ?? ""}</span>
-                  {row.needsReview && (
-                    <span className="text-[10px] uppercase font-semibold px-1 py-0.5 rounded bg-money-out/10 text-money-out">
-                      Review
-                    </span>
-                  )}
-                  <span className="ml-auto font-bold tabular-nums text-airtime">
-                    {formatEtb(row.amountSantim!)}
-                  </span>
-                  <span className="text-[10px] uppercase font-semibold text-ink-soft">
-                    {row.airtimeType === "airtime_evd" ? "EVD" : "FLOAT"}
-                  </span>
-                  {agent ? (
-                    <span className="w-full text-xs text-money-in">→ {agent.name}</span>
-                  ) : (
-                    <Select
-                      value={overrideAgentId ?? ""}
-                      onValueChange={(v) =>
-                        setRows((s) =>
-                          s.map((x, j) => (j === i ? { ...x, overrideAgentId: v } : x)),
-                        )
-                      }
-                    >
-                      <SelectTrigger className="w-full h-7 text-xs mt-1">
-                        <SelectValue placeholder="Link to agent…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {agents.map((a) => (
-                          <SelectItem key={a.id} value={a.id}>
-                            {a.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-          <Button onClick={commit} className="w-full">
-            Commit import
-          </Button>
-        </>
-      )}
+        );
+      })}
     </div>
   );
 }

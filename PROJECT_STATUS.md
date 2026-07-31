@@ -69,10 +69,11 @@ Stage 1 — Corpus and ingestion baseline
 - Direction-aware airtime history display and receipt review semantics
 - Reconciliation week navigation and per-distributor airtime history
 - Agent history route and pure agent ledger
+- Orientation-aware end-to-end screenshot OCR import
 
 ## Current task
 
-Task 0.4A-3 — Agent history and functional MVP completion
+Task 0.4A-4 — Real screenshot OCR functional end to end
 
 ## Next task
 
