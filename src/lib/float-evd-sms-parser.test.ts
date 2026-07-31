@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   classifySmsBlock,
@@ -12,6 +15,7 @@ import {
   normalizeSmsText,
   parseSantim,
   resolveSmsOccurredAt,
+  parseFloatEvdSms,
   segmentSmsBlocks,
 } from "./float-evd-sms-parser";
 
@@ -667,5 +671,206 @@ describe("source-structure faithful float receipt and EVD receipt", () => {
     expect(x.transactionReference).toBeNull();
     expect(x.referenceLooksTruncated).toBe(true);
     expect(x.warnings.some((w) => w.reason === "missing_reference")).toBe(true);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Resolution — bilingual pairing and reference-based deduplication.   */
+/* ------------------------------------------------------------------ */
+
+const fixturesRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "tests", "corpus");
+
+interface FixtureCatalogEntry {
+  id: string;
+  status: string;
+  rawFixturePath?: string;
+  expectedFixturePath?: string;
+}
+
+interface ExpectedEvent extends Record<string, unknown> {
+  evidence: Record<string, { observedText: string; confidence: string }>;
+  dateSource: string;
+  occurredAt: string | null;
+}
+
+interface ExpectedFixture {
+  fixtureId: string;
+  expectedEvents: ExpectedEvent[];
+  reviewRows: Array<{ sourceOrder: number; reason: string; observedText: string }>;
+}
+
+const smsCatalog: FixtureCatalogEntry[] = JSON.parse(
+  readFileSync(join(fixturesRoot, "sms-catalog.json"), "utf8"),
+);
+const activeSmsFixtures = smsCatalog.filter((e) => e.status === "active");
+
+function repoFile(relative: string): string {
+  return readFileSync(resolve(fixturesRoot, "..", "..", relative), "utf8");
+}
+
+/** Evidence is compared as a superset: every expected entry must be produced. */
+function pickEvidence(
+  actual: Record<string, { observedText: string; confidence: string }>,
+  expected: Record<string, unknown>,
+): Record<string, unknown> {
+  const picked: Record<string, unknown> = {};
+  for (const key of Object.keys(expected)) picked[key] = actual[key];
+  return picked;
+}
+
+function parseFixture(entry: FixtureCatalogEntry, expected: ExpectedFixture) {
+  const userSelected = expected.expectedEvents.find((e) => e.dateSource === "user_selected");
+  return parseFloatEvdSms(repoFile(entry.rawFixturePath!), {
+    userSelectedDate: userSelected?.occurredAt ?? undefined,
+  });
+}
+
+describe("resolveSmsEvents against the sanitized SMS corpus", () => {
+  it("has fourteen active fixtures", () => {
+    expect(activeSmsFixtures.length).toBe(14);
+  });
+
+  for (const entry of smsCatalog.filter((e) => e.status === "active")) {
+    it(`reproduces ${entry.id} exactly`, () => {
+      const expected: ExpectedFixture = JSON.parse(repoFile(entry.expectedFixturePath!));
+      const result = parseFixture(entry, expected);
+
+      expect(result.events.length, entry.id).toBe(expected.expectedEvents.length);
+      result.events.forEach((actual, i) => {
+        const want = expected.expectedEvents[i];
+        const got = {
+          ...actual,
+          evidence: pickEvidence(actual.evidence, want.evidence),
+        };
+        expect(got, `${entry.id} event ${i}`).toEqual(want);
+      });
+
+      expect(result.reviewRows, entry.id).toEqual(expected.reviewRows);
+    });
+  }
+
+  it("totals 17 events and 3 review rows across the corpus", () => {
+    let events = 0;
+    let reviews = 0;
+    for (const entry of activeSmsFixtures) {
+      const expected: ExpectedFixture = JSON.parse(repoFile(entry.expectedFixturePath!));
+      const result = parseFixture(entry, expected);
+      events += result.events.length;
+      reviews += result.reviewRows.length;
+    }
+    expect(events).toBe(17);
+    expect(reviews).toBe(3);
+  });
+
+  it("keeps events, reviews and ordering deterministic and leaves input unchanged", () => {
+    for (const entry of activeSmsFixtures) {
+      const expected: ExpectedFixture = JSON.parse(repoFile(entry.expectedFixturePath!));
+      const raw = repoFile(entry.rawFixturePath!);
+      const before = raw;
+      const a = parseFloatEvdSms(raw, {
+        userSelectedDate:
+          expected.expectedEvents.find((e) => e.dateSource === "user_selected")?.occurredAt ??
+          undefined,
+      });
+      const b = parseFloatEvdSms(raw, {
+        userSelectedDate:
+          expected.expectedEvents.find((e) => e.dateSource === "user_selected")?.occurredAt ??
+          undefined,
+      });
+      expect(JSON.stringify(a), entry.id).toBe(JSON.stringify(b));
+      expect(raw).toBe(before);
+      expect(a.ordered.length, entry.id).toBe(a.events.length + a.reviewRows.length);
+      expect([...a.ordered].sort((p, q) => p.sourceOrder - q.sourceOrder)).toEqual(a.ordered);
+      a.events.forEach((e, i) => expect(e.sourceOrder, entry.id).toBe(i));
+    }
+  });
+});
+
+describe("identity rules", () => {
+  const enHalf = (ref: string, amount = "30,000.00", stamp = "2026-08-12 09:05") =>
+    `[EN ${stamp}]\nETB ${amount} removed from your M-PESA float by Sample Administrator at Sample Shop A on ${stamp}. Ref: ${ref}. New float balance ETB 1,225,000.00.`;
+  const amHalf = (ref: string, amount = "30,000.00", stamp = "2026-08-12 09:05") =>
+    `[AM ${stamp}]\nብር ${amount} ከኤም-ፔሳ ፍሎት ተቀንሶ ወደ 70002 ተልኳል። ላኪ ኮድ 70001። ቀን ${stamp}። ማጣቀሻ ${ref}።`;
+
+  it("pairs matching references into one complete event", () => {
+    const r = parseFloatEvdSms(`${enHalf("SYN4471030")}\n\n${amHalf("SYN4471030")}`);
+    expect(r.events.length).toBe(1);
+    expect(r.events[0].pairing).toBe("paired");
+    expect(r.events[0].pairingStatus).toBe("complete");
+    expect(r.events[0].senderCode).toBe("70001");
+    expect(r.reviewRows).toEqual([]);
+  });
+
+  it("collapses repeated delivery of one reference", () => {
+    const r = parseFloatEvdSms(
+      `${enHalf("SYN4471030")}\n\n${amHalf("SYN4471030")}\n\n${enHalf("SYN4471030")}`,
+    );
+    expect(r.events.length).toBe(1);
+  });
+
+  it("never pairs or deduplicates different references", () => {
+    const r = parseFloatEvdSms(`${enHalf("SYN4471030")}\n\n${enHalf("SYN4471031")}`);
+    expect(r.events.length).toBe(2);
+    expect(r.events.every((e) => e.pairingStatus === "pending")).toBe(true);
+  });
+
+  it("emits reference_mismatch for adjacent complementary halves", () => {
+    const r = parseFloatEvdSms(`${enHalf("SYN4471033")}\n\n${amHalf("SYN4471034")}`);
+    expect(r.events.map((e) => e.pairing)).toEqual(["english_only", "amharic_only"]);
+    expect(r.reviewRows).toEqual([
+      { sourceOrder: 0, reason: "reference_mismatch", observedText: "SYN4471033 versus SYN4471034" },
+    ]);
+  });
+
+  it("treats amount and minute alone as no identity at all", () => {
+    const r = parseFloatEvdSms(`${enHalf("SYN4471030")}\n\n${enHalf("SYN4471031")}`);
+    expect(r.events[0].amountMinor).toBe(r.events[1].amountMinor);
+    expect(r.events[0].occurredAt).toBe(r.events[1].occurredAt);
+    expect(r.events.length).toBe(2);
+  });
+
+  it("keeps reference-less EVD receipts as separate visible events", () => {
+    const r = parseFloatEvdSms(
+      "[SMS-APP 2026-08-14 09:10]\nYour account has been successfully credited with ETB 20,000.00. Sample Distributor A\n\n[SMS-APP 2026-08-14 17:35]\nYour account has been successfully credited with ETB 20,000.00. Sample Distributor A",
+    );
+    expect(r.events.length).toBe(2);
+    expect(r.events.every((e) => e.transactionReference === null)).toBe(true);
+  });
+
+  it("keeps an unmatched half pending", () => {
+    const r = parseFloatEvdSms(amHalf("SYN4471035"));
+    expect(r.events[0].pairing).toBe("amharic_only");
+    expect(r.events[0].pairingStatus).toBe("pending");
+    expect(r.events[0].counterpartyLabel).toBeNull();
+  });
+
+  it("invents no event when the amount is missing", () => {
+    const r = parseFloatEvdSms(
+      "[EN 2026-08-16 13:45]\nETB removed from your M-PESA float by Sample Administrator at Sample Shop A on 2026-08-16",
+    );
+    expect(r.events).toEqual([]);
+    expect(r.reviewRows.map((x) => x.reason)).toEqual(["missing_amount"]);
+  });
+
+  it("keeps a truncated reference visible with a review row", () => {
+    const r = parseFloatEvdSms(
+      "[EN 2026-08-16 10:30]\nETB 22,000.00 removed from your M-PESA float by Sample Administrator at Sample Shop A on 2026-08-16 10:30. Ref: SYN44710",
+    );
+    expect(r.events.length).toBe(1);
+    expect(r.events[0].transactionReference).toBeNull();
+    expect(r.reviewRows.map((x) => x.reason)).toEqual(["missing_reference"]);
+  });
+
+  it("refuses to merge one reference carrying conflicting amounts", () => {
+    const r = parseFloatEvdSms(
+      `${enHalf("SYN4471030")}\n\n${amHalf("SYN4471030", "31,000.00")}`,
+    );
+    expect(r.events.length).toBe(2);
+    expect(r.reviewRows.map((x) => x.reason)).toEqual(["code_conflict"]);
+  });
+
+  it("imports no production ingestion module", () => {
+    const source = readFileSync(fileURLToPath(import.meta.url), "utf8");
+    expect(source).not.toMatch(/from\s+"\.\/(db|parser|distributor-parser|ocr)"/);
   });
 });
