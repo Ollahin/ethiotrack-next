@@ -3,6 +3,7 @@ import { SmsFloatEvdImport } from "@/components/SmsFloatEvdImport";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
@@ -132,6 +133,10 @@ export function PasteImport() {
   const [partyActions, setPartyActions] = useState<Record<number, PartyAction>>({});
   const [bankActions, setBankActions] = useState<Record<number, BankAction>>({});
   const [distActions, setDistActions] = useState<Record<number, DistributorAction>>({});
+  /** User-supplied transaction date/time for messages that stated none. */
+  const [manualDates, setManualDates] = useState<Record<number, { date: string; time: string }>>(
+    {},
+  );
   const [skippedInfo, setSkippedInfo] = useState<
     Array<{ input: Omit<Transaction, "id" | "createdAt">; reason: "reference" | "heuristic" }>
   >([]);
@@ -198,18 +203,46 @@ export function PasteImport() {
     return { kind: "none" };
   }
 
+  /** Hard blockers reported by the parser — malformed money, bad arithmetic. */
+  function blockersFor(row: ParsedRow): string[] {
+    return row.ok ? (row.blockingIssues ?? []) : [];
+  }
+
+  /**
+   * The transaction date: the one the message stated, or the one the user
+   * typed in review. Never the current clock.
+   */
+  function resolvedDate(i: number, row: ParsedRow): { iso: string; dayOnly: boolean } | null {
+    if (row.ok && row.date) return { iso: row.date, dayOnly: row.dateIsDayOnly ?? false };
+    const manual = manualDates[i];
+    if (!manual?.date) return null;
+    const iso = new Date(`${manual.date}T${manual.time || "00:00"}:00Z`);
+    if (isNaN(iso.getTime())) return null;
+    return { iso: iso.toISOString(), dayOnly: !manual.time };
+  }
+
+  /** Only rows that can actually be persisted are counted and imported. */
+  function isImportable(i: number, row: ParsedRow): boolean {
+    if (!row.ok) return false;
+    if (blockersFor(row).length > 0) return false;
+    return resolvedDate(i, row) !== null;
+  }
+
+  const importableCount = enriched.filter((e, i) => isImportable(i, e.row)).length;
+
   function detect() {
     if (!text.trim()) return;
     setRows(parseMany(text));
     setPartyActions({});
     setBankActions({});
     setDistActions({});
+    setManualDates({});
   }
 
   async function importAll() {
-    const ok = enriched.filter((e) => e.row.ok);
+    const ok = enriched.filter((e, i) => isImportable(i, e.row));
     if (!ok.length) {
-      toast.error("Nothing to import");
+      toast.error("Nothing importable — fix the flagged rows first");
       return;
     }
 
@@ -219,12 +252,22 @@ export function PasteImport() {
       createdAgents = 0,
       createdDistributors = 0;
     let blockedNoDate = 0;
+    let blockedInvalid = 0;
     const inputs: Array<Omit<Transaction, "id" | "createdAt">> = [];
 
     for (let i = 0; i < enriched.length; i++) {
       const e = enriched[i];
       if (!e.row.ok) continue;
       const { row } = e;
+      if (blockersFor(row).length > 0) {
+        blockedInvalid++;
+        continue;
+      }
+      const when = resolvedDate(i, row);
+      if (!when) {
+        blockedNoDate++;
+        continue;
+      }
 
       // ----- Bank resolution
       let bankId = e.bank?.id;
@@ -270,20 +313,13 @@ export function PasteImport() {
         if (partyType === "distributor" && partyId) distributorId = partyId;
       }
 
-      // A message that never stated a date is never given one. The row stays
-      // visible in review instead of being persisted with an invented time.
-      if (!row.date) {
-        blockedNoDate++;
-        continue;
-      }
-
       inputs.push({
         type: row.type,
         amountSantim: row.amountSantim,
         // Principal is kept apart from the final debit; the fulfilment queue
         // expects EVD equal to the principal, never the debited total.
         principalSantim: row.principalSantim,
-        dateIsDayOnly: row.dateIsDayOnly,
+        dateIsDayOnly: when.dayOnly,
         // Pasted alerts describe airtime distributed out to agents.
         airtimeDirection: isAirtimeTransaction({ type: row.type }) ? "sent" : undefined,
         partyName: row.party ?? "Unknown",
@@ -294,7 +330,7 @@ export function PasteImport() {
         distributorId,
         reference: row.reference,
         note: row.note ?? row.raw,
-        date: row.date,
+        date: when.iso,
         isPersonal,
         needsReview: row.needsReview,
         source: "paste_parse",
@@ -333,15 +369,21 @@ export function PasteImport() {
     );
     if (blockedNoDate > 0) {
       toast.error(
-        `${blockedNoDate} row(s) not imported: the message states no date, and none is invented.`,
+        `${blockedNoDate} row(s) not imported: no transaction date — enter one in review.`,
       );
     }
-    if (blockedNoDate === 0) {
+    if (blockedInvalid > 0) {
+      toast.error(
+        `${blockedInvalid} row(s) not imported: the message failed financial validation.`,
+      );
+    }
+    if (blockedNoDate === 0 && blockedInvalid === 0) {
       setText("");
       setRows(null);
       setPartyActions({});
       setBankActions({});
       setDistActions({});
+      setManualDates({});
     }
   }
 
@@ -423,8 +465,8 @@ export function PasteImport() {
               Debug OCR
             </Button>
             {enriched.length > 0 && (
-              <Button onClick={importAll} className="ml-auto">
-                Import {enriched.filter((e) => e.row.ok).length}
+              <Button onClick={importAll} className="ml-auto" disabled={importableCount === 0}>
+                Import {importableCount}
               </Button>
             )}
           </div>
@@ -495,13 +537,13 @@ export function PasteImport() {
                           {row.counterpartyPhone && (
                             <span className="text-ink-soft"> · {row.counterpartyPhone}</span>
                           )}
-                          {agent && (
+                          {agent && !transfer && (
                             <span className="text-money-in font-semibold">
                               {" "}
                               · linked → {agent.name}
                             </span>
                           )}
-                          {!agent && row.party && row.party !== "Unknown" && (
+                          {!agent && !transfer && row.party && row.party !== "Unknown" && (
                             <span className="text-ink-soft"> · no agent match</span>
                           )}
                           {bank ? (
@@ -549,33 +591,63 @@ export function PasteImport() {
                         </div>
                         {row.ok && transfer && (
                           <div className="text-[11px] rounded border border-border bg-muted/40 px-2 py-1 space-y-0.5">
-                            <div className="flex flex-wrap gap-x-3 tabular-nums">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 tabular-nums">
                               <span>
-                                <span className="text-ink-soft">Expected EVD (principal): </span>
+                                <span className="text-ink-soft">Principal: </span>
                                 {formatEtb(row.principalSantim ?? row.amountSantim)}
                               </span>
                               <span>
-                                <span className="text-ink-soft">Bank debit: </span>
-                                {formatEtb(row.amountSantim)}
+                                <span className="text-ink-soft">Final bank debit: </span>
+                                {row.finalDebitSantim !== undefined ? (
+                                  formatEtb(row.finalDebitSantim)
+                                ) : (
+                                  <span className="text-money-out">not stated</span>
+                                )}
                               </span>
-                              {row.feeSantim !== undefined && (
-                                <span>
-                                  <span className="text-ink-soft">Charge: </span>
-                                  {formatEtb(row.feeSantim)}
-                                </span>
-                              )}
-                              {row.vatSantim !== undefined && (
-                                <span>
-                                  <span className="text-ink-soft">VAT: </span>
-                                  {formatEtb(row.vatSantim)}
-                                </span>
-                              )}
-                              {row.drChargeSantim !== undefined && (
-                                <span>
-                                  <span className="text-ink-soft">DR charge: </span>
-                                  {formatEtb(row.drChargeSantim)}
-                                </span>
-                              )}
+                              <span>
+                                <span className="text-ink-soft">Service charge: </span>
+                                {row.feeSantim !== undefined ? (
+                                  formatEtb(row.feeSantim)
+                                ) : (
+                                  <span className="text-ink-soft">not stated</span>
+                                )}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">VAT: </span>
+                                {row.vatSantim !== undefined ? (
+                                  formatEtb(row.vatSantim)
+                                ) : (
+                                  <span className="text-ink-soft">not stated</span>
+                                )}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">DR charge: </span>
+                                {row.drChargeSantim !== undefined ? (
+                                  formatEtb(row.drChargeSantim)
+                                ) : (
+                                  <span className="text-ink-soft">not stated</span>
+                                )}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">Balance: </span>
+                                {row.balanceSantim !== undefined ? (
+                                  formatEtb(row.balanceSantim)
+                                ) : (
+                                  <span className="text-ink-soft">not stated</span>
+                                )}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">Source account tail: </span>
+                                {row.accountTail ?? "not stated"}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">Destination account tail: </span>
+                                {row.counterpartyAccountTail ?? "not stated"}
+                              </span>
+                              <span className="sm:col-span-2">
+                                <span className="text-ink-soft">Recipient: </span>
+                                {row.party}
+                              </span>
                             </div>
                             {row.missingFields && row.missingFields.length > 0 && (
                               <div className="text-money-out">
@@ -583,9 +655,54 @@ export function PasteImport() {
                                 {row.missingFields.join(", ")}
                               </div>
                             )}
-                            {!row.date && (
+                          </div>
+                        )}
+                        {row.ok && blockersFor(row).length > 0 && (
+                          <ul className="text-[11px] rounded border border-money-out/40 bg-money-out/5 px-2 py-1 text-money-out list-disc list-inside">
+                            {blockersFor(row).map((issue, k) => (
+                              <li key={k}>{issue}</li>
+                            ))}
+                            <li>This row cannot be imported until the message is corrected.</li>
+                          </ul>
+                        )}
+                        {row.ok && !row.date && blockersFor(row).length === 0 && (
+                          <div className="text-[11px] rounded border border-airtime/40 bg-airtime/5 px-2 py-1 space-y-1">
+                            <div className="text-airtime font-semibold">
+                              Date: missing — manual entry required
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Label className="text-[11px] text-ink-soft">
+                                Transaction date
+                                <Input
+                                  type="date"
+                                  className="h-7 text-[11px] mt-0.5"
+                                  value={manualDates[i]?.date ?? ""}
+                                  onChange={(ev) =>
+                                    setManualDates((s) => ({
+                                      ...s,
+                                      [i]: { time: s[i]?.time ?? "", date: ev.target.value },
+                                    }))
+                                  }
+                                />
+                              </Label>
+                              <Label className="text-[11px] text-ink-soft">
+                                Time (optional)
+                                <Input
+                                  type="time"
+                                  className="h-7 text-[11px] mt-0.5"
+                                  value={manualDates[i]?.time ?? ""}
+                                  onChange={(ev) =>
+                                    setManualDates((s) => ({
+                                      ...s,
+                                      [i]: { date: s[i]?.date ?? "", time: ev.target.value },
+                                    }))
+                                  }
+                                />
+                              </Label>
+                            </div>
+                            {!manualDates[i]?.date && (
                               <div className="text-money-out">
-                                No date in the message — this row will not be imported.
+                                Import stays disabled for this row until a date is supplied.
                               </div>
                             )}
                           </div>
