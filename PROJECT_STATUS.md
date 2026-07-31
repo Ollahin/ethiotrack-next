@@ -63,14 +63,15 @@ Stage 1 — Corpus and ingestion baseline
 - Pure SMS classification and field-extraction primitives (not yet integrated)
 - Source-structure faithful SMS primitives and representative fixtures
 - Bilingual SMS pairing and reference-based deduplication
+- Safe sent-versus-received airtime semantics
 
 ## Current task
 
-Task 0.3C-f — Bilingual pairing and reference-based deduplication
+Task 0.3C-g1 — Safe sent-versus-received airtime semantics
 
 ## Next task
 
-Task 0.3C-g — SMS production-shape adapter and ingestion integration
+Task 0.3C-g2 — SMS review, distributor linking and safe persistence
 
 ## Execution contract
 
