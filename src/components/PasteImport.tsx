@@ -1,3 +1,4 @@
+import { isAirtimeTransaction } from "@/lib/airtime-movement";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
