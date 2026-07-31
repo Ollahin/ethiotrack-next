@@ -1,14 +1,11 @@
 /**
- * Deterministic Float / EVD SMS primitives — batch 0.3C-e.
+ * Deterministic Float / EVD SMS parser — pure stages through resolution.
  *
- * Pure, per-block helpers only: segmentation, normalization, language and
- * family classification, and field extraction with structured evidence and
- * warnings.
+ * Stages: segment → normalize → classify → extract → resolve. Everything is a
+ * pure function of its inputs: no clock, locale, timezone, storage or `Date`.
  *
  * Explicitly NOT in this batch (per `docs/float-evd-sms-parser-design.md`):
- *  - pairing of bilingual halves
- *  - reference-based deduplication
- *  - event creation or any production-shape adapter
+ *  - the production-shape adapter
  *  - any wiring into `parseStatementText`, capture or import UI
  *
  * Invariants:
@@ -354,7 +351,7 @@ export function extractAmountAndBalance(
   if (amountMinor === null) {
     warnings.push({
       reason: "missing_amount",
-      observedText: block.lines[0] ?? block.text,
+      observedText: leadingClause(block.lines[0] ?? block.text),
     });
   } else if (classification.direction === "outbound") {
     amountMinor = -amountMinor;
