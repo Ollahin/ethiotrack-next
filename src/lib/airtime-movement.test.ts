@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { airtimeDirectionOf, airtimeStockDelta, isAirtimeTransaction } from "./airtime-movement";
+import {
+  airtimeDirectionOf,
+  airtimeStockDelta,
+  isAirtimeTransaction,
+  isInflowTransaction,
+  transactionFlowSign,
+} from "./airtime-movement";
 import type { Transaction } from "./types";
 
 function txn(p: Partial<Transaction>): Transaction {
@@ -78,5 +84,48 @@ describe("airtimeStockDelta", () => {
     for (const type of ["in", "out", "expense", "personal"] as const) {
       expect(airtimeStockDelta(txn({ type, amountSantim: 999_00 }))).toBe(0);
     }
+  });
+});
+
+describe("transactionFlowSign / isInflowTransaction", () => {
+  it("presents received airtime as positive", () => {
+    for (const type of ["airtime_evd", "airtime_float"] as const) {
+      const t = txn({ type, airtimeDirection: "received" });
+      expect(transactionFlowSign(t)).toBe(1);
+      expect(isInflowTransaction(t)).toBe(true);
+    }
+  });
+
+  it("presents sent and legacy airtime as negative", () => {
+    for (const type of ["airtime_evd", "airtime_float"] as const) {
+      expect(transactionFlowSign(txn({ type, airtimeDirection: "sent" }))).toBe(-1);
+      expect(transactionFlowSign(txn({ type, airtimeDirection: undefined }))).toBe(-1);
+      expect(isInflowTransaction(txn({ type, airtimeDirection: "sent" }))).toBe(false);
+    }
+  });
+
+  it("leaves money transactions unchanged", () => {
+    expect(transactionFlowSign(txn({ type: "in" }))).toBe(1);
+    for (const type of ["out", "expense", "personal"] as const) {
+      expect(transactionFlowSign(txn({ type }))).toBe(-1);
+    }
+  });
+
+  it("classifies a history summary by direction", () => {
+    const rows = [
+      txn({ id: "a", type: "in", amountSantim: 100_00 }),
+      txn({ id: "b", type: "out", amountSantim: 50_00 }),
+      txn({ id: "c", type: "airtime_evd", airtimeDirection: "received", amountSantim: 300_00 }),
+      txn({ id: "d", type: "airtime_float", airtimeDirection: "sent", amountSantim: 25_00 }),
+      txn({ id: "e", type: "airtime_float", amountSantim: 5_00 }),
+    ];
+    let inSum = 0;
+    let outSum = 0;
+    for (const r of rows) {
+      if (isInflowTransaction(r)) inSum += r.amountSantim;
+      else outSum += r.amountSantim;
+    }
+    expect(inSum).toBe(400_00);
+    expect(outSum).toBe(80_00);
   });
 });
