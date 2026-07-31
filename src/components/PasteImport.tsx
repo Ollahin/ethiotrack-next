@@ -203,6 +203,33 @@ export function PasteImport() {
     return { kind: "none" };
   }
 
+  /** Hard blockers reported by the parser — malformed money, bad arithmetic. */
+  function blockersFor(row: ParsedRow): string[] {
+    return row.ok ? (row.blockingIssues ?? []) : [];
+  }
+
+  /**
+   * The transaction date: the one the message stated, or the one the user
+   * typed in review. Never the current clock.
+   */
+  function resolvedDate(i: number, row: ParsedRow): { iso: string; dayOnly: boolean } | null {
+    if (row.ok && row.date) return { iso: row.date, dayOnly: row.dateIsDayOnly ?? false };
+    const manual = manualDates[i];
+    if (!manual?.date) return null;
+    const iso = new Date(`${manual.date}T${manual.time || "00:00"}:00Z`);
+    if (isNaN(iso.getTime())) return null;
+    return { iso: iso.toISOString(), dayOnly: !manual.time };
+  }
+
+  /** Only rows that can actually be persisted are counted and imported. */
+  function isImportable(i: number, row: ParsedRow): boolean {
+    if (!row.ok) return false;
+    if (blockersFor(row).length > 0) return false;
+    return resolvedDate(i, row) !== null;
+  }
+
+  const importableCount = enriched.filter((e, i) => isImportable(i, e.row)).length;
+
   function detect() {
     if (!text.trim()) return;
     setRows(parseMany(text));
