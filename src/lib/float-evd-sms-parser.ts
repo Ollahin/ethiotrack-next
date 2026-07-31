@@ -802,7 +802,11 @@ function buildEvent(group: SmsGroup, sourceOrder: number): SmsResolvedEvent | nu
   if (primary.classification.direction === null) return null;
 
   const pairing: SmsPairing =
-    english && amharic ? "paired" : primary.block.language === "am" ? "amharic_only" : "english_only";
+    english && amharic
+      ? "paired"
+      : primary.block.language === "am"
+        ? "amharic_only"
+        : "english_only";
 
   const evidence: Record<string, SmsFieldEvidence> = { ...primary.evidence };
   if (pairing === "paired" && amharic) {
@@ -826,7 +830,11 @@ function buildEvent(group: SmsGroup, sourceOrder: number): SmsResolvedEvent | nu
     counterpartyLabel: primary.counterpartyLabel,
     shopLabel: primary.shopLabel,
     counterpartyMatch: "unassigned",
-    senderCode: amharic ? amharic.senderCode : primary.block.language === "am" ? primary.senderCode : null,
+    senderCode: amharic
+      ? amharic.senderCode
+      : primary.block.language === "am"
+        ? primary.senderCode
+        : null,
     recipientCode: amharic
       ? amharic.recipientCode
       : primary.block.language === "am"

@@ -678,7 +678,13 @@ describe("source-structure faithful float receipt and EVD receipt", () => {
 /* Resolution — bilingual pairing and reference-based deduplication.   */
 /* ------------------------------------------------------------------ */
 
-const fixturesRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "tests", "corpus");
+const fixturesRoot = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "tests",
+  "corpus",
+);
 
 interface FixtureCatalogEntry {
   id: string;
@@ -818,7 +824,11 @@ describe("identity rules", () => {
     const r = parseFloatEvdSms(`${enHalf("SYN4471033")}\n\n${amHalf("SYN4471034")}`);
     expect(r.events.map((e) => e.pairing)).toEqual(["english_only", "amharic_only"]);
     expect(r.reviewRows).toEqual([
-      { sourceOrder: 0, reason: "reference_mismatch", observedText: "SYN4471033 versus SYN4471034" },
+      {
+        sourceOrder: 0,
+        reason: "reference_mismatch",
+        observedText: "SYN4471033 versus SYN4471034",
+      },
     ]);
   });
 
@@ -862,9 +872,7 @@ describe("identity rules", () => {
   });
 
   it("refuses to merge one reference carrying conflicting amounts", () => {
-    const r = parseFloatEvdSms(
-      `${enHalf("SYN4471030")}\n\n${amHalf("SYN4471030", "31,000.00")}`,
-    );
+    const r = parseFloatEvdSms(`${enHalf("SYN4471030")}\n\n${amHalf("SYN4471030", "31,000.00")}`);
     expect(r.events.length).toBe(2);
     expect(r.reviewRows.map((x) => x.reason)).toEqual(["code_conflict"]);
   });
