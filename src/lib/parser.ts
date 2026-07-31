@@ -187,7 +187,9 @@ function amountAfter(text: string, label: string): number | undefined {
 
 /** Collapse wrapped lines so a multiline SMS reads as one sentence. */
 export function flattenSms(raw: string): string {
-  return normalizeSms(raw).replace(/\s*\n+\s*/g, " ").replace(/[ \t]{2,}/g, " ");
+  return normalizeSms(raw)
+    .replace(/\s*\n+\s*/g, " ")
+    .replace(/[ \t]{2,}/g, " ");
 }
 
 function matchCbeOutgoingTransfer(raw: string): TemplateFields | null {
@@ -203,7 +205,9 @@ function matchCbeOutgoingTransfer(raw: string): TemplateFields | null {
   const missing: string[] = [];
 
   // Source account: "from your account 1000****4599" / "from account 1000...".
-  const srcM = text.match(/\bfrom\s+(?:your\s+)?(?:account|a\/c)\s*(?:no\.?|number)?\s*([\d*Xx]{4,})/i);
+  const srcM = text.match(
+    /\bfrom\s+(?:your\s+)?(?:account|a\/c)\s*(?:no\.?|number)?\s*([\d*Xx]{4,})/i,
+  );
   // Destination account and recipient: "to 1000****1086 (NAME)" — either part
   // may be absent; the parenthesised name is the recipient/distributor label.
   const dstM = text.match(/\bto\s+(?:account\s*)?([\d*Xx]{4,})/i);
@@ -219,7 +223,9 @@ function matchCbeOutgoingTransfer(raw: string): TemplateFields | null {
 
   const reference =
     text.match(/\bid=((?:FT|TT)?[A-Za-z0-9]{6,})/i)?.[1] ??
-    text.match(/\b(?:Ref(?:erence)?|Transaction(?:\s+Number)?|Receipt)\s*(?:no\.?|number|is)?\s*[:#]?\s*((?:FT|TT)?[A-Za-z0-9]{6,})/i)?.[1];
+    text.match(
+      /\b(?:Ref(?:erence)?|Transaction(?:\s+Number)?|Receipt)\s*(?:no\.?|number|is)?\s*[:#]?\s*((?:FT|TT)?[A-Za-z0-9]{6,})/i,
+    )?.[1];
 
   const dateInfo = parseDateInfo(text);
   if (!dateInfo) missing.push("date");

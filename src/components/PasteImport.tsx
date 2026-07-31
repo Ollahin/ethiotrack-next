@@ -170,7 +170,9 @@ export function PasteImport() {
     // A bank transfer to a distributor is never turned into a new agent, and
     // is only linked when the payee matched strictly.
     if (isBankTransferRow(e.row)) {
-      return e.payee ? { kind: "link", partyType: "distributor", id: e.payee.id } : { kind: "none" };
+      return e.payee
+        ? { kind: "link", partyType: "distributor", id: e.payee.id }
+        : { kind: "none" };
     }
     if (e.agent) return { kind: "link", partyType: "agent", id: e.agent.id };
     if (e.row.ok && e.row.party && !isGenericParty(e.row.party)) return { kind: "new-agent" };
@@ -190,7 +192,8 @@ export function PasteImport() {
   function distActionFor(i: number, e: (typeof enriched)[number]): DistributorAction {
     const override = distActions[i];
     if (override) return override;
-    if (isBankTransferRow(e.row)) return e.payee ? { kind: "link", id: e.payee.id } : { kind: "none" };
+    if (isBankTransferRow(e.row))
+      return e.payee ? { kind: "link", id: e.payee.id } : { kind: "none" };
     if (e.distributor) return { kind: "link", id: e.distributor.id };
     return { kind: "none" };
   }
@@ -449,8 +452,7 @@ export function PasteImport() {
                     ? suggestBankName(row.channel, row.accountTail)
                     : null;
                 const transfer = isBankTransferRow(row);
-                const partyIsReal =
-                  row.ok && row.party && !isGenericParty(row.party) && !transfer;
+                const partyIsReal = row.ok && row.party && !isGenericParty(row.party) && !transfer;
                 const airtime = row.ok && isAirtimeRow(row.type);
                 const airtimeForm = airtime ? airtimeFormOf(row.type) : undefined;
                 const distributorChoices = transfer
