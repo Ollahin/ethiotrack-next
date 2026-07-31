@@ -537,13 +537,13 @@ export function PasteImport() {
                           {row.counterpartyPhone && (
                             <span className="text-ink-soft"> · {row.counterpartyPhone}</span>
                           )}
-                          {agent && (
+                          {agent && !transfer && (
                             <span className="text-money-in font-semibold">
                               {" "}
                               · linked → {agent.name}
                             </span>
                           )}
-                          {!agent && row.party && row.party !== "Unknown" && (
+                          {!agent && !transfer && row.party && row.party !== "Unknown" && (
                             <span className="text-ink-soft"> · no agent match</span>
                           )}
                           {bank ? (
