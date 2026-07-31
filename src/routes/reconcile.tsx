@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { Fragment, useMemo, useState } from "react";
-import { Landmark, Radio, Wallet, ArrowRight } from "lucide-react";
+import { Landmark, Radio, Wallet, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   useBanks,
   useDistributors,
@@ -11,7 +11,13 @@ import {
   getWeekEnd,
 } from "@/lib/db";
 import { formatEtb, parseEtbToSantim } from "@/lib/format";
-import { airtimeStockDelta } from "@/lib/airtime-movement";
+import {
+  distributorLedger,
+  expectedStock,
+  shiftWeekStart,
+  weekRangeOf,
+  type AirtimeMovement,
+} from "@/lib/distributor-ledger";
 import { Input } from "@/components/ui/input";
 import type { Bank, Distributor, Transaction } from "@/lib/types";
 
@@ -57,8 +63,8 @@ type DistRow = {
   dist: Distributor;
   evdOpen: number;
   fltOpen: number;
-  evdSold: number;
-  fltSold: number;
+  evd: AirtimeMovement;
+  float: AirtimeMovement;
   evdExpected: number;
   fltExpected: number;
   evdActualInput: string;
@@ -86,8 +92,9 @@ function varianceClass(v: number | null): string {
 // -- page ------------------------------------------------------------------
 
 function ReconcilePage() {
-  const weekStart = getWeekStart();
+  const [weekStart, setWeekStart] = useState(() => getWeekStart());
   const weekEnd = getWeekEnd(weekStart);
+  const thisWeekStart = getWeekStart();
   const opening = usePeriodOpening(weekStart);
   const banks = useBanks();
   const distributors = useDistributors();
@@ -163,20 +170,12 @@ function ReconcilePage() {
 
   const distRows: DistRow[] = useMemo(() => {
     return distributors.map((dist) => {
-      let evdSold = 0,
-        fltSold = 0,
-        count = 0;
-      for (const t of weekTxns) {
-        if (t.distributorId !== dist.id) continue;
-        count++;
-        // Net outflow: sent (and legacy) rows add, received rows subtract.
-        if (t.type === "airtime_evd") evdSold -= airtimeStockDelta(t);
-        else if (t.type === "airtime_float") fltSold -= airtimeStockDelta(t);
-      }
+      const ledger = distributorLedger(weekTxns, dist.id, weekRangeOf(weekStart));
+      const count = ledger.count;
       const evdOpen = opening?.evdStockByDistributor?.[dist.id] ?? 0;
       const fltOpen = opening?.floatStockByDistributor?.[dist.id] ?? 0;
-      const evdExpected = evdOpen - evdSold;
-      const fltExpected = fltOpen - fltSold;
+      const evdExpected = expectedStock(evdOpen, ledger.evd);
+      const fltExpected = expectedStock(fltOpen, ledger.float);
       const evdActualInput = evdActuals[dist.id] ?? "";
       const fltActualInput = fltActuals[dist.id] ?? "";
       const evdActual = parseOptional(evdActualInput);
@@ -185,8 +184,8 @@ function ReconcilePage() {
         dist,
         evdOpen,
         fltOpen,
-        evdSold,
-        fltSold,
+        evd: ledger.evd,
+        float: ledger.float,
         evdExpected,
         fltExpected,
         evdActualInput,
@@ -198,7 +197,7 @@ function ReconcilePage() {
         count,
       };
     });
-  }, [distributors, weekTxns, opening, evdActuals, fltActuals]);
+  }, [distributors, weekTxns, weekStart, opening, evdActuals, fltActuals]);
 
   const grand = useMemo(() => {
     const openingTotal = cash.opening + bankRows.reduce((s, r) => s + r.opening, 0);
@@ -230,6 +229,33 @@ function ReconcilePage() {
             Week of {weekStart} → {weekEnd}. Enter what you actually count on hand to spot
             variances.
           </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setWeekStart((w) => shiftWeekStart(w, -1))}
+              className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold hover:bg-muted"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" aria-hidden /> Previous week
+            </button>
+            <button
+              type="button"
+              onClick={() => setWeekStart((w) => shiftWeekStart(w, 1))}
+              className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold hover:bg-muted"
+            >
+              Next week <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => setWeekStart(thisWeekStart)}
+              disabled={weekStart === thisWeekStart}
+              className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold hover:bg-muted disabled:opacity-50"
+            >
+              This week
+            </button>
+            <span className="text-xs text-ink-soft tabular-nums">
+              Mon {weekStart} – Sun {weekEnd}
+            </span>
+          </div>
         </div>
         <Link
           to="/close"
@@ -241,7 +267,8 @@ function ReconcilePage() {
 
       {!opening && (
         <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-ink-soft">
-          This week has no opening balance yet.{" "}
+This week ({weekStart} → {weekEnd}) has no opening balance yet — airtime is shown against a
+          zero opening.{" "}
           <Link to="/" className="text-primary font-semibold underline">
             Open the week
           </Link>{" "}
@@ -406,7 +433,8 @@ function ReconcilePage() {
                   <th className="text-left px-4 py-2">Distributor</th>
                   <th className="text-right px-2 py-2">Kind</th>
                   <th className="text-right px-2 py-2">Opening</th>
-                  <th className="text-right px-2 py-2">Sold</th>
+                  <th className="text-right px-2 py-2">Received</th>
+                  <th className="text-right px-2 py-2">Sent</th>
                   <th className="text-right px-2 py-2">Expected</th>
                   <th className="text-right px-2 py-2">Actual</th>
                   <th className="text-right px-4 py-2">Variance</th>
@@ -417,14 +445,25 @@ function ReconcilePage() {
                   <Fragment key={r.dist.id}>
                     <tr className="border-b border-border/30">
                       <td className="px-4 py-2" rowSpan={2}>
-                        <div className="font-semibold truncate">{r.dist.name}</div>
+                        <Link
+                          to="/distributors/$distributorId"
+                          params={{ distributorId: r.dist.id }}
+                          className="font-semibold truncate hover:text-primary hover:underline"
+                        >
+                          {r.dist.name}
+                        </Link>
                         <div className="text-[10px] text-ink-soft">
                           {r.count} txn{r.count === 1 ? "" : "s"}
                         </div>
                       </td>
                       <td className="px-2 py-2 text-right font-semibold text-airtime">EVD</td>
                       <td className="px-2 py-2 text-right tabular-nums">{formatEtb(r.evdOpen)}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">−{formatEtb(r.evdSold)}</td>
+                      <td className="px-2 py-2 text-right tabular-nums text-money-in">
+                        +{formatEtb(r.evd.received)}
+                      </td>
+                      <td className="px-2 py-2 text-right tabular-nums text-money-out">
+                        −{formatEtb(r.evd.sent)}
+                      </td>
                       <td className="px-2 py-2 text-right tabular-nums font-semibold">
                         {formatEtb(r.evdExpected)}
                       </td>
@@ -454,7 +493,12 @@ function ReconcilePage() {
                     <tr className="border-b border-border/60 last:border-0">
                       <td className="px-2 py-2 text-right font-semibold text-credit">Float</td>
                       <td className="px-2 py-2 text-right tabular-nums">{formatEtb(r.fltOpen)}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">−{formatEtb(r.fltSold)}</td>
+                      <td className="px-2 py-2 text-right tabular-nums text-money-in">
+                        +{formatEtb(r.float.received)}
+                      </td>
+                      <td className="px-2 py-2 text-right tabular-nums text-money-out">
+                        −{formatEtb(r.float.sent)}
+                      </td>
                       <td className="px-2 py-2 text-right tabular-nums font-semibold">
                         {formatEtb(r.fltExpected)}
                       </td>
