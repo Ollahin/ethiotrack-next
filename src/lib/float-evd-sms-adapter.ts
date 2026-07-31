@@ -98,11 +98,11 @@ export function adaptSmsEvent(
   const agentLinked = outbound && Boolean(selection.agentId);
 
   const partyName = outbound
-    ? (selection.agentName?.trim() ||
+    ? selection.agentName?.trim() ||
       event.recipientCode ||
       event.counterpartyLabel ||
-      "Unassigned agent")
-    : (selection.distributorName?.trim() || event.counterpartyLabel || "Distributor");
+      "Unassigned agent"
+    : selection.distributorName?.trim() || event.counterpartyLabel || "Distributor";
 
   const needsReview =
     event.pairingStatus === "pending" ||

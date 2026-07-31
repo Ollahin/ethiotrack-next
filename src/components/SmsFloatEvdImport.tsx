@@ -134,8 +134,7 @@ export function SmsFloatEvdImport() {
   return (
     <div className="space-y-3">
       <div className="text-xs text-ink-soft">
-        Float and EVD messages are reviewed before saving. Nothing is linked or dated
-        automatically.
+        Float and EVD messages are reviewed before saving. Nothing is linked or dated automatically.
       </div>
       <Textarea
         rows={5}
@@ -178,7 +177,10 @@ export function SmsFloatEvdImport() {
             const outbound = map.airtimeDirection === "sent";
             const date = resolveSmsDate(ev, userDate || undefined);
             const choices = distributors.filter(
-              (d) => !d.forms || d.forms.length === 0 || d.forms.includes(map.type === "airtime_evd" ? "evd" : "float"),
+              (d) =>
+                !d.forms ||
+                d.forms.length === 0 ||
+                d.forms.includes(map.type === "airtime_evd" ? "evd" : "float"),
             );
             return (
               <li key={ev.sourceOrder} className="p-2 space-y-1">
@@ -204,7 +206,9 @@ export function SmsFloatEvdImport() {
                 </div>
                 <div className="text-xs text-ink-soft">
                   {ev.counterpartyLabel ?? "no counterparty label"}
-                  {ev.transactionReference ? ` · ref ${ev.transactionReference}` : " · no reference"}
+                  {ev.transactionReference
+                    ? ` · ref ${ev.transactionReference}`
+                    : " · no reference"}
                   {ev.pairingStatus === "pending" && " · pairing pending"}
                 </div>
                 {(!date || ev.pairingStatus === "pending" || !ev.transactionReference) && (

@@ -335,316 +335,323 @@ export function PasteImport() {
       {mode === "sms" && <SmsFloatEvdImport />}
       {mode === "general" && (
         <>
-      <div className="flex items-baseline justify-between">
-        <div>
-          <div className="font-semibold">Paste bank SMS</div>
-          <div className="text-xs text-ink-soft">
-            The Brain auto-links agents and settles oldest credit first.
+          <div className="flex items-baseline justify-between">
+            <div>
+              <div className="font-semibold">Paste bank SMS</div>
+              <div className="text-xs text-ink-soft">
+                The Brain auto-links agents and settles oldest credit first.
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="personal" className="text-xs text-ink-soft">
+                Mark as personal
+              </Label>
+              <Switch id="personal" checked={isPersonal} onCheckedChange={setPersonal} />
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Label htmlFor="personal" className="text-xs text-ink-soft">
-            Mark as personal
-          </Label>
-          <Switch id="personal" checked={isPersonal} onCheckedChange={setPersonal} />
-        </div>
-      </div>
-      <Textarea
-        rows={4}
-        placeholder='e.g. "You have received ETB 500 from Alemu Kebede via CBE. Ref: CBE789456"'
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-      />
-      <div className="flex gap-2">
-        <Button onClick={detect} variant="secondary">
-          Detect
-        </Button>
-        <Button
-          onClick={() => {
-            // eslint-disable-next-line no-console
-            console.log("looksLikeDistributor:", looksLikeDistributorRefillOcr(text));
-            // eslint-disable-next-line no-console
-            console.log("distributorParse:", parseDistributorRefillOcr(text));
-            // eslint-disable-next-line no-console
-            console.log("looksLikeTransfer:", looksLikeOcrTransferList(text));
-            // eslint-disable-next-line no-console
-            console.log("transferParse:", parseOcrTransferList(text));
-          }}
-          variant="outline"
-          type="button"
-        >
-          Debug OCR
-        </Button>
-        {enriched.length > 0 && (
-          <Button onClick={importAll} className="ml-auto">
-            Import {enriched.filter((e) => e.row.ok).length}
-          </Button>
-        )}
-      </div>
-      {enriched.length > 0 && (
-        <ul className="text-sm divide-y divide-border rounded-md border border-border overflow-hidden">
-          {enriched.map((e, i) => {
-            const { row, agent, bank, distributor } = e;
-            const pAction = partyActionFor(i, e);
-            const bAction = bankActionFor(i, e);
-            const dAction = distActionFor(i, e);
-            const suggestedBank =
-              row.ok && !bank && row.channel && row.channel !== "Other"
-                ? suggestBankName(row.channel, row.accountTail)
-                : null;
-            const partyIsReal = row.ok && row.party && !isGenericParty(row.party);
-            const airtime = row.ok && isAirtimeRow(row.type);
-            const airtimeForm = airtime ? airtimeFormOf(row.type) : undefined;
-            const distributorChoices = airtime
-              ? distributors.filter(
-                  (d) =>
-                    !airtimeForm ||
-                    !d.forms ||
-                    d.forms.length === 0 ||
-                    d.forms.includes(airtimeForm),
-                )
-              : [];
-            return (
-              <li key={i} className={"p-2 " + (row.ok ? "" : "bg-money-out/5")}>
-                {row.ok ? (
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
+          <Textarea
+            rows={4}
+            placeholder='e.g. "You have received ETB 500 from Alemu Kebede via CBE. Ref: CBE789456"'
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+          <div className="flex gap-2">
+            <Button onClick={detect} variant="secondary">
+              Detect
+            </Button>
+            <Button
+              onClick={() => {
+                // eslint-disable-next-line no-console
+                console.log("looksLikeDistributor:", looksLikeDistributorRefillOcr(text));
+                // eslint-disable-next-line no-console
+                console.log("distributorParse:", parseDistributorRefillOcr(text));
+                // eslint-disable-next-line no-console
+                console.log("looksLikeTransfer:", looksLikeOcrTransferList(text));
+                // eslint-disable-next-line no-console
+                console.log("transferParse:", parseOcrTransferList(text));
+              }}
+              variant="outline"
+              type="button"
+            >
+              Debug OCR
+            </Button>
+            {enriched.length > 0 && (
+              <Button onClick={importAll} className="ml-auto">
+                Import {enriched.filter((e) => e.row.ok).length}
+              </Button>
+            )}
+          </div>
+          {enriched.length > 0 && (
+            <ul className="text-sm divide-y divide-border rounded-md border border-border overflow-hidden">
+              {enriched.map((e, i) => {
+                const { row, agent, bank, distributor } = e;
+                const pAction = partyActionFor(i, e);
+                const bAction = bankActionFor(i, e);
+                const dAction = distActionFor(i, e);
+                const suggestedBank =
+                  row.ok && !bank && row.channel && row.channel !== "Other"
+                    ? suggestBankName(row.channel, row.accountTail)
+                    : null;
+                const partyIsReal = row.ok && row.party && !isGenericParty(row.party);
+                const airtime = row.ok && isAirtimeRow(row.type);
+                const airtimeForm = airtime ? airtimeFormOf(row.type) : undefined;
+                const distributorChoices = airtime
+                  ? distributors.filter(
+                      (d) =>
+                        !airtimeForm ||
+                        !d.forms ||
+                        d.forms.length === 0 ||
+                        d.forms.includes(airtimeForm),
+                    )
+                  : [];
+                return (
+                  <li key={i} className={"p-2 " + (row.ok ? "" : "bg-money-out/5")}>
+                    {row.ok ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span
+                            className={
+                              "font-bold tabular-nums " +
+                              (row.type === "in" ? "text-money-in" : "text-money-out")
+                            }
+                          >
+                            {row.type === "in" ? "+" : "−"} {formatEtb(row.amountSantim)}
+                          </span>
+                          <span className="flex items-center gap-1 text-xs">
+                            <span className="uppercase font-semibold text-ink-soft">
+                              {row.channel}
+                            </span>
+                            {row.accountTail && (
+                              <span className="rounded bg-muted text-ink-soft px-1.5 py-0.5 tabular-nums">
+                                ···{row.accountTail}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        <div className="text-xs">
+                          <span className="font-medium">{row.party}</span>
+                          {row.counterpartyPhone && (
+                            <span className="text-ink-soft"> · {row.counterpartyPhone}</span>
+                          )}
+                          {agent && (
+                            <span className="text-money-in font-semibold">
+                              {" "}
+                              · linked → {agent.name}
+                            </span>
+                          )}
+                          {!agent && row.party && row.party !== "Unknown" && (
+                            <span className="text-ink-soft"> · no agent match</span>
+                          )}
+                          {bank ? (
+                            <span className="text-money-in font-semibold">
+                              {" "}
+                              · account → {bank.name}
+                            </span>
+                          ) : row.accountTail ? (
+                            <span className="text-airtime">
+                              {" "}
+                              · no bank match (···{row.accountTail})
+                            </span>
+                          ) : null}
+                          {airtime && distributor && (
+                            <span className="text-money-in font-semibold">
+                              {" "}
+                              · distributor → {distributor.name}
+                            </span>
+                          )}
+                          {airtime && !distributor && (
+                            <span className="text-airtime"> · no distributor linked</span>
+                          )}
+                          {row.needsReview && (
+                            <span className="ml-1 inline-flex items-center rounded bg-airtime/15 text-airtime text-[10px] font-semibold px-1.5 py-0.5">
+                              review
+                            </span>
+                          )}
+                          {row.template && (
+                            <span className="ml-1 inline-flex items-center rounded bg-money-in/10 text-money-in text-[10px] font-semibold px-1.5 py-0.5">
+                              {row.template}
+                            </span>
+                          )}
+                        </div>
+                        {(suggestedBank || partyIsReal || airtime) && (
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {suggestedBank && (
+                              <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
+                                <span className="text-ink-soft">Bank:</span>
+                                <Select
+                                  value={bAction.kind}
+                                  onValueChange={(v) =>
+                                    setBankActions((s) => ({
+                                      ...s,
+                                      [i]: { kind: v as BankAction["kind"] },
+                                    }))
+                                  }
+                                >
+                                  <SelectTrigger className="h-6 w-auto min-w-[9rem] text-[11px]">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="auto">Register “{suggestedBank}”</SelectItem>
+                                    <SelectItem value="skip">Skip — leave unlinked</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                            {airtime && (
+                              <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
+                                <span className="text-ink-soft">
+                                  {airtimeForm === "float" ? "Float" : "EVD"} from →
+                                </span>
+                                <Select
+                                  value={dAction.kind === "link" ? `link:${dAction.id}` : "none"}
+                                  onValueChange={(v) =>
+                                    setDistActions((s) => ({
+                                      ...s,
+                                      [i]:
+                                        v === "none"
+                                          ? { kind: "none" }
+                                          : { kind: "link", id: v.slice("link:".length) },
+                                    }))
+                                  }
+                                >
+                                  <SelectTrigger className="h-6 w-auto min-w-[10rem] text-[11px]">
+                                    <SelectValue placeholder="Pick distributor…" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">
+                                      Don't link (skew expected stock)
+                                    </SelectItem>
+                                    {distributorChoices.map((d) => (
+                                      <SelectItem key={d.id} value={`link:${d.id}`}>
+                                        {d.name}
+                                      </SelectItem>
+                                    ))}
+                                    {distributorChoices.length === 0 && (
+                                      <SelectItem value="none" disabled>
+                                        No matching distributor — add one first
+                                      </SelectItem>
+                                    )}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                            {partyIsReal && (
+                              <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
+                                <span className="text-ink-soft">“{row.party}” →</span>
+                                <Select
+                                  value={encodePartyAction(pAction)}
+                                  onValueChange={(v) =>
+                                    setPartyActions((s) => ({ ...s, [i]: decodePartyAction(v) }))
+                                  }
+                                >
+                                  <SelectTrigger className="h-6 w-auto min-w-[10rem] text-[11px]">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="new-agent">Add as new agent</SelectItem>
+                                    <SelectItem value="new-distributor">
+                                      Add as new distributor
+                                    </SelectItem>
+                                    <SelectItem value="none">Don't link (manual later)</SelectItem>
+                                    {agents.length > 0 && (
+                                      <>
+                                        {agents.map((a) => (
+                                          <SelectItem
+                                            key={`a-${a.id}`}
+                                            value={`link:agent:${a.id}`}
+                                          >
+                                            Link → agent · {a.name}
+                                          </SelectItem>
+                                        ))}
+                                      </>
+                                    )}
+                                    {distributors.length > 0 && (
+                                      <>
+                                        {distributors.map((d) => (
+                                          <SelectItem
+                                            key={`d-${d.id}`}
+                                            value={`link:distributor:${d.id}`}
+                                          >
+                                            Link → distributor · {d.name}
+                                          </SelectItem>
+                                        ))}
+                                      </>
+                                    )}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <div className="text-[11px] text-ink-soft whitespace-pre-wrap break-words">
+                          {row.note}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-money-out">
+                        Couldn't parse: <span className="text-ink-soft">{row.raw}</span>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {skippedInfo.length > 0 && (
+            <div className="rounded-md border border-airtime/40 bg-airtime/5 p-2 space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="text-xs">
+                  <div className="font-semibold text-airtime">
+                    {skippedInfo.length} row(s) skipped as duplicates
+                  </div>
+                  <div className="text-ink-soft">
+                    Review below — if any aren't actually duplicates, force-import them.
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => setSkippedInfo([])}>
+                    Dismiss
+                  </Button>
+                  <Button size="sm" onClick={forceImportSkipped}>
+                    Force import {skippedInfo.length}
+                  </Button>
+                </div>
+              </div>
+              <ul className="text-[11px] divide-y divide-border rounded border border-border bg-card overflow-hidden">
+                {skippedInfo.map((s, i) => (
+                  <li key={i} className="p-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span
                         className={
                           "font-bold tabular-nums " +
-                          (row.type === "in" ? "text-money-in" : "text-money-out")
+                          (s.input.type === "in" ? "text-money-in" : "text-money-out")
                         }
                       >
-                        {row.type === "in" ? "+" : "−"} {formatEtb(row.amountSantim)}
+                        {s.input.type === "in" ? "+" : "−"} {formatEtb(s.input.amountSantim)}
                       </span>
-                      <span className="flex items-center gap-1 text-xs">
-                        <span className="uppercase font-semibold text-ink-soft">{row.channel}</span>
-                        {row.accountTail && (
-                          <span className="rounded bg-muted text-ink-soft px-1.5 py-0.5 tabular-nums">
-                            ···{row.accountTail}
-                          </span>
-                        )}
+                      <span className="uppercase font-semibold text-ink-soft">
+                        {s.input.channel}
+                      </span>
+                      <span>· {s.input.partyName}</span>
+                      {s.input.reference && (
+                        <span className="rounded bg-muted px-1.5 py-0.5 tabular-nums">
+                          ref {s.input.reference}
+                        </span>
+                      )}
+                      <span className="ml-auto text-ink-soft">
+                        {s.reason === "reference" ? "same reference" : "amount/party/time match"}
                       </span>
                     </div>
-                    <div className="text-xs">
-                      <span className="font-medium">{row.party}</span>
-                      {row.counterpartyPhone && (
-                        <span className="text-ink-soft"> · {row.counterpartyPhone}</span>
-                      )}
-                      {agent && (
-                        <span className="text-money-in font-semibold">
-                          {" "}
-                          · linked → {agent.name}
-                        </span>
-                      )}
-                      {!agent && row.party && row.party !== "Unknown" && (
-                        <span className="text-ink-soft"> · no agent match</span>
-                      )}
-                      {bank ? (
-                        <span className="text-money-in font-semibold">
-                          {" "}
-                          · account → {bank.name}
-                        </span>
-                      ) : row.accountTail ? (
-                        <span className="text-airtime">
-                          {" "}
-                          · no bank match (···{row.accountTail})
-                        </span>
-                      ) : null}
-                      {airtime && distributor && (
-                        <span className="text-money-in font-semibold">
-                          {" "}
-                          · distributor → {distributor.name}
-                        </span>
-                      )}
-                      {airtime && !distributor && (
-                        <span className="text-airtime"> · no distributor linked</span>
-                      )}
-                      {row.needsReview && (
-                        <span className="ml-1 inline-flex items-center rounded bg-airtime/15 text-airtime text-[10px] font-semibold px-1.5 py-0.5">
-                          review
-                        </span>
-                      )}
-                      {row.template && (
-                        <span className="ml-1 inline-flex items-center rounded bg-money-in/10 text-money-in text-[10px] font-semibold px-1.5 py-0.5">
-                          {row.template}
-                        </span>
-                      )}
-                    </div>
-                    {(suggestedBank || partyIsReal || airtime) && (
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        {suggestedBank && (
-                          <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
-                            <span className="text-ink-soft">Bank:</span>
-                            <Select
-                              value={bAction.kind}
-                              onValueChange={(v) =>
-                                setBankActions((s) => ({
-                                  ...s,
-                                  [i]: { kind: v as BankAction["kind"] },
-                                }))
-                              }
-                            >
-                              <SelectTrigger className="h-6 w-auto min-w-[9rem] text-[11px]">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="auto">Register “{suggestedBank}”</SelectItem>
-                                <SelectItem value="skip">Skip — leave unlinked</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
-                        {airtime && (
-                          <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
-                            <span className="text-ink-soft">
-                              {airtimeForm === "float" ? "Float" : "EVD"} from →
-                            </span>
-                            <Select
-                              value={dAction.kind === "link" ? `link:${dAction.id}` : "none"}
-                              onValueChange={(v) =>
-                                setDistActions((s) => ({
-                                  ...s,
-                                  [i]:
-                                    v === "none"
-                                      ? { kind: "none" }
-                                      : { kind: "link", id: v.slice("link:".length) },
-                                }))
-                              }
-                            >
-                              <SelectTrigger className="h-6 w-auto min-w-[10rem] text-[11px]">
-                                <SelectValue placeholder="Pick distributor…" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">
-                                  Don't link (skew expected stock)
-                                </SelectItem>
-                                {distributorChoices.map((d) => (
-                                  <SelectItem key={d.id} value={`link:${d.id}`}>
-                                    {d.name}
-                                  </SelectItem>
-                                ))}
-                                {distributorChoices.length === 0 && (
-                                  <SelectItem value="none" disabled>
-                                    No matching distributor — add one first
-                                  </SelectItem>
-                                )}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
-                        {partyIsReal && (
-                          <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
-                            <span className="text-ink-soft">“{row.party}” →</span>
-                            <Select
-                              value={encodePartyAction(pAction)}
-                              onValueChange={(v) =>
-                                setPartyActions((s) => ({ ...s, [i]: decodePartyAction(v) }))
-                              }
-                            >
-                              <SelectTrigger className="h-6 w-auto min-w-[10rem] text-[11px]">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="new-agent">Add as new agent</SelectItem>
-                                <SelectItem value="new-distributor">
-                                  Add as new distributor
-                                </SelectItem>
-                                <SelectItem value="none">Don't link (manual later)</SelectItem>
-                                {agents.length > 0 && (
-                                  <>
-                                    {agents.map((a) => (
-                                      <SelectItem key={`a-${a.id}`} value={`link:agent:${a.id}`}>
-                                        Link → agent · {a.name}
-                                      </SelectItem>
-                                    ))}
-                                  </>
-                                )}
-                                {distributors.length > 0 && (
-                                  <>
-                                    {distributors.map((d) => (
-                                      <SelectItem
-                                        key={`d-${d.id}`}
-                                        value={`link:distributor:${d.id}`}
-                                      >
-                                        Link → distributor · {d.name}
-                                      </SelectItem>
-                                    ))}
-                                  </>
-                                )}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
+                    {s.input.note && (
+                      <div className="text-ink-soft whitespace-pre-wrap break-words pt-1">
+                        {s.input.note}
                       </div>
                     )}
-                    <div className="text-[11px] text-ink-soft whitespace-pre-wrap break-words">
-                      {row.note}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-xs text-money-out">
-                    Couldn't parse: <span className="text-ink-soft">{row.raw}</span>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {skippedInfo.length > 0 && (
-        <div className="rounded-md border border-airtime/40 bg-airtime/5 p-2 space-y-2">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="text-xs">
-              <div className="font-semibold text-airtime">
-                {skippedInfo.length} row(s) skipped as duplicates
-              </div>
-              <div className="text-ink-soft">
-                Review below — if any aren't actually duplicates, force-import them.
-              </div>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className="flex gap-2">
-              <Button size="sm" variant="ghost" onClick={() => setSkippedInfo([])}>
-                Dismiss
-              </Button>
-              <Button size="sm" onClick={forceImportSkipped}>
-                Force import {skippedInfo.length}
-              </Button>
-            </div>
-          </div>
-          <ul className="text-[11px] divide-y divide-border rounded border border-border bg-card overflow-hidden">
-            {skippedInfo.map((s, i) => (
-              <li key={i} className="p-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span
-                    className={
-                      "font-bold tabular-nums " +
-                      (s.input.type === "in" ? "text-money-in" : "text-money-out")
-                    }
-                  >
-                    {s.input.type === "in" ? "+" : "−"} {formatEtb(s.input.amountSantim)}
-                  </span>
-                  <span className="uppercase font-semibold text-ink-soft">{s.input.channel}</span>
-                  <span>· {s.input.partyName}</span>
-                  {s.input.reference && (
-                    <span className="rounded bg-muted px-1.5 py-0.5 tabular-nums">
-                      ref {s.input.reference}
-                    </span>
-                  )}
-                  <span className="ml-auto text-ink-soft">
-                    {s.reason === "reference" ? "same reference" : "amount/party/time match"}
-                  </span>
-                </div>
-                {s.input.note && (
-                  <div className="text-ink-soft whitespace-pre-wrap break-words pt-1">
-                    {s.input.note}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+          )}
         </>
       )}
     </div>
