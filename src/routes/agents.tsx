@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -125,13 +125,18 @@ function AgentsPage() {
           const overLimit =
             agent.creditLimitSantim && stats.openCreditSantim > agent.creditLimitSantim;
           return (
-            <button
+            <div
               key={agent.id}
-              onClick={() => setSelected(agent.id)}
-              className="text-left rounded-xl border border-border bg-card p-4 shadow-sm hover:border-primary/50"
+              className="rounded-xl border border-border bg-card p-4 shadow-sm hover:border-primary/50"
             >
-              <div className="flex items-baseline justify-between">
-                <div className="font-semibold">{agent.name}</div>
+              <div className="flex items-baseline justify-between gap-2">
+                <Link
+                  to="/agents/$agentId"
+                  params={{ agentId: agent.id }}
+                  className="font-semibold hover:underline"
+                >
+                  {agent.name}
+                </Link>
                 <div
                   className={
                     "text-sm font-bold tabular-nums " +
@@ -160,7 +165,17 @@ function AgentsPage() {
                   </>
                 )}
               </div>
-            </button>
+              <div className="mt-3 flex gap-2">
+                <Button variant="secondary" size="sm" onClick={() => setSelected(agent.id)}>
+                  Manage
+                </Button>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/agents/$agentId" params={{ agentId: agent.id }}>
+                    History
+                  </Link>
+                </Button>
+              </div>
+            </div>
           );
         })}
       </div>

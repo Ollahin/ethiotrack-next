@@ -68,14 +68,15 @@ Stage 1 — Corpus and ingestion baseline
 - Enforced SMS distributor form and telecom compatibility
 - Direction-aware airtime history display and receipt review semantics
 - Reconciliation week navigation and per-distributor airtime history
+- Agent history route and pure agent ledger
 
 ## Current task
 
-Task 0.4A-2 — Reconciliation week navigation and distributor history
+Task 0.4A-3 — Agent history and functional MVP completion
 
 ## Next task
 
-Task 0.4A-3 — Functional MVP smoke-test completion
+Task 0.4B-a — Distributor payment and EVD fulfillment functional flow
 
 ## Execution contract
 
