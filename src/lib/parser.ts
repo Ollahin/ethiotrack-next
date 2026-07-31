@@ -116,7 +116,6 @@ function matchCbeOutgoingTransfer(raw: string): TemplateFields | null {
   };
 }
 
-
 /** High-precision templates for known Ethiopian bank/wallet SMS. */
 function matchTemplates(raw: string): TemplateFields | null {
   // -------- CBE outgoing transfer (principal vs final debit) --------
@@ -655,7 +654,6 @@ function isBoilerplateBlock(s: string): boolean {
   if (/(?:ETB|Birr|ብር)\s*[\d,]|[\d,]+(?:\.\d+)?\s*(?:ETB|Birr|ብር)/i.test(t)) return false;
   return BOILERPLATE_RX.test(t);
 }
-
 
 export function parseMany(text: string): ParsedRow[] {
   // ── Gate 1: Distributor "Refill History" OCR ──
