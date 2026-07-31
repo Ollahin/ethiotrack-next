@@ -54,11 +54,7 @@ export function agentTransactions(
 }
 
 /** Totals for one agent over an optional date range. */
-export function agentLedger(
-  txns: Transaction[],
-  agentId: string,
-  range?: DateRange,
-): AgentLedger {
+export function agentLedger(txns: Transaction[], agentId: string, range?: DateRange): AgentLedger {
   const rows = agentTransactions(txns, agentId, range);
   if (rows.length === 0) return { ...EMPTY };
   const led: AgentLedger = { ...EMPTY, count: rows.length };
