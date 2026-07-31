@@ -295,6 +295,15 @@ const CURRENCY_AMOUNT_RX =
 const BALANCE_PREFIX_RX = /(balance|ቀሪ ሂሳብ)[^\d]*$/i;
 
 /**
+ * The leading claim clause of a line: everything before the first location or
+ * time preposition. Deterministic, evidence-preserving and layout-agnostic.
+ */
+function leadingClause(line: string): string {
+  const cut = /\s+(?:at|on)\s/.exec(line);
+  return (cut ? line.slice(0, cut.index) : line).trim();
+}
+
+/**
  * Splits currency tokens into transaction amount versus resulting balance.
  * A balance-keyworded token is never promoted to the transaction amount.
  */
