@@ -105,7 +105,9 @@ export function StatementImport() {
         outcome = outcomeFrom(best);
       } else {
         const text = await extractPdfText(job.file);
-        outcome = outcomeFrom(scoreCandidate({ orientation: 0, text, confidence: 1 }, activeFormat));
+        outcome = outcomeFrom(
+          scoreCandidate({ orientation: 0, text, confidence: 1 }, activeFormat),
+        );
       }
       await updateStatementImport(importId, {
         rawText: outcome.text.slice(0, 40_000),
@@ -263,9 +265,7 @@ export function StatementImport() {
         }}
       >
         <UploadCloud className="h-6 w-6 text-ink-soft" />
-        <div className="text-sm">
-          Drop PDFs or screenshots here, or click to browse
-        </div>
+        <div className="text-sm">Drop PDFs or screenshots here, or click to browse</div>
         <div className="text-[11px] text-ink-soft">
           Multiple screenshots supported · rotation is detected automatically
         </div>

@@ -114,7 +114,9 @@ describe("row completeness and selection", () => {
   });
 
   it("leaves cropped/incomplete rows unselected", () => {
-    const cropped = ["@ Transfers", "Sent", "2 samplewallet - samplewallet", "21,000.00"].join("\n");
+    const cropped = ["@ Transfers", "Sent", "2 samplewallet - samplewallet", "21,000.00"].join(
+      "\n",
+    );
     const out = outcomeFrom(scoreCandidate({ orientation: 0, text: cropped, confidence: 0.8 }));
     expect(out.rows.every((r) => !isRowComplete(r))).toBe(true);
     expect(out.selected.every((s) => s === false)).toBe(true);
@@ -131,7 +133,9 @@ describe("row completeness and selection", () => {
   });
 
   it("does not silently drop repeated rows", () => {
-    const out = outcomeFrom(scoreCandidate({ orientation: 0, text: REFILL_CLEAN, confidence: 0.9 }));
+    const out = outcomeFrom(
+      scoreCandidate({ orientation: 0, text: REFILL_CLEAN, confidence: 0.9 }),
+    );
     const maple = out.rows.filter((r) => r.agentName === "Sample Agent Maple");
     expect(maple).toHaveLength(2);
     const cedar = out.rows.filter((r) => r.agentName === "Sample Agent Cedar");

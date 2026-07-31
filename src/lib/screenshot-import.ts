@@ -10,7 +10,11 @@
 // already routes MJ "Transfers → Sent" through the frozen deterministic
 // reconstruction and Refill History through its own template.
 
-import { detectStatementTemplate, type StatementRow, type TemplateMatch } from "./distributor-parser";
+import {
+  detectStatementTemplate,
+  type StatementRow,
+  type TemplateMatch,
+} from "./distributor-parser";
 import type { DistributorStatementFormat } from "./types";
 
 /** Orientations we probe when a screenshot may have been captured rotated. */
@@ -48,7 +52,11 @@ export function scoreCandidate(
   const unresolved = match.rows.length - okRows.length;
   const layoutBonus = match.kind === "generic" ? 0 : 3;
   const score =
-    complete * 10 + (okRows.length - complete) * 4 + layoutBonus + candidate.confidence * 2 - unresolved;
+    complete * 10 +
+    (okRows.length - complete) * 4 +
+    layoutBonus +
+    candidate.confidence * 2 -
+    unresolved;
   return { candidate, match, score: Number(score.toFixed(4)) };
 }
 
@@ -104,8 +112,7 @@ export async function runOrientedOcr(
     throw lastError instanceof Error ? lastError : new Error("OCR produced no candidates");
   }
   const best = scored.reduce((b, c) =>
-    c.score > b.score ||
-    (c.score === b.score && c.candidate.orientation < b.candidate.orientation)
+    c.score > b.score || (c.score === b.score && c.candidate.orientation < b.candidate.orientation)
       ? c
       : b,
   );
