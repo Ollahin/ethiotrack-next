@@ -591,33 +591,63 @@ export function PasteImport() {
                         </div>
                         {row.ok && transfer && (
                           <div className="text-[11px] rounded border border-border bg-muted/40 px-2 py-1 space-y-0.5">
-                            <div className="flex flex-wrap gap-x-3 tabular-nums">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 tabular-nums">
                               <span>
-                                <span className="text-ink-soft">Expected EVD (principal): </span>
+                                <span className="text-ink-soft">Principal: </span>
                                 {formatEtb(row.principalSantim ?? row.amountSantim)}
                               </span>
                               <span>
-                                <span className="text-ink-soft">Bank debit: </span>
-                                {formatEtb(row.amountSantim)}
+                                <span className="text-ink-soft">Final bank debit: </span>
+                                {row.finalDebitSantim !== undefined ? (
+                                  formatEtb(row.finalDebitSantim)
+                                ) : (
+                                  <span className="text-money-out">not stated</span>
+                                )}
                               </span>
-                              {row.feeSantim !== undefined && (
-                                <span>
-                                  <span className="text-ink-soft">Charge: </span>
-                                  {formatEtb(row.feeSantim)}
-                                </span>
-                              )}
-                              {row.vatSantim !== undefined && (
-                                <span>
-                                  <span className="text-ink-soft">VAT: </span>
-                                  {formatEtb(row.vatSantim)}
-                                </span>
-                              )}
-                              {row.drChargeSantim !== undefined && (
-                                <span>
-                                  <span className="text-ink-soft">DR charge: </span>
-                                  {formatEtb(row.drChargeSantim)}
-                                </span>
-                              )}
+                              <span>
+                                <span className="text-ink-soft">Service charge: </span>
+                                {row.feeSantim !== undefined ? (
+                                  formatEtb(row.feeSantim)
+                                ) : (
+                                  <span className="text-ink-soft">not stated</span>
+                                )}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">VAT: </span>
+                                {row.vatSantim !== undefined ? (
+                                  formatEtb(row.vatSantim)
+                                ) : (
+                                  <span className="text-ink-soft">not stated</span>
+                                )}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">DR charge: </span>
+                                {row.drChargeSantim !== undefined ? (
+                                  formatEtb(row.drChargeSantim)
+                                ) : (
+                                  <span className="text-ink-soft">not stated</span>
+                                )}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">Balance: </span>
+                                {row.balanceSantim !== undefined ? (
+                                  formatEtb(row.balanceSantim)
+                                ) : (
+                                  <span className="text-ink-soft">not stated</span>
+                                )}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">Source account tail: </span>
+                                {row.accountTail ?? "not stated"}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">Destination account tail: </span>
+                                {row.counterpartyAccountTail ?? "not stated"}
+                              </span>
+                              <span className="sm:col-span-2">
+                                <span className="text-ink-soft">Recipient: </span>
+                                {row.party}
+                              </span>
                             </div>
                             {row.missingFields && row.missingFields.length > 0 && (
                               <div className="text-money-out">
@@ -625,9 +655,54 @@ export function PasteImport() {
                                 {row.missingFields.join(", ")}
                               </div>
                             )}
-                            {!row.date && (
+                          </div>
+                        )}
+                        {row.ok && blockersFor(row).length > 0 && (
+                          <ul className="text-[11px] rounded border border-money-out/40 bg-money-out/5 px-2 py-1 text-money-out list-disc list-inside">
+                            {blockersFor(row).map((issue, k) => (
+                              <li key={k}>{issue}</li>
+                            ))}
+                            <li>This row cannot be imported until the message is corrected.</li>
+                          </ul>
+                        )}
+                        {row.ok && !row.date && blockersFor(row).length === 0 && (
+                          <div className="text-[11px] rounded border border-airtime/40 bg-airtime/5 px-2 py-1 space-y-1">
+                            <div className="text-airtime font-semibold">
+                              Date: missing — manual entry required
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Label className="text-[11px] text-ink-soft">
+                                Transaction date
+                                <Input
+                                  type="date"
+                                  className="h-7 text-[11px] mt-0.5"
+                                  value={manualDates[i]?.date ?? ""}
+                                  onChange={(ev) =>
+                                    setManualDates((s) => ({
+                                      ...s,
+                                      [i]: { time: s[i]?.time ?? "", date: ev.target.value },
+                                    }))
+                                  }
+                                />
+                              </Label>
+                              <Label className="text-[11px] text-ink-soft">
+                                Time (optional)
+                                <Input
+                                  type="time"
+                                  className="h-7 text-[11px] mt-0.5"
+                                  value={manualDates[i]?.time ?? ""}
+                                  onChange={(ev) =>
+                                    setManualDates((s) => ({
+                                      ...s,
+                                      [i]: { date: s[i]?.date ?? "", time: ev.target.value },
+                                    }))
+                                  }
+                                />
+                              </Label>
+                            </div>
+                            {!manualDates[i]?.date && (
                               <div className="text-money-out">
-                                No date in the message — this row will not be imported.
+                                Import stays disabled for this row until a date is supplied.
                               </div>
                             )}
                           </div>
