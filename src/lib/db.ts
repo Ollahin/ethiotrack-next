@@ -1,6 +1,6 @@
 import Dexie, { type Table } from "dexie";
 import { useLiveQuery } from "dexie-react-hooks";
-import { airtimeStockDelta } from "./airtime-movement";
+import { airtimeDirectionOf, airtimeStockDelta } from "./airtime-movement";
 import type {
   Agent,
   Bank,
@@ -23,9 +23,24 @@ import { makeId } from "./ids";
  */
 export const DUPLICATE_WINDOW_MS = 10 * 60_000;
 export function duplicateKey(
-  t: Pick<Transaction, "type" | "amountSantim" | "partyName" | "channel">,
+  t: Pick<Transaction, "type" | "amountSantim" | "partyName" | "channel" | "airtimeDirection">,
 ): string {
-  return `${t.type}|${t.amountSantim}|${(t.partyName ?? "").toLowerCase()}|${t.channel}`;
+  // Airtime sent out and airtime received in are never the same event, so the
+  // direction (legacy missing = "sent") is part of the identity.
+  const dir = airtimeDirectionOf(t) ?? "-";
+  return `${t.type}|${dir}|${t.amountSantim}|${(t.partyName ?? "").toLowerCase()}|${t.channel}`;
+}
+
+/**
+ * Authoritative duplicate identity for a referenced transaction. A reference is
+ * only unique within the same channel, type and airtime direction.
+ */
+export function referenceKey(
+  t: Pick<Transaction, "type" | "channel" | "airtimeDirection">,
+  reference: string,
+): string {
+  const dir = airtimeDirectionOf(t) ?? "-";
+  return `${t.channel}|${t.type}|${dir}|${reference.trim().toUpperCase()}`;
 }
 
 // -- schema ------------------------------------------------------------------

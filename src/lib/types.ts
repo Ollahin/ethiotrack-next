@@ -35,6 +35,7 @@ export type TxnSource =
   | "paste_parse"
   | "pdf_import"
   | "screenshot_import"
+  | "sms_import"
   | "csv_import";
 
 export interface Agent {
@@ -173,8 +174,8 @@ export interface StatementImport {
   totalSantim: number;
   importedAt: string;
   rawText: string;
-  /** Was the source a PDF text extract or a screenshot OCR? */
-  sourceKind?: "pdf" | "image";
+  /** Was the source a PDF text extract, a screenshot OCR, or pasted SMS text? */
+  sourceKind?: "pdf" | "image" | "sms";
   /** 0..1 — only set for OCR sources. Low values indicate the raw text may be unreliable. */
   ocrConfidence?: number;
 }
