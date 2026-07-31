@@ -784,6 +784,10 @@ function isBoilerplateBlock(s: string): boolean {
   const t = s.trim();
   if (!t) return true;
   if (t.length < 20 && !/\d/.test(t)) return true;
+  // A greeting glued to the real sentence ("Dear X, You have successfully
+  // transferred ETB ...") is content, not boilerplate. Only discard a block
+  // that carries no money signal of its own.
+  if (/(?:ETB|Birr|ብር)\s*[\d,]|[\d,]+(?:\.\d+)?\s*(?:ETB|Birr|ብር)/i.test(t)) return false;
   return BOILERPLATE_RX.test(t);
 }
 
@@ -800,6 +804,13 @@ export function parseMany(text: string): ParsedRow[] {
     const results = parseBankTransferOcr(text);
     if (results.length > 0) return results;
   }
+
+  // ── Gate 3: CBE outgoing transfers ──
+  // These messages wrap across many lines and mid-sentence, so line/blank-line
+  // splitting destroys them. Each occurrence of the trigger phrase is one
+  // message; the text is segmented on the trigger and parsed whole.
+  const cbeSegments = segmentCbeTransfers(text);
+  if (cbeSegments) return cbeSegments.map(parseOne);
 
   const rawBlocks = text
     .split(/\n\s*\n+/)
