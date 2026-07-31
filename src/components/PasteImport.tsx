@@ -65,7 +65,7 @@ function isBankTransferRow(row: ParsedRow): boolean {
 function matchTransferDistributor(row: ParsedRow, distributors: Distributor[]): Distributor | null {
   if (!row.ok || !isBankTransferRow(row)) return null;
   return matchDistributorForPayment(
-    { partyName: row.party, note: row.note, reference: row.reference },
+    { partyName: row.party ?? "", note: row.note, reference: row.reference },
     distributors,
   );
 }
