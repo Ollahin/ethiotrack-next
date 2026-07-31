@@ -143,18 +143,29 @@ describe("review flags", () => {
     expect(res.ok && res.input.needsReview).toBe(false);
   });
 
-  it("flags pending pairing and missing reference", () => {
-    const pending = adaptSmsEvent(
-      event("evd_received_from_distributor", { pairing: "english_only", pairingStatus: "pending" }),
-      dist,
-    );
+  it("flags a reference-less EVD receipt", () => {
     const noRef = adaptSmsEvent(
       event("evd_received_from_distributor", { transactionReference: null }),
       dist,
     );
-    expect(pending.ok && pending.input.needsReview).toBe(true);
     expect(noRef.ok && noRef.input.needsReview).toBe(true);
     expect(noRef.ok && noRef.input.reference).toBeUndefined();
+  });
+
+  it("does not flag a complete incoming receipt that was never paired", () => {
+    const evd = adaptSmsEvent(
+      event("evd_received_from_distributor", { pairing: "english_only", pairingStatus: "pending" }),
+      dist,
+    );
+    expect(evd.ok && evd.input.needsReview).toBe(false);
+  });
+
+  it("flags outbound distribution with pending pairing", () => {
+    const pending = adaptSmsEvent(
+      event("float_sent_to_agent", { pairing: "english_only", pairingStatus: "pending" }),
+      { ...dist, agentId: "a1", agentName: "Sample Agent" },
+    );
+    expect(pending.ok && pending.input.needsReview).toBe(true);
   });
 });
 
