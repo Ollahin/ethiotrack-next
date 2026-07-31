@@ -1,5 +1,6 @@
 import Dexie, { type Table } from "dexie";
 import { useLiveQuery } from "dexie-react-hooks";
+import { airtimeStockDelta } from "./airtime-movement";
 import type {
   Agent,
   Bank,
@@ -371,9 +372,9 @@ export function usePreviousPeriodExpected(weekStart: string):
         if (t.bankId) bankBalances[t.bankId] = (bankBalances[t.bankId] ?? 0) - t.amountSantim;
         else cash -= t.amountSantim;
       } else if (t.type === "airtime_evd" && t.distributorId) {
-        evd[t.distributorId] = (evd[t.distributorId] ?? 0) - t.amountSantim;
+        evd[t.distributorId] = (evd[t.distributorId] ?? 0) + airtimeStockDelta(t);
       } else if (t.type === "airtime_float" && t.distributorId) {
-        flt[t.distributorId] = (flt[t.distributorId] ?? 0) - t.amountSantim;
+        flt[t.distributorId] = (flt[t.distributorId] ?? 0) + airtimeStockDelta(t);
       }
     }
     void prevWeekEnd;

@@ -1,4 +1,5 @@
 import type { Distributor, Transaction, Telecom, AirtimeForm } from "../types";
+import { airtimeStockDelta } from "../airtime-movement";
 
 export type BucketKey = `${Telecom}:${AirtimeForm}`;
 
@@ -7,9 +8,12 @@ export interface FlowBucket {
   form: AirtimeForm;
   purchasedSantim: number; // subdistributor bought from upstream distributors
   soldSantim: number; // distributed / sold to agents
+  receivedSantim: number; // airtime actually received into stock from distributors
+  netStockSantim: number; // received − sold (signed inventory movement)
   netSantim: number; // purchased − sold (positive = leftover stock built up)
   purchaseTxnIds: string[];
   saleTxnIds: string[];
+  receiptTxnIds: string[];
 }
 
 export interface FlowMatch {
@@ -27,9 +31,12 @@ function emptyBucket(t: Telecom, f: AirtimeForm): FlowBucket {
     form: f,
     purchasedSantim: 0,
     soldSantim: 0,
+    receivedSantim: 0,
+    netStockSantim: 0,
     netSantim: 0,
     purchaseTxnIds: [],
     saleTxnIds: [],
+    receiptTxnIds: [],
   };
 }
 
@@ -105,17 +112,28 @@ export function computeTelecomFlow(txns: Transaction[], distributors: Distributo
       }
       const share = Math.floor(t.amountSantim / telecoms.length);
       const remainder = t.amountSantim - share * telecoms.length;
+      // Signed stock movement: received adds to stock, sent (and legacy) removes.
+      const delta = airtimeStockDelta(t);
+      const received = delta > 0;
       telecoms.forEach((tel, i) => {
         const b = buckets[`${tel}:${form}` as BucketKey];
-        b.soldSantim += share + (i === 0 ? remainder : 0);
-        if (!b.saleTxnIds.includes(t.id)) b.saleTxnIds.push(t.id);
+        const part = share + (i === 0 ? remainder : 0);
+        if (received) {
+          b.receivedSantim += part;
+          if (!b.receiptTxnIds.includes(t.id)) b.receiptTxnIds.push(t.id);
+        } else {
+          b.soldSantim += part;
+          if (!b.saleTxnIds.includes(t.id)) b.saleTxnIds.push(t.id);
+        }
       });
     }
   }
 
   for (const key of Object.keys(buckets) as BucketKey[]) {
     const b = buckets[key];
+    // Bank-payment purchases stay separate from actual airtime receipts.
     b.netSantim = b.purchasedSantim - b.soldSantim;
+    b.netStockSantim = b.receivedSantim - b.soldSantim;
   }
 
   return { buckets, unmatchedPurchases, unmatchedSales };

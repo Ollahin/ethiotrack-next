@@ -13,6 +13,13 @@ export type PartyType = "agent" | "distributor" | "bank" | "other";
 export type Telecom = "ethiotelecom" | "safaricom";
 export type AirtimeForm = "evd" | "float";
 
+/**
+ * Whether an airtime transaction moved stock out to an agent ("sent") or in
+ * from an upstream distributor ("received"). Absent on legacy rows, which
+ * always mean "sent". Ignored for money and personal transactions.
+ */
+export type AirtimeDirection = "sent" | "received";
+
 export const TELECOM_LABEL: Record<Telecom, string> = {
   ethiotelecom: "Ethio Telecom",
   safaricom: "Safaricom",
@@ -143,6 +150,8 @@ export interface Transaction {
   note?: string;
   /** Telecom this airtime transaction belongs to (airtime_evd / airtime_float only). */
   telecom?: Telecom;
+  /** Airtime stock direction (airtime_evd / airtime_float only). Missing = "sent". */
+  airtimeDirection?: AirtimeDirection;
   isPersonal?: boolean;
   isSettled?: boolean;
   settledAt?: string;

@@ -1,3 +1,4 @@
+import { isAirtimeTransaction } from "@/lib/airtime-movement";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -241,6 +242,8 @@ export function PasteImport() {
       inputs.push({
         type: row.type,
         amountSantim: row.amountSantim,
+        // Pasted alerts describe airtime distributed out to agents.
+        airtimeDirection: isAirtimeTransaction({ type: row.type }) ? "sent" : undefined,
         partyName: row.party ?? "Unknown",
         partyId,
         partyType,
