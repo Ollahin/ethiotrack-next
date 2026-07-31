@@ -240,9 +240,9 @@ export function PasteImport() {
   }
 
   async function importAll() {
-    const ok = enriched.filter((e) => e.row.ok);
+    const ok = enriched.filter((e, i) => isImportable(i, e.row));
     if (!ok.length) {
-      toast.error("Nothing to import");
+      toast.error("Nothing importable — fix the flagged rows first");
       return;
     }
 
@@ -252,12 +252,22 @@ export function PasteImport() {
       createdAgents = 0,
       createdDistributors = 0;
     let blockedNoDate = 0;
+    let blockedInvalid = 0;
     const inputs: Array<Omit<Transaction, "id" | "createdAt">> = [];
 
     for (let i = 0; i < enriched.length; i++) {
       const e = enriched[i];
       if (!e.row.ok) continue;
       const { row } = e;
+      if (blockersFor(row).length > 0) {
+        blockedInvalid++;
+        continue;
+      }
+      const when = resolvedDate(i, row);
+      if (!when) {
+        blockedNoDate++;
+        continue;
+      }
 
       // ----- Bank resolution
       let bankId = e.bank?.id;
@@ -303,20 +313,13 @@ export function PasteImport() {
         if (partyType === "distributor" && partyId) distributorId = partyId;
       }
 
-      // A message that never stated a date is never given one. The row stays
-      // visible in review instead of being persisted with an invented time.
-      if (!row.date) {
-        blockedNoDate++;
-        continue;
-      }
-
       inputs.push({
         type: row.type,
         amountSantim: row.amountSantim,
         // Principal is kept apart from the final debit; the fulfilment queue
         // expects EVD equal to the principal, never the debited total.
         principalSantim: row.principalSantim,
-        dateIsDayOnly: row.dateIsDayOnly,
+        dateIsDayOnly: when.dayOnly,
         // Pasted alerts describe airtime distributed out to agents.
         airtimeDirection: isAirtimeTransaction({ type: row.type }) ? "sent" : undefined,
         partyName: row.party ?? "Unknown",
@@ -327,7 +330,7 @@ export function PasteImport() {
         distributorId,
         reference: row.reference,
         note: row.note ?? row.raw,
-        date: row.date,
+        date: when.iso,
         isPersonal,
         needsReview: row.needsReview,
         source: "paste_parse",
@@ -366,15 +369,21 @@ export function PasteImport() {
     );
     if (blockedNoDate > 0) {
       toast.error(
-        `${blockedNoDate} row(s) not imported: the message states no date, and none is invented.`,
+        `${blockedNoDate} row(s) not imported: no transaction date — enter one in review.`,
       );
     }
-    if (blockedNoDate === 0) {
+    if (blockedInvalid > 0) {
+      toast.error(
+        `${blockedInvalid} row(s) not imported: the message failed financial validation.`,
+      );
+    }
+    if (blockedNoDate === 0 && blockedInvalid === 0) {
       setText("");
       setRows(null);
       setPartyActions({});
       setBankActions({});
       setDistActions({});
+      setManualDates({});
     }
   }
 
@@ -456,8 +465,8 @@ export function PasteImport() {
               Debug OCR
             </Button>
             {enriched.length > 0 && (
-              <Button onClick={importAll} className="ml-auto">
-                Import {enriched.filter((e) => e.row.ok).length}
+              <Button onClick={importAll} className="ml-auto" disabled={importableCount === 0}>
+                Import {importableCount}
               </Button>
             )}
           </div>
