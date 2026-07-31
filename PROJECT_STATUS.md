@@ -65,14 +65,15 @@ Stage 1 — Corpus and ingestion baseline
 - Bilingual SMS pairing and reference-based deduplication
 - Safe sent-versus-received airtime semantics
 - SMS review, distributor linking and safe persistence
+- Enforced SMS distributor form and telecom compatibility
 
 ## Current task
 
-Task 0.3C-g2 — SMS review, distributor linking and safe persistence
+Task 0.3C-g2a — Enforce SMS distributor compatibility
 
 ## Next task
 
-Task 0.4A — End-to-end functional MVP smoke test and blocking fixes
+Task 0.4A — Manual functional MVP smoke test and blocking fixes
 
 ## Execution contract
 

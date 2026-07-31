@@ -15,6 +15,7 @@ import { parseFloatEvdSms, type SmsParseResult } from "@/lib/float-evd-sms-parse
 import {
   SMS_EVENT_MAPPING,
   adaptSmsEvents,
+  isDistributorCompatible,
   matchDistributorByLabel,
   resolveSmsDate,
 } from "@/lib/float-evd-sms-adapter";
@@ -58,7 +59,7 @@ export function SmsFloatEvdImport() {
   const defaults = useMemo(() => {
     const map: Record<number, RowState> = {};
     for (const ev of events) {
-      const preselect = matchDistributorByLabel(ev.counterpartyLabel, distributors);
+      const preselect = matchDistributorByLabel(ev.counterpartyLabel, distributors, ev.eventKind);
       map[ev.sourceOrder] = {
         // Pending events stay unselected until the operator checks them.
         selected: ev.pairingStatus === "complete",
@@ -84,9 +85,17 @@ export function SmsFloatEvdImport() {
   }
 
   const selected = events.filter((e) => stateFor(e.sourceOrder).selected);
+  function compatibleDistributor(ev: (typeof events)[number], id?: string) {
+    const d = distributors.find((x) => x.id === id);
+    return d && isDistributorCompatible(ev.eventKind, d) ? d : undefined;
+  }
+
   const blocking = selected.filter((e) => {
     const st = stateFor(e.sourceOrder);
-    return !st.distributorId || resolveSmsDate(e, userDate || undefined) === null;
+    return (
+      !compatibleDistributor(e, st.distributorId) ||
+      resolveSmsDate(e, userDate || undefined) === null
+    );
   });
   const canImport = selected.length > 0 && blocking.length === 0;
 
@@ -95,11 +104,14 @@ export function SmsFloatEvdImport() {
     const batch = adaptSmsEvents(
       selected.map((ev) => {
         const st = stateFor(ev.sourceOrder);
+        const dist = compatibleDistributor(ev, st.distributorId);
         return {
           event: ev,
           selection: {
-            distributorId: st.distributorId,
-            distributorName: distributors.find((d) => d.id === st.distributorId)?.name,
+            distributorId: dist?.id,
+            distributorName: dist?.name,
+            distributorForms: dist?.forms,
+            distributorTelecoms: dist?.telecoms,
             agentId: st.agentId,
             agentName: agents.find((a) => a.id === st.agentId)?.name,
             userSelectedDate: userDate || undefined,
@@ -108,7 +120,7 @@ export function SmsFloatEvdImport() {
       }),
     );
     if (batch.blocked.length || !batch.inputs.length) {
-      toast.error("Some selected messages are missing a date or distributor");
+      toast.error("Some selected messages are missing a date or a compatible distributor");
       return;
     }
     // The complete pasted text is recorded first so every row can point at it.
@@ -176,12 +188,7 @@ export function SmsFloatEvdImport() {
             const map = SMS_EVENT_MAPPING[ev.eventKind];
             const outbound = map.airtimeDirection === "sent";
             const date = resolveSmsDate(ev, userDate || undefined);
-            const choices = distributors.filter(
-              (d) =>
-                !d.forms ||
-                d.forms.length === 0 ||
-                d.forms.includes(map.type === "airtime_evd" ? "evd" : "float"),
-            );
+            const choices = distributors.filter((d) => isDistributorCompatible(ev.eventKind, d));
             return (
               <li key={ev.sourceOrder} className="p-2 space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -222,7 +229,7 @@ export function SmsFloatEvdImport() {
                   <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
                     <span className="text-ink-soft">Distributor</span>
                     <Select
-                      value={st.distributorId ?? "none"}
+                      value={compatibleDistributor(ev, st.distributorId)?.id ?? "none"}
                       onValueChange={(v) =>
                         setFor(ev.sourceOrder, { distributorId: v === "none" ? undefined : v })
                       }

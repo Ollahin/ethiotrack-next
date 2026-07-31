@@ -3,6 +3,7 @@ import {
   SMS_EVENT_MAPPING,
   adaptSmsEvent,
   adaptSmsEvents,
+  isDistributorCompatible,
   matchDistributorByLabel,
   normalizeName,
   resolveSmsDate,
@@ -164,6 +165,61 @@ describe("distributor preselection", () => {
     expect(matchDistributorByLabel("Sample Distributor", list)).toBeNull();
     expect(matchDistributorByLabel(null, list)).toBeNull();
     expect(normalizeName("  A   b ")).toBe("a b");
+  });
+});
+
+describe("distributor compatibility", () => {
+  const evd = { forms: ["evd" as const], telecoms: ["ethiotelecom" as const] };
+  const float = { forms: ["float" as const], telecoms: ["safaricom" as const] };
+
+  it("accepts matching form and telecom", () => {
+    expect(isDistributorCompatible("evd_received_from_distributor", evd)).toBe(true);
+    expect(isDistributorCompatible("float_sent_to_agent", float)).toBe(true);
+    expect(isDistributorCompatible("float_received_from_distributor", float)).toBe(true);
+  });
+
+  it("rejects a form mismatch and a telecom mismatch", () => {
+    expect(isDistributorCompatible("evd_received_from_distributor", float)).toBe(false);
+    expect(
+      isDistributorCompatible("evd_received_from_distributor", {
+        forms: ["evd"],
+        telecoms: ["safaricom"],
+      }),
+    ).toBe(false);
+  });
+
+  it("treats absent or empty metadata as compatible", () => {
+    expect(isDistributorCompatible("evd_received_from_distributor", {})).toBe(true);
+    expect(isDistributorCompatible("float_sent_to_agent", { forms: [], telecoms: [] })).toBe(true);
+  });
+
+  it("preselects only a compatible exact match", () => {
+    const ok = [{ id: "d1", name: "Sample Distributor B", ...evd }];
+    const bad = [{ id: "d2", name: "Sample Distributor B", ...float }];
+    expect(
+      matchDistributorByLabel("Sample Distributor B", ok, "evd_received_from_distributor")?.id,
+    ).toBe("d1");
+    expect(
+      matchDistributorByLabel("Sample Distributor B", bad, "evd_received_from_distributor"),
+    ).toBeNull();
+  });
+
+  it("blocks persistence for an incompatible selected distributor", () => {
+    expect(
+      adaptSmsEvent(event("evd_received_from_distributor"), {
+        ...dist,
+        distributorForms: float.forms,
+        distributorTelecoms: float.telecoms,
+      }),
+    ).toEqual({ ok: false, reason: "missing_distributor" });
+    expect(
+      adaptSmsEvent(event("float_sent_to_agent"), {
+        ...dist,
+        distributorForms: ["float"],
+        distributorTelecoms: ["ethiotelecom"],
+      }),
+    ).toEqual({ ok: false, reason: "missing_distributor" });
+    expect(adaptSmsEvent(event("float_sent_to_agent"), { ...dist }).ok).toBe(true);
   });
 });
 
