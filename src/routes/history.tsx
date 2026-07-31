@@ -269,84 +269,84 @@ function HistoryPage() {
               const dir = airtimeDirectionOf(t);
               const inflow = isInflowTransaction(t);
               return (
-              <li key={t.id} className="p-3 flex items-center gap-3 hover:bg-muted/40">
-                <span
-                  className={
-                    "w-1.5 self-stretch rounded-full " +
-                    (inflow
-                      ? "bg-money-in"
-                      : t.type === "out"
-                        ? "bg-money-out"
-                        : t.type === "airtime_evd"
-                          ? "bg-airtime"
-                          : t.type === "airtime_float"
-                            ? "bg-credit"
-                            : t.type === "expense"
-                              ? "bg-money-out"
-                              : "bg-muted-foreground")
-                  }
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="font-semibold truncate">{t.partyName}</span>
-                    <span
-                      className={
-                        "font-bold tabular-nums text-sm " +
-                        (inflow ? "text-money-in" : "text-money-out")
-                      }
-                    >
-                      {inflow ? "+" : "−"} {formatEtb(t.amountSantim)}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-soft mt-0.5">
-                    <span className="uppercase font-semibold">{TYPE_LABEL[t.type]}</span>
-                    {dir && (
-                      <>
-                        <span>·</span>
-                        <span className="uppercase font-semibold">{dir}</span>
-                      </>
-                    )}
-                    <span>·</span>
-                    <span>{t.channel}</span>
-                    <span>·</span>
-                    <span>{formatDateTime(t.date)}</span>
-                    {t.reference && (
-                      <>
-                        <span>·</span>
-                        <span>#{t.reference}</span>
-                      </>
-                    )}
-                    {t.isSettled && (
-                      <>
-                        <span>·</span>
-                        <span className="text-money-in font-semibold">settled</span>
-                      </>
-                    )}
-                    {t.needsReview && (
-                      <>
-                        <span>·</span>
-                        <span className="text-airtime font-semibold uppercase">review</span>
-                      </>
-                    )}
-                  </div>
-                  {t.note && (
-                    <div className="text-[11px] text-ink-soft mt-1 whitespace-pre-wrap break-words">
-                      {t.note}
+                <li key={t.id} className="p-3 flex items-center gap-3 hover:bg-muted/40">
+                  <span
+                    className={
+                      "w-1.5 self-stretch rounded-full " +
+                      (inflow
+                        ? "bg-money-in"
+                        : t.type === "out"
+                          ? "bg-money-out"
+                          : t.type === "airtime_evd"
+                            ? "bg-airtime"
+                            : t.type === "airtime_float"
+                              ? "bg-credit"
+                              : t.type === "expense"
+                                ? "bg-money-out"
+                                : "bg-muted-foreground")
+                    }
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="font-semibold truncate">{t.partyName}</span>
+                      <span
+                        className={
+                          "font-bold tabular-nums text-sm " +
+                          (inflow ? "text-money-in" : "text-money-out")
+                        }
+                      >
+                        {inflow ? "+" : "−"} {formatEtb(t.amountSantim)}
+                      </span>
                     </div>
-                  )}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Delete"
-                  onClick={async () => {
-                    await deleteTransaction(t.id);
-                    toast.success("Deleted");
-                  }}
-                >
-                  <Trash2 className="h-4 w-4 text-money-out" />
-                </Button>
-              </li>
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-soft mt-0.5">
+                      <span className="uppercase font-semibold">{TYPE_LABEL[t.type]}</span>
+                      {dir && (
+                        <>
+                          <span>·</span>
+                          <span className="uppercase font-semibold">{dir}</span>
+                        </>
+                      )}
+                      <span>·</span>
+                      <span>{t.channel}</span>
+                      <span>·</span>
+                      <span>{formatDateTime(t.date)}</span>
+                      {t.reference && (
+                        <>
+                          <span>·</span>
+                          <span>#{t.reference}</span>
+                        </>
+                      )}
+                      {t.isSettled && (
+                        <>
+                          <span>·</span>
+                          <span className="text-money-in font-semibold">settled</span>
+                        </>
+                      )}
+                      {t.needsReview && (
+                        <>
+                          <span>·</span>
+                          <span className="text-airtime font-semibold uppercase">review</span>
+                        </>
+                      )}
+                    </div>
+                    {t.note && (
+                      <div className="text-[11px] text-ink-soft mt-1 whitespace-pre-wrap break-words">
+                        {t.note}
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Delete"
+                    onClick={async () => {
+                      await deleteTransaction(t.id);
+                      toast.success("Deleted");
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 text-money-out" />
+                  </Button>
+                </li>
               );
             })}
           </ul>

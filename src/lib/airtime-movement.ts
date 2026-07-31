@@ -44,17 +44,13 @@ export function airtimeStockDelta(
  * (money in, received airtime), -1 for value going out. Derived from the
  * same direction authority as `airtimeStockDelta`; never reads stored signs.
  */
-export function transactionFlowSign(
-  t: Pick<Transaction, "type" | "airtimeDirection">,
-): 1 | -1 {
+export function transactionFlowSign(t: Pick<Transaction, "type" | "airtimeDirection">): 1 | -1 {
   const dir = airtimeDirectionOf(t);
   if (dir !== null) return dir === "received" ? 1 : -1;
   return t.type === "in" ? 1 : -1;
 }
 
 /** Whether a transaction should be counted as inflow in a summary. */
-export function isInflowTransaction(
-  t: Pick<Transaction, "type" | "airtimeDirection">,
-): boolean {
+export function isInflowTransaction(t: Pick<Transaction, "type" | "airtimeDirection">): boolean {
   return transactionFlowSign(t) === 1;
 }
