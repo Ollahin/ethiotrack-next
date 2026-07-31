@@ -99,11 +99,7 @@ export function isDistributorCompatible(
  */
 export function matchDistributorByLabel<
   T extends { id: string; name: string } & DistributorCompatibilityInput,
->(
-  label: string | null,
-  distributors: T[],
-  kind?: SmsEventKind,
-): T | null {
+>(label: string | null, distributors: T[], kind?: SmsEventKind): T | null {
   if (!label || !label.trim()) return null;
   const key = normalizeName(label);
   const hits = distributors.filter((d) => normalizeName(d.name) === key);

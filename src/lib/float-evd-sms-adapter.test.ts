@@ -190,9 +190,7 @@ describe("distributor compatibility", () => {
 
   it("treats absent or empty metadata as compatible", () => {
     expect(isDistributorCompatible("evd_received_from_distributor", {})).toBe(true);
-    expect(
-      isDistributorCompatible("float_sent_to_agent", { forms: [], telecoms: [] }),
-    ).toBe(true);
+    expect(isDistributorCompatible("float_sent_to_agent", { forms: [], telecoms: [] })).toBe(true);
   });
 
   it("preselects only a compatible exact match", () => {
