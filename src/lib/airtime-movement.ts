@@ -12,9 +12,7 @@ import type { AirtimeDirection, Transaction, TxnType } from "./types";
 export type AirtimeTxnType = Extract<TxnType, "airtime_evd" | "airtime_float">;
 
 /** Airtime-bearing transaction types. Money and personal rows are excluded. */
-export function isAirtimeTransaction(
-  t: Pick<Transaction, "type">,
-): t is Pick<Transaction, "type"> & { type: AirtimeTxnType } {
+export function isAirtimeTransaction(t: Pick<Transaction, "type">): boolean {
   return t.type === "airtime_evd" || t.type === "airtime_float";
 }
 
