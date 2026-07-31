@@ -35,6 +35,22 @@ export interface ParsedOk {
   vatSantim?: number;
   /** Reported balance after the txn, in santim. */
   balanceSantim?: number;
+  /**
+   * Principal (transferred) amount of an outgoing transfer, in santim, when the
+   * source states it separately from the final debit. Never inferred.
+   */
+  principalSantim?: number;
+  /** Disaster Recovery charge in santim, when the source states one. */
+  drChargeSantim?: number;
+  /** Last 4 digits of the counterparty/destination account, when stated. */
+  counterpartyAccountTail?: string;
+  /** True when the source gave a calendar date but no clock time. */
+  dateIsDayOnly?: boolean;
+  /**
+   * Fields the source did not state and which were therefore NOT filled in.
+   * Surfaced in review so the user can see exactly what is missing.
+   */
+  missingFields?: string[];
   /** Which named template matched — for debugging & UI badges. */
   template?: string;
 }
