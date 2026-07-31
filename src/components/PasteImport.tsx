@@ -215,6 +215,7 @@ export function PasteImport() {
     let createdBanks = 0,
       createdAgents = 0,
       createdDistributors = 0;
+    let blockedNoDate = 0;
     const inputs: Array<Omit<Transaction, "id" | "createdAt">> = [];
 
     for (let i = 0; i < enriched.length; i++) {
@@ -258,7 +259,7 @@ export function PasteImport() {
 
       // ----- Distributor resolution (airtime rows only)
       let distributorId: string | undefined;
-      if (isAirtimeRow(row.type)) {
+      if (isAirtimeRow(row.type) || isBankTransferRow(row)) {
         const dAction = distActionFor(i, e);
         if (dAction.kind === "link") distributorId = dAction.id;
         // If the party itself was linked as a distributor, prefer that link
@@ -266,9 +267,20 @@ export function PasteImport() {
         if (partyType === "distributor" && partyId) distributorId = partyId;
       }
 
+      // A message that never stated a date is never given one. The row stays
+      // visible in review instead of being persisted with an invented time.
+      if (!row.date) {
+        blockedNoDate++;
+        continue;
+      }
+
       inputs.push({
         type: row.type,
         amountSantim: row.amountSantim,
+        // Principal is kept apart from the final debit; the fulfilment queue
+        // expects EVD equal to the principal, never the debited total.
+        principalSantim: row.principalSantim,
+        dateIsDayOnly: row.dateIsDayOnly,
         // Pasted alerts describe airtime distributed out to agents.
         airtimeDirection: isAirtimeTransaction({ type: row.type }) ? "sent" : undefined,
         partyName: row.party ?? "Unknown",
@@ -279,7 +291,7 @@ export function PasteImport() {
         distributorId,
         reference: row.reference,
         note: row.note ?? row.raw,
-        date: row.date ?? new Date().toISOString(),
+        date: row.date,
         isPersonal,
         needsReview: row.needsReview,
         source: "paste_parse",
@@ -316,6 +328,11 @@ export function PasteImport() {
         (res.skipped ? `, skipped ${res.skipped} duplicate(s)` : "") +
         (extras ? ` · registered ${extras}` : ""),
     );
+    if (blockedNoDate > 0) {
+      toast.error(
+        `${blockedNoDate} row(s) not imported: the message states no date, and none is invented.`,
+      );
+    }
     setText("");
     setRows(null);
     setPartyActions({});
