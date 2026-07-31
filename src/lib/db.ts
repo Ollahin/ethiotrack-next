@@ -645,6 +645,14 @@ export async function recordStatementImport(
   return rec;
 }
 
+/** Patch an existing import record in place (status, OCR text, parse error). */
+export async function updateStatementImport(
+  id: string,
+  patch: Partial<Omit<StatementImport, "id">>,
+): Promise<void> {
+  await db().statementImports.update(id, patch);
+}
+
 // -- meta --------------------------------------------------------------------
 
 export async function metaGet<T = unknown>(key: string): Promise<T | undefined> {

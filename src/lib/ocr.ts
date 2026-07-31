@@ -27,3 +27,44 @@ export async function extractImageText(file: File | Blob): Promise<OcrResult> {
     confidence: Math.max(0, Math.min(1, (data.confidence ?? 0) / 100)),
   };
 }
+
+/**
+ * Rotate an image blob by 0/90/180/270 degrees in-browser. Returns the input
+ * untouched for 0° so the common path stays allocation-free.
+ */
+export async function rotateImageBlob(file: File | Blob, degrees: number): Promise<Blob> {
+  const deg = ((degrees % 360) + 360) % 360;
+  if (deg === 0) return file;
+  const bitmap = await createImageBitmap(file);
+  const swap = deg === 90 || deg === 270;
+  const w = swap ? bitmap.height : bitmap.width;
+  const h = swap ? bitmap.width : bitmap.height;
+  const canvas =
+    typeof OffscreenCanvas !== "undefined"
+      ? new OffscreenCanvas(w, h)
+      : Object.assign(document.createElement("canvas"), { width: w, height: h });
+  const ctx = (canvas as OffscreenCanvas | HTMLCanvasElement).getContext(
+    "2d",
+  ) as CanvasRenderingContext2D | null;
+  if (!ctx) throw new Error("Canvas 2D context unavailable for rotation");
+  ctx.translate(w / 2, h / 2);
+  ctx.rotate((deg * Math.PI) / 180);
+  ctx.drawImage(bitmap, -bitmap.width / 2, -bitmap.height / 2);
+  bitmap.close?.();
+  if (canvas instanceof OffscreenCanvas) return canvas.convertToBlob({ type: "image/png" });
+  return new Promise<Blob>((resolve, reject) =>
+    (canvas as HTMLCanvasElement).toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("Rotation failed"))),
+      "image/png",
+    ),
+  );
+}
+
+/** Recognize a screenshot at a given orientation, rotating it first. */
+export async function extractImageTextAt(
+  file: File | Blob,
+  orientation: number,
+): Promise<OcrResult> {
+  const rotated = await rotateImageBlob(file, orientation);
+  return extractImageText(rotated);
+}
