@@ -67,14 +67,15 @@ Stage 1 — Corpus and ingestion baseline
 - SMS review, distributor linking and safe persistence
 - Enforced SMS distributor form and telecom compatibility
 - Direction-aware airtime history display and receipt review semantics
+- Reconciliation week navigation and per-distributor airtime history
 
 ## Current task
 
-Task 0.4A-1 — Airtime direction display and receipt review status
+Task 0.4A-2 — Reconciliation week navigation and distributor history
 
 ## Next task
 
-Task 0.4A-2 — Functional MVP smoke-test completion
+Task 0.4A-3 — Functional MVP smoke-test completion
 
 ## Execution contract
 

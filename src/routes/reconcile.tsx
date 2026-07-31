@@ -267,8 +267,8 @@ function ReconcilePage() {
 
       {!opening && (
         <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-ink-soft">
-This week ({weekStart} → {weekEnd}) has no opening balance yet — airtime is shown against a
-          zero opening.{" "}
+          This week ({weekStart} → {weekEnd}) has no opening balance yet — airtime is shown against
+          a zero opening.{" "}
           <Link to="/" className="text-primary font-semibold underline">
             Open the week
           </Link>{" "}

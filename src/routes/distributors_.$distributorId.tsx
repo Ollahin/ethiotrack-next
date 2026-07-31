@@ -72,9 +72,7 @@ function TxnRow({ t }: { t: Transaction }) {
           <span
             className={
               "text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded " +
-              (t.type === "airtime_evd"
-                ? "bg-airtime/10 text-airtime"
-                : "bg-credit/10 text-credit")
+              (t.type === "airtime_evd" ? "bg-airtime/10 text-airtime" : "bg-credit/10 text-credit")
             }
           >
             {t.type === "airtime_evd" ? "EVD" : "Float"}
