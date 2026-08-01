@@ -233,3 +233,44 @@ describe("distributor reversal semantics", () => {
     expect(expectedStock(10_000_00, evd)).toBe(6_000_00);
   });
 });
+
+describe("screenshot week reconciliation proof", () => {
+  it("received 200,000, sent 61,500, reversed 104,000 gives expected stock 242,500", () => {
+    const rows = [
+      txn({
+        id: "recv",
+        distributorId: "d",
+        type: "airtime_evd",
+        airtimeDirection: "received",
+        amountSantim: 200_000_00,
+        date: "2026-08-11T09:00:00.000Z",
+      }),
+      txn({
+        id: "s1",
+        distributorId: "d",
+        type: "airtime_evd",
+        airtimeDirection: "sent",
+        amountSantim: 61_500_00,
+        date: "2026-08-12T09:00:00.000Z",
+      }),
+      txn({
+        id: "r1",
+        distributorId: "d",
+        type: "airtime_evd",
+        airtimeDirection: "sent",
+        isReversal: true,
+        amountSantim: 104_000_00,
+        date: "2026-08-13T09:00:00.000Z",
+      }),
+    ];
+    const led = distributorLedger(rows, "d", weekRangeOf("2026-08-10"));
+    expect(led.evd).toEqual({
+      received: 200_000_00,
+      sent: 61_500_00,
+      reversed: 104_000_00,
+      netDelivered: -42_500_00,
+      net: 242_500_00,
+    });
+    expect(expectedStock(0, led.evd)).toBe(242_500_00);
+  });
+});
