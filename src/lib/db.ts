@@ -742,7 +742,11 @@ async function serializeStatementImport(s: StatementImport): Promise<SerializedS
   const { rawImage, ...rest } = s;
   if (!rawImage) return rest;
   const bytes = new Uint8Array(await rawImage.arrayBuffer());
-  return { ...rest, rawImageBase64: bytesToBase64(bytes), rawImageType: rawImage.type || undefined };
+  return {
+    ...rest,
+    rawImageBase64: bytesToBase64(bytes),
+    rawImageType: rawImage.type || undefined,
+  };
 }
 
 function deserializeStatementImport(s: SerializedStatementImport): StatementImport {
@@ -871,9 +875,7 @@ export async function importBackup(b: BackupV3, opts: ImportOptions = {}): Promi
       // Replace portable settings only; credentials on this device survive.
       const existingMeta = await d.meta.toArray();
       await Promise.all(
-        existingMeta
-          .filter((m) => !isCredentialMetaKey(m.key))
-          .map((m) => d.meta.delete(m.key)),
+        existingMeta.filter((m) => !isCredentialMetaKey(m.key)).map((m) => d.meta.delete(m.key)),
       );
 
       await d.agents.bulkAdd(backup.agents);

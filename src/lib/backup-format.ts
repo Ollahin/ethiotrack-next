@@ -335,7 +335,8 @@ export function checkIntegrity(b: BackupV3): string[] {
   for (const s of b.settings) {
     if (settingKeys.has(s.key)) errors.push(`settings: duplicate key ${s.key}`);
     settingKeys.add(s.key);
-    if (isCredentialMetaKey(s.key)) errors.push(`settings: credential key ${s.key} is not portable`);
+    if (isCredentialMetaKey(s.key))
+      errors.push(`settings: credential key ${s.key} is not portable`);
   }
 
   const declared = countsOf(b);
@@ -365,17 +366,23 @@ export function checkIntegrity(b: BackupV3): string[] {
               ? bankIds
               : new Set([...agentIds, ...distIds, ...bankIds]);
       if (!pool.has(t.partyId)) {
-        errors.push(`transaction ${t.id}: partyId ${t.partyId} has no matching ${t.partyType ?? "entity"}`);
+        errors.push(
+          `transaction ${t.id}: partyId ${t.partyId} has no matching ${t.partyType ?? "entity"}`,
+        );
       }
     }
     if (t.bankId && !bankIds.has(t.bankId)) {
       errors.push(`transaction ${t.id}: bankId ${t.bankId} has no matching bank`);
     }
     if (t.distributorId && !distIds.has(t.distributorId)) {
-      errors.push(`transaction ${t.id}: distributorId ${t.distributorId} has no matching distributor`);
+      errors.push(
+        `transaction ${t.id}: distributorId ${t.distributorId} has no matching distributor`,
+      );
     }
     if (t.statementImportId && !importIds.has(t.statementImportId)) {
-      errors.push(`transaction ${t.id}: statementImportId ${t.statementImportId} has no matching import`);
+      errors.push(
+        `transaction ${t.id}: statementImportId ${t.statementImportId} has no matching import`,
+      );
     }
     for (const settled of t.settlesTxnIds ?? []) {
       if (!txnIds.has(settled)) {
@@ -386,7 +393,9 @@ export function checkIntegrity(b: BackupV3): string[] {
 
   for (const s of b.statementImports) {
     if (s.distributorId && !distIds.has(s.distributorId)) {
-      errors.push(`statement import ${s.id}: distributorId ${s.distributorId} has no matching distributor`);
+      errors.push(
+        `statement import ${s.id}: distributorId ${s.distributorId} has no matching distributor`,
+      );
     }
   }
 
@@ -395,7 +404,9 @@ export function checkIntegrity(b: BackupV3): string[] {
       errors.push(`fulfillment ${f.id}: intentTxnId ${f.intentTxnId} has no matching transaction`);
     }
     if (f.correctsEntryId && !fulfilmentIds.has(f.correctsEntryId)) {
-      errors.push(`fulfillment ${f.id}: correctsEntryId ${f.correctsEntryId} has no matching entry`);
+      errors.push(
+        `fulfillment ${f.id}: correctsEntryId ${f.correctsEntryId} has no matching entry`,
+      );
     }
   }
 
