@@ -22,7 +22,7 @@ import {
 } from "@/lib/db";
 import { formatDateTime, formatEtb } from "@/lib/format";
 import { CHANNELS, TYPE_LABEL, type TxnType } from "@/lib/types";
-import { airtimeDirectionOf, isInflowTransaction } from "@/lib/airtime-movement";
+import { airtimeMovementKind, isInflowTransaction } from "@/lib/airtime-movement";
 import { Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -266,7 +266,7 @@ function HistoryPage() {
         ) : (
           <ul className="divide-y divide-border">
             {filtered.map((t) => {
-              const dir = airtimeDirectionOf(t);
+              const kind = airtimeMovementKind(t);
               const inflow = isInflowTransaction(t);
               return (
                 <li key={t.id} className="p-3 flex items-center gap-3 hover:bg-muted/40">
@@ -300,10 +300,17 @@ function HistoryPage() {
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-soft mt-0.5">
                       <span className="uppercase font-semibold">{TYPE_LABEL[t.type]}</span>
-                      {dir && (
+                      {kind && (
                         <>
                           <span>·</span>
-                          <span className="uppercase font-semibold">{dir}</span>
+                          <span
+                            className={
+                              "uppercase font-semibold " +
+                              (kind === "sent_reversal" ? "text-amber-500" : "")
+                            }
+                          >
+                            {kind === "sent_reversal" ? "reversal (sent)" : kind}
+                          </span>
                         </>
                       )}
                       <span>·</span>
