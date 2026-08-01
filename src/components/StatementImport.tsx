@@ -9,11 +9,15 @@ import {
   updateStatementImport,
   useAgents,
   useDistributors,
+  useTransactions,
 } from "@/lib/db";
+import { agentDeliveredBalanceForDistributor } from "@/lib/agent-ledger";
 import {
   failedOutcome,
   isRowComplete,
+  isScreenshotDistributorCompatible,
   outcomeFrom,
+  reversalOverrun,
   rowDateIso,
   rowDateParts,
   runOrientedOcr,
@@ -54,6 +58,12 @@ interface Job {
   /** Reviewer-entered fallback timestamp for rows whose date wasn't captured. */
   manualDate: string;
   showRaw: boolean;
+  /** Row indexes whose reversal exceeds the agent's recorded delivered balance. */
+  overrunRows: number[];
+  /** Reviewer's written explanation for saving those reversals anyway. */
+  overrideReason: string;
+  /** Second explicit confirmation for the override. */
+  overrideConfirmed: boolean;
 }
 
 /** Exact, case/whitespace-normalized agent match only — never fuzzy. */
@@ -66,6 +76,7 @@ function exactAgent(name: string | undefined, agents: Agent[]): Agent | null {
 export function StatementImport() {
   const agents = useAgents();
   const distributors = useDistributors();
+  const txns = useTransactions();
   const [distributorId, setDistributorId] = useState<string>("");
   const [jobs, setJobs] = useState<Job[]>([]);
 
@@ -149,6 +160,9 @@ export function StatementImport() {
       overrides: {},
       manualDate: "",
       showRaw: false,
+      overrunRows: [],
+      overrideReason: "",
+      overrideConfirmed: false,
     }));
     setJobs((js) => [...js, ...next]);
     // Each screenshot is processed independently: one failure never discards
