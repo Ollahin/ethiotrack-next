@@ -9,6 +9,7 @@ import {
   outcomeFrom,
   pickOrientation,
   rowDateIso,
+  rowDateParts,
   runOrientedOcr,
   scoreCandidate,
   summarizeRows,
