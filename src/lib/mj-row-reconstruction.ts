@@ -57,6 +57,14 @@ export interface MjAmount {
   rawAmountText: string;
   /** The decoration/sign prefix that preceded the numeric token. */
   prefixText: string;
+  /**
+   * Date token that shared the amount line, exactly as read. Real MJ screens
+   * right-align the amount on the same line as the transfer date; the token is
+   * only kept when it is a recognizable date, never guessed.
+   */
+  dateText?: string;
+  /** Non-date text that preceded the amount on the same line (evidence only). */
+  leadNoise?: string;
 }
 
 export interface MjAmountAnchor {
@@ -130,7 +138,7 @@ export function stripMjDecorationPrefix(text: string): string {
 
 /** A defensible money token: grouped or plain integer part, 2 decimals. */
 const AMOUNT_TOKEN_SOURCE = "(?:\\d{1,3}(?:,\\d{3})+|\\d+)\\.\\d{2}";
-const AMOUNT_LINE_RX = new RegExp(`^([^\\p{L}\\p{N}]*)(${AMOUNT_TOKEN_SOURCE})$`, "u");
+const AMOUNT_TAIL_RX = new RegExp(`(${AMOUNT_TOKEN_SOURCE})$`, "u");
 /** Clock-like token, e.g. "4:50" — never a financial amount line. */
 const TIMESTAMP_RX = /\d\s?:\s?\d{2}/;
 const PERCENT_RX = /%/;
