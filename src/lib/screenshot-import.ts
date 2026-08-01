@@ -205,3 +205,33 @@ export function outcomeFrom(best: ScoredCandidate): ScreenshotOutcome {
     summary,
   };
 }
+
+/**
+ * Parse a statement row's captured date text into an ISO timestamp.
+ *
+ * Only source-faithful shapes are accepted (`YYYY-MM-DD` with an optional
+ * 12-hour or 24-hour clock). Anything else returns null so the importer asks
+ * the reviewer for a date instead of inventing one.
+ */
+export function rowDateIso(dateText: string | undefined): string | null {
+  if (!dateText) return null;
+  const m = /(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{1,2}):(\d{2})\s*(AM|PM)?)?/i.exec(dateText.trim());
+  if (!m) return null;
+  const [, y, mo, d, hh, mi, ap] = m;
+  const year = Number(y);
+  const month = Number(mo);
+  const day = Number(d);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  let hour = hh === undefined ? 0 : Number(hh);
+  const minute = mi === undefined ? 0 : Number(mi);
+  if (ap) {
+    if (hour < 1 || hour > 12) return null;
+    const upper = ap.toUpperCase();
+    if (upper === "PM" && hour !== 12) hour += 12;
+    if (upper === "AM" && hour === 12) hour = 0;
+  } else if (hour > 23) return null;
+  if (minute > 59) return null;
+  const dt = new Date(year, month - 1, day, hour, minute, 0, 0);
+  if (dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day) return null;
+  return dt.toISOString();
+}
