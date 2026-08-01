@@ -71,6 +71,8 @@ export function formForEventKind(kind: SmsEventKind): AirtimeForm {
 export interface DistributorCompatibilityInput {
   forms?: AirtimeForm[] | null;
   telecoms?: Telecom[] | null;
+  /** Exact, operator-configured labels that also identify this distributor. */
+  aliases?: string[] | null;
 }
 
 /**
@@ -102,10 +104,33 @@ export function matchDistributorByLabel<
 >(label: string | null, distributors: T[], kind?: SmsEventKind): T | null {
   if (!label || !label.trim()) return null;
   const key = normalizeName(label);
-  const hits = distributors.filter((d) => normalizeName(d.name) === key);
-  if (hits.length !== 1) return null;
-  if (kind && !isDistributorCompatible(kind, hits[0])) return null;
-  return hits[0];
+  const pool = kind ? distributors.filter((d) => isDistributorCompatible(kind, d)) : distributors;
+
+  const byName = pool.filter((d) => normalizeName(d.name) === key);
+  if (byName.length === 1) return byName[0];
+  if (byName.length > 1) return null;
+
+  // Exact configured aliases. Same normalization, same single-hit requirement.
+  const byAlias = pool.filter((d) =>
+    (d.aliases ?? []).some((a) => typeof a === "string" && normalizeName(a) === key),
+  );
+  return byAlias.length === 1 ? byAlias[0] : null;
+}
+
+/**
+ * Resolve the distributor for one event, trying the counterparty label first
+ * and then the shop label. Exact matching only; never fuzzy, never creating.
+ */
+export function matchDistributorForEvent<
+  T extends { id: string; name: string } & DistributorCompatibilityInput,
+>(
+  event: Pick<SmsResolvedEvent, "counterpartyLabel" | "shopLabel" | "eventKind">,
+  distributors: T[],
+): T | null {
+  return (
+    matchDistributorByLabel(event.counterpartyLabel, distributors, event.eventKind) ??
+    matchDistributorByLabel(event.shopLabel, distributors, event.eventKind)
+  );
 }
 
 /** The source-local date string this event may be persisted with, or null. */
