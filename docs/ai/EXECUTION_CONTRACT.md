@@ -21,7 +21,10 @@ tasks may reference this contract instead of repeating these rules.
     authorized.
 12. Stop and report any scope discrepancy before making broader changes.
 13. Run `bun run verify` before completion.
-14. Use this compact completion format:
+14. Tests are necessary but never sufficient. A milestone is accepted only
+    with a real browser journey; a passing test count alone never accepts one.
+15. Default to compact, delta-only reporting and one coherent journey per task.
+16. Use this compact completion format:
 
 ```
 Task:
