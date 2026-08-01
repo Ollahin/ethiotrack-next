@@ -170,6 +170,12 @@ function classifySignPrefix(prefix: string): MjSignEvidence {
  *
  * The input must be the *normalized* line, not the decoration-stripped one:
  * sign evidence lives in the prefix.
+ *
+ * Real MJ screens right-align the amount on the same line as the transfer
+ * date ("24 Jul 2026 257,300.00"), so a leading segment is tolerated when it
+ * is either a recognizable date (kept as `dateText`) or short OCR noise with
+ * no name-like word (kept as `leadNoise`). A line whose lead reads like a
+ * name is never an amount, so agent lines stay agent lines.
  */
 export function parseMjAmount(normalizedLine: string): MjAmount | null {
   const line = normalizedLine.trim();
@@ -177,11 +183,27 @@ export function parseMjAmount(normalizedLine: string): MjAmount | null {
   if (PERCENT_RX.test(line)) return null;
   if (TIMESTAMP_RX.test(line)) return null;
 
-  const match = AMOUNT_LINE_RX.exec(line);
+  const match = AMOUNT_TAIL_RX.exec(line);
   if (!match) return null;
+  const token = match[1];
+  const head = line.slice(0, line.length - token.length);
+  const prefixMatch = /[^\p{L}\p{N}]*$/u.exec(head);
+  const prefix = prefixMatch ? prefixMatch[0] : "";
+  const lead = head.slice(0, head.length - prefix.length).trim();
 
-  const prefix = match[1];
-  const token = match[2];
+  let dateText: string | undefined;
+  let leadNoise: string | undefined;
+  if (lead.length > 0) {
+    if (DATE_RX.test(lead)) {
+      dateText = lead;
+    } else if (hasNameSubstance(lead.replace(/[\p{N}]/gu, " "))) {
+      // Name-like lead: this is an agent line, not an amount line.
+      return null;
+    } else {
+      leadNoise = lead;
+    }
+  }
+
   const signEvidence = classifySignPrefix(prefix);
 
   return {
@@ -190,6 +212,8 @@ export function parseMjAmount(normalizedLine: string): MjAmount | null {
     signEvidence,
     rawAmountText: token,
     prefixText: prefix,
+    ...(dateText ? { dateText } : {}),
+    ...(leadNoise ? { leadNoise } : {}),
   };
 }
 
