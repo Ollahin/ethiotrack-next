@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { agentLedger, agentTransactions, isAirtimeSentToAgent } from "./agent-ledger";
+import {
+  agentDeliveredBalanceForDistributor,
+  agentLedger,
+  agentTransactions,
+  isAirtimeSentToAgent,
+} from "./agent-ledger";
 import { shiftWeekStart, weekRangeOf } from "./distributor-ledger";
 import type { Transaction } from "./types";
 
