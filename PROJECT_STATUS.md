@@ -116,3 +116,30 @@ repository. Future tasks reference it instead of repeating its rules.
 
 Tests are necessary but never sufficient. A milestone is accepted only with a
 real browser journey; a passing test count alone never accepts a milestone.
+
+## TASK 0.4C-bR1P — OCR list-row reconstruction replaced (current release blocker)
+
+The legacy date-backtracking + party/amount/day deduplication scraper is
+DELETED. Screenshot list parsing now runs through the generic, position-aware
+evidence engine `src/lib/ocr-row-reconstruction.ts`:
+
+- OCR text becomes ordered evidence tokens (amount/sign, date/time, candidate
+  party) carrying source line index, in-line column, raw text and optional
+  bounding coordinates.
+- Rows are anchored on defensible amounts; the dominant party/date offset is
+  measured per image, so party→amount→date, date→party→amount, party+amount and
+  date+amount layouts and adjacent line reordering all reconstruct.
+- Every evidence token is consumed at most once, evidence never crosses a
+  neighbouring anchor boundary, source order is preserved and repeated
+  legitimate rows are never deduplicated.
+- A defensible amount with a missing party or date stays a visible, unselected
+  incomplete row; the image is reported as PARTIAL.
+
+Wired through `src/lib/ocr-parser.ts` and `parseRefillHistory` in
+`src/lib/distributor-parser.ts`. `bun run verify` green: 667 tests, 23 files.
+
+STATUS: **Refill screenshot OCR is NOT claimed complete.** Mandatory browser
+acceptance (real screenshot → complete/incomplete rows → explicit agent linking
+→ save → refresh → History totals match the source) is still OUTSTANDING and is
+the current release blocker. The scripted journey reaches setup, distributor and
+agent creation; the upload → link → save → refresh leg has not yet been proven.

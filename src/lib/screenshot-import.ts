@@ -163,7 +163,12 @@ export function summarizeRows(rows: StatementRow[]): ScreenshotSummary {
   };
 }
 
-export type ScreenshotStatus = "pending" | "parsed" | "empty" | "failed";
+/**
+ * `partial` means the engine reconstructed at least one complete row but some
+ * defensible amount evidence stayed unresolved — the image must be reviewed
+ * (and may need a re-capture) before it can be trusted as whole.
+ */
+export type ScreenshotStatus = "pending" | "parsed" | "partial" | "empty" | "failed";
 
 export interface ScreenshotOutcome {
   status: ScreenshotStatus;
@@ -195,7 +200,7 @@ export function outcomeFrom(best: ScoredCandidate): ScreenshotOutcome {
   const rows = best.match.rows;
   const summary = summarizeRows(rows);
   return {
-    status: summary.complete > 0 ? "parsed" : "empty",
+    status: summary.complete === 0 ? "empty" : summary.incomplete > 0 ? "partial" : "parsed",
     orientation: best.candidate.orientation,
     text: best.candidate.text,
     confidence: best.candidate.confidence,

@@ -12,6 +12,7 @@
 //
 //   APP_TEMPLATES["mj"] = (text) => [ /* StatementRow[] */ ];
 
+import { reconstructRows } from "./ocr-row-reconstruction";
 import type { DistributorStatementFormat, TxnType } from "./types";
 import { adaptMjTransfersSent } from "./mj-row-reconstruction";
 
@@ -323,98 +324,39 @@ function parseMj(text: string): StatementRow[] {
   );
 }
 
-/** Alami / Yenus / Modern App "Refill History" — flat row triplets. */
+/**
+ * Alami / Yenus / Tilanesh / Modern App "Refill History".
+ *
+ * Parsing is delegated wholesale to the generic, position-aware evidence
+ * engine (`reconstructRows`). The engine anchors exactly one row per
+ * defensible amount, measures where party and date evidence sits relative to
+ * those anchors, and consumes each piece of evidence at most once — so
+ * repeated legitimate rows survive, no field is ever borrowed across a row
+ * boundary, and a defensible amount with missing party or date stays visible
+ * as an unresolved diagnostic row instead of being dropped or invented.
+ */
 function parseRefillHistory(text: string): StatementRow[] {
-  const lines = cleanLines(text);
-  const inlineRows: StatementRow[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    // Screenshot-list shape:
-    //   <AGENT NAME> <AMOUNT> Birr
-    //   <YYYY-MM-DD H:MM AM/PM>
-    // In this layout the ONLY data row is the name+right-anchored amount line;
-    // the following date/time line is metadata and must never become a row.
-    const inline = parseInlineNameAmount(lines[i]);
-    if (inline) {
-      let dateText: string | undefined;
-      for (let k = i + 1; k <= Math.min(lines.length - 1, i + 2); k++) {
-        if (looksLikeDateOrTime(lines[k])) {
-          dateText = lines[k];
-          break;
+  return reconstructRows(text).rows.map((row) =>
+    row.complete
+      ? {
+          ok: true,
+          raw: row.raw,
+          agentName: row.agentName,
+          dateText: row.dateText,
+          airtimeType: "airtime_evd" as const,
+          amountSantim: row.amountSantim,
+          isReversal: row.isReversal,
+          needsReview: row.isReversal,
         }
-      }
-      if (!dateText) {
-        for (let k = i - 1; k >= Math.max(0, i - 2); k--) {
-          if (looksLikeDateOrTime(lines[k])) {
-            dateText = lines[k];
-            break;
-          }
-        }
-      }
-      const santim = toSantim(inline.amountStr);
-      inlineRows.push({
-        ok: true,
-        raw: dateText ? `${lines[i]} | ${dateText}` : lines[i],
-        agentName: inline.agentName,
-        dateText,
-        airtimeType: "airtime_evd",
-        amountSantim: Math.abs(santim),
-        isReversal: santim < 0,
-        needsReview: santim < 0 || !dateText,
-      });
-    }
-  }
-
-  // If the screenshot is the compact Refill list, the inline name+amount line
-  // is the only real data row. Standalone dates, years, totals, and footer text
-  // must not be interpreted as additional triplet rows.
-  if (inlineRows.length > 0) return inlineRows;
-
-  const out: StatementRow[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    // Amounts must be right-aligned "<number> Birr" at end of line — never
-    // mid-line, so a date fragment can't be misread as an amount.
-    const amtM = lines[i].match(AMOUNT_BIRR_RIGHT);
-    if (!amtM) continue;
-    // A line that also carries an ISO date or a time is a header/date band,
-    // not an amount row (OCR sometimes glues "2026 Birr" onto a date line).
-    if (DATE_ISO.test(lines[i]) || TIME_AMPM.test(lines[i]) || TIME_LOOSE.test(lines[i])) continue;
-    // Walk backward through up to 4 previous lines to find date + name.
-    let dateText: string | undefined;
-    let agentName: string | undefined;
-    for (let k = i - 1; k >= Math.max(0, i - 4); k--) {
-      const ln = lines[k];
-      if (!dateText && looksLikeDateOrTime(ln)) {
-        dateText = ln;
-        continue;
-      }
-      if (dateText && !agentName && looksLikeName(ln)) {
-        agentName = normalizeName(ln);
-        break;
-      }
-      // Name may also appear even without a date (some rows OCR the date poorly).
-      if (!dateText && !agentName && looksLikeName(ln)) {
-        agentName = normalizeName(ln);
-        break;
-      }
-    }
-    const raw = lines.slice(Math.max(0, i - 2), i + 1).join(" | ");
-    if (!agentName) {
-      out.push({ ok: false, raw, reason: "no agent" });
-      continue;
-    }
-    const santim = toSantim(amtM[1]);
-    out.push({
-      ok: true,
-      raw,
-      agentName,
-      dateText,
-      airtimeType: "airtime_evd",
-      amountSantim: Math.abs(santim),
-      isReversal: santim < 0,
-      needsReview: santim < 0 || !dateText,
-    });
-  }
-  return out;
+      : {
+          ok: false,
+          raw: row.raw || `refill:unresolved#${row.sourceOrder}`,
+          reason: row.missing.includes("party") ? "no agent" : "no date",
+          amountSantim: row.amountSantim,
+          isReversal: row.isReversal,
+          needsReview: true,
+        },
+  );
 }
 
 const APP_TEMPLATES: Partial<Record<DistributorStatementFormat, (text: string) => StatementRow[]>> =
