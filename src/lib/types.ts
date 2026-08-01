@@ -220,6 +220,27 @@ export interface StatementImport {
   rawImage?: Blob;
 }
 
+/**
+ * One payload handed to the app by the Android share sheet (or dropped into
+ * the inbox by hand). It is stored untouched: nothing is parsed, linked or
+ * saved until a human opens it in Smart Capture.
+ */
+export interface SharedInput {
+  id: string;
+  receivedAt: string;
+  kind: "text" | "image" | "pdf" | "unsupported";
+  /** Title supplied by the sharing app, when it sent one. */
+  title?: string;
+  /** Shared text (SMS body, message, URL note). */
+  text?: string;
+  fileName?: string;
+  fileType?: string;
+  /** Shared file exactly as received. */
+  blob?: Blob;
+  status: "pending" | "reviewed" | "dismissed";
+  reviewedAt?: string;
+}
+
 export const CHANNELS = [
   "CBE",
   "Telebirr",

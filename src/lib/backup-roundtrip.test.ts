@@ -10,7 +10,7 @@ import {
   metaGet,
   metaSet,
 } from "./db";
-import { BACKUP_VERSION, countsOf, type BackupV3 } from "./backup-format";
+import { BACKUP_VERSION, countsOf, type BackupV4 } from "./backup-format";
 import { distributorLedger, expectedStock } from "./distributor-ledger";
 import type { Agent, Distributor, Transaction } from "./types";
 
@@ -154,7 +154,7 @@ describe("backup round trip", () => {
     await db().meta.clear();
     expect(await accountIsEmpty()).toBe(true);
 
-    await importBackup(JSON.parse(JSON.stringify(before)) as BackupV3);
+    await importBackup(JSON.parse(JSON.stringify(before)) as BackupV4);
 
     const after = await db().transactions.toArray();
     expect(after.length).toBe(4);
@@ -236,7 +236,7 @@ describe("backup round trip", () => {
   it("rejects a corrupt backup and leaves the account untouched (atomic failure)", async () => {
     await seedBaseline();
     const good = await exportBackup();
-    const corrupt = JSON.parse(JSON.stringify(good)) as BackupV3;
+    const corrupt = JSON.parse(JSON.stringify(good)) as BackupV4;
     corrupt.transactions[0].distributorId = "does-not-exist";
 
     await expect(importBackup(corrupt, { replaceExisting: true })).rejects.toBeInstanceOf(
@@ -251,7 +251,7 @@ describe("backup round trip", () => {
   it("rejects duplicate ids inside the file before writing anything", async () => {
     await seedBaseline();
     const b = await exportBackup();
-    const dupe = JSON.parse(JSON.stringify(b)) as BackupV3;
+    const dupe = JSON.parse(JSON.stringify(b)) as BackupV4;
     dupe.transactions.push({ ...dupe.transactions[0] });
     dupe.counts = countsOf(dupe);
     await expect(importBackup(dupe, { replaceExisting: true })).rejects.toThrow(/duplicate id/);

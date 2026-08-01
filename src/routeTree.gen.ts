@@ -10,9 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UnlockRouteImport } from './routes/unlock'
+import { Route as ShareTargetRouteImport } from './routes/share-target'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ReconcileRouteImport } from './routes/reconcile'
+import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as ExportsRouteImport } from './routes/exports'
 import { Route as DistributorsRouteImport } from './routes/distributors'
@@ -31,6 +33,11 @@ const UnlockRoute = UnlockRouteImport.update({
   path: '/unlock',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ShareTargetRoute = ShareTargetRouteImport.update({
+  id: '/share-target',
+  path: '/share-target',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -44,6 +51,11 @@ const ReportsRoute = ReportsRouteImport.update({
 const ReconcileRoute = ReconcileRouteImport.update({
   id: '/reconcile',
   path: '/reconcile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InboxRoute = InboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HistoryRoute = HistoryRouteImport.update({
@@ -119,9 +131,11 @@ export interface FileRoutesByFullPath {
   '/distributors': typeof DistributorsRoute
   '/exports': typeof ExportsRoute
   '/history': typeof HistoryRoute
+  '/inbox': typeof InboxRoute
   '/reconcile': typeof ReconcileRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
+  '/share-target': typeof ShareTargetRoute
   '/unlock': typeof UnlockRoute
   '/agents/$agentId': typeof AgentsAgentIdRoute
   '/distributors/$distributorId': typeof DistributorsDistributorIdRoute
@@ -137,9 +151,11 @@ export interface FileRoutesByTo {
   '/distributors': typeof DistributorsRoute
   '/exports': typeof ExportsRoute
   '/history': typeof HistoryRoute
+  '/inbox': typeof InboxRoute
   '/reconcile': typeof ReconcileRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
+  '/share-target': typeof ShareTargetRoute
   '/unlock': typeof UnlockRoute
   '/agents/$agentId': typeof AgentsAgentIdRoute
   '/distributors/$distributorId': typeof DistributorsDistributorIdRoute
@@ -156,9 +172,11 @@ export interface FileRoutesById {
   '/distributors': typeof DistributorsRoute
   '/exports': typeof ExportsRoute
   '/history': typeof HistoryRoute
+  '/inbox': typeof InboxRoute
   '/reconcile': typeof ReconcileRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
+  '/share-target': typeof ShareTargetRoute
   '/unlock': typeof UnlockRoute
   '/agents_/$agentId': typeof AgentsAgentIdRoute
   '/distributors_/$distributorId': typeof DistributorsDistributorIdRoute
@@ -176,9 +194,11 @@ export interface FileRouteTypes {
     | '/distributors'
     | '/exports'
     | '/history'
+    | '/inbox'
     | '/reconcile'
     | '/reports'
     | '/settings'
+    | '/share-target'
     | '/unlock'
     | '/agents/$agentId'
     | '/distributors/$distributorId'
@@ -194,9 +214,11 @@ export interface FileRouteTypes {
     | '/distributors'
     | '/exports'
     | '/history'
+    | '/inbox'
     | '/reconcile'
     | '/reports'
     | '/settings'
+    | '/share-target'
     | '/unlock'
     | '/agents/$agentId'
     | '/distributors/$distributorId'
@@ -212,9 +234,11 @@ export interface FileRouteTypes {
     | '/distributors'
     | '/exports'
     | '/history'
+    | '/inbox'
     | '/reconcile'
     | '/reports'
     | '/settings'
+    | '/share-target'
     | '/unlock'
     | '/agents_/$agentId'
     | '/distributors_/$distributorId'
@@ -231,9 +255,11 @@ export interface RootRouteChildren {
   DistributorsRoute: typeof DistributorsRoute
   ExportsRoute: typeof ExportsRoute
   HistoryRoute: typeof HistoryRoute
+  InboxRoute: typeof InboxRoute
   ReconcileRoute: typeof ReconcileRoute
   ReportsRoute: typeof ReportsRoute
   SettingsRoute: typeof SettingsRoute
+  ShareTargetRoute: typeof ShareTargetRoute
   UnlockRoute: typeof UnlockRoute
   AgentsAgentIdRoute: typeof AgentsAgentIdRoute
   DistributorsDistributorIdRoute: typeof DistributorsDistributorIdRoute
@@ -246,6 +272,13 @@ declare module '@tanstack/react-router' {
       path: '/unlock'
       fullPath: '/unlock'
       preLoaderRoute: typeof UnlockRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/share-target': {
+      id: '/share-target'
+      path: '/share-target'
+      fullPath: '/share-target'
+      preLoaderRoute: typeof ShareTargetRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -267,6 +300,13 @@ declare module '@tanstack/react-router' {
       path: '/reconcile'
       fullPath: '/reconcile'
       preLoaderRoute: typeof ReconcileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inbox': {
+      id: '/inbox'
+      path: '/inbox'
+      fullPath: '/inbox'
+      preLoaderRoute: typeof InboxRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/history': {
@@ -367,9 +407,11 @@ const rootRouteChildren: RootRouteChildren = {
   DistributorsRoute: DistributorsRoute,
   ExportsRoute: ExportsRoute,
   HistoryRoute: HistoryRoute,
+  InboxRoute: InboxRoute,
   ReconcileRoute: ReconcileRoute,
   ReportsRoute: ReportsRoute,
   SettingsRoute: SettingsRoute,
+  ShareTargetRoute: ShareTargetRoute,
   UnlockRoute: UnlockRoute,
   AgentsAgentIdRoute: AgentsAgentIdRoute,
   DistributorsDistributorIdRoute: DistributorsDistributorIdRoute,

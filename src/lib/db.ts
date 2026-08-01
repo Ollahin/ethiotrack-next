@@ -10,10 +10,19 @@ import type {
   FulfillmentEntry,
   PeriodClosing,
   PeriodOpening,
+  SharedInput,
   StatementImport,
   Transaction,
 } from "./types";
 import { makeId } from "./ids";
+import {
+  applyApproval,
+  markUsed,
+  pruneMappings,
+  type ApprovedMapping,
+  type MappingApproval,
+  type MappingTargetType,
+} from "./approved-mappings";
 import {
   BACKUP_APP,
   BACKUP_VERSION,
@@ -22,7 +31,7 @@ import {
   countsOf,
   isCredentialMetaKey,
   validateBackup,
-  type BackupV3,
+  type BackupV4,
   type SerializedStatementImport,
 } from "./backup-format";
 
@@ -74,6 +83,8 @@ class EthioTrackDB extends Dexie {
   transactions!: Table<Transaction, string>;
   statementImports!: Table<StatementImport, string>;
   fulfillments!: Table<FulfillmentEntry, string>;
+  approvedMappings!: Table<ApprovedMapping, string>;
+  sharedInputs!: Table<SharedInput, string>;
   meta!: Table<{ key: string; value: unknown }, string>;
 
   constructor() {
@@ -167,6 +178,23 @@ class EthioTrackDB extends Dexie {
       transactions: "id, date, type, partyId, channel, isSettled, isPersonal, statementImportId",
       statementImports: "id, distributorId, importedAt",
       fulfillments: "id, intentTxnId, recordedAt",
+      meta: "key",
+    });
+    // v6: additive only — approved counterparty mappings and the share-target
+    // inbox. No existing store, index or record changes.
+    this.version(6).stores({
+      agents: "id, name, phone",
+      distributors: "id, name",
+      banks: "id, name, channel",
+      dailyOpenings: "id, date",
+      dailyClosings: "id, date, openingId",
+      periodOpenings: "id, weekStart",
+      periodClosings: "id, weekStart, openingId",
+      transactions: "id, date, type, partyId, channel, isSettled, isPersonal, statementImportId",
+      statementImports: "id, distributorId, importedAt",
+      fulfillments: "id, intentTxnId, recordedAt",
+      approvedMappings: "id, targetType, normalizedLabel, targetId",
+      sharedInputs: "id, receivedAt, status",
       meta: "key",
     });
   }
@@ -718,7 +746,7 @@ export async function metaSet(key: string, value: unknown): Promise<void> {
 
 // -- backup ------------------------------------------------------------------
 
-export type Backup = BackupV3;
+export type Backup = BackupV4;
 
 /** True when this device account holds no financial or entity records. */
 export async function accountIsEmpty(): Promise<boolean> {
@@ -736,6 +764,100 @@ export async function accountIsEmpty(): Promise<boolean> {
     d.fulfillments.count(),
   ]);
   return counts.every((n) => n === 0);
+}
+
+// -- approved counterparty mappings ------------------------------------------
+
+export function useApprovedMappings(): ApprovedMapping[] {
+  return useLiveQuery(() => db().approvedMappings.toArray(), [], [] as ApprovedMapping[]) ?? [];
+}
+
+export async function approveMapping(
+  approval: Omit<MappingApproval, "id" | "approvedAt"> & { approvedAt?: string },
+): Promise<ApprovedMapping | null> {
+  const d = db();
+  const current = await d.approvedMappings.toArray();
+  const next = applyApproval(current, {
+    ...approval,
+    id: makeId(),
+    approvedAt: approval.approvedAt ?? new Date().toISOString(),
+  });
+  await d.approvedMappings.bulkPut(next);
+  const changed = next.find(
+    (m) => m.targetType === approval.targetType && m.targetId === approval.targetId,
+  );
+  return changed ?? null;
+}
+
+export async function recordMappingUse(id: string): Promise<void> {
+  const d = db();
+  const current = await d.approvedMappings.toArray();
+  await d.approvedMappings.bulkPut(markUsed(current, id, new Date().toISOString()));
+}
+
+export async function deleteMapping(id: string): Promise<void> {
+  await db().approvedMappings.delete(id);
+}
+
+/** Drop mappings whose target entity no longer exists. Returns how many went. */
+export async function pruneDanglingMappings(): Promise<number> {
+  const d = db();
+  const [mappings, agents, distributors, banks] = await Promise.all([
+    d.approvedMappings.toArray(),
+    d.agents.toArray(),
+    d.distributors.toArray(),
+    d.banks.toArray(),
+  ]);
+  const { dropped } = pruneMappings(mappings, {
+    agent: new Set(agents.map((a) => a.id)),
+    distributor: new Set(distributors.map((x) => x.id)),
+    bank: new Set(banks.map((b) => b.id)),
+  });
+  if (dropped.length) await d.approvedMappings.bulkDelete(dropped.map((m) => m.id));
+  return dropped.length;
+}
+
+// -- share-target inbox ------------------------------------------------------
+
+export function useSharedInputs(): SharedInput[] {
+  return (
+    useLiveQuery(
+      () => db().sharedInputs.orderBy("receivedAt").reverse().toArray(),
+      [],
+      [] as SharedInput[],
+    ) ?? []
+  );
+}
+
+export async function addSharedInput(
+  input: Omit<SharedInput, "id" | "receivedAt" | "status"> & {
+    id?: string;
+    receivedAt?: string;
+  },
+): Promise<SharedInput> {
+  const rec: SharedInput = {
+    ...input,
+    id: input.id ?? makeId(),
+    receivedAt: input.receivedAt ?? new Date().toISOString(),
+    status: "pending",
+  };
+  // put(), not add(): a share handed over twice must never duplicate.
+  await db().sharedInputs.put(rec);
+  return rec;
+}
+
+export async function setSharedInputStatus(
+  id: string,
+  status: SharedInput["status"],
+): Promise<void> {
+  await db().sharedInputs.update(id, {
+    status,
+    reviewedAt: status === "pending" ? undefined : new Date().toISOString(),
+  });
+}
+
+export async function deleteSharedInput(id: string): Promise<void> {
+  await db().sharedInputs.delete(id);
 }
 
 async function serializeStatementImport(s: StatementImport): Promise<SerializedStatementImport> {
@@ -759,7 +881,7 @@ function deserializeStatementImport(s: SerializedStatementImport): StatementImpo
   };
 }
 
-export async function exportBackup(): Promise<BackupV3> {
+export async function exportBackup(): Promise<BackupV4> {
   const d = db();
   const [
     agents,
@@ -772,6 +894,7 @@ export async function exportBackup(): Promise<BackupV3> {
     transactions,
     statementImports,
     fulfillments,
+    approvedMappings,
     meta,
   ] = await Promise.all([
     d.agents.toArray(),
@@ -784,10 +907,11 @@ export async function exportBackup(): Promise<BackupV3> {
     d.transactions.toArray(),
     d.statementImports.toArray(),
     d.fulfillments.toArray(),
+    d.approvedMappings.toArray(),
     d.meta.toArray(),
   ]);
 
-  const body: Omit<BackupV3, "counts"> = {
+  const body: Omit<BackupV4, "counts"> = {
     app: BACKUP_APP,
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
@@ -805,6 +929,9 @@ export async function exportBackup(): Promise<BackupV3> {
     transactions,
     statementImports: await Promise.all(statementImports.map(serializeStatementImport)),
     fulfillments,
+    // Review shortcuts travel with the account; the shared-input inbox does
+    // not — it is a device-local queue of things not yet reviewed.
+    approvedMappings,
   };
   return { ...body, counts: countsOf(body) };
 }
@@ -831,7 +958,7 @@ export class BackupImportError extends Error {
  * write runs in one Dexie transaction, so any failure leaves the previous
  * account exactly as it was — never a partial restore.
  */
-export async function importBackup(b: BackupV3, opts: ImportOptions = {}): Promise<void> {
+export async function importBackup(b: BackupV4, opts: ImportOptions = {}): Promise<void> {
   const validation = validateBackup(b);
   if (!validation.ok) throw new BackupImportError(validation.errors);
   const backup = validation.backup;
@@ -857,6 +984,7 @@ export async function importBackup(b: BackupV3, opts: ImportOptions = {}): Promi
       d.transactions,
       d.statementImports,
       d.fulfillments,
+      d.approvedMappings,
       d.meta,
     ],
     async () => {
@@ -871,6 +999,7 @@ export async function importBackup(b: BackupV3, opts: ImportOptions = {}): Promi
         d.transactions.clear(),
         d.statementImports.clear(),
         d.fulfillments.clear(),
+        d.approvedMappings.clear(),
       ]);
       // Replace portable settings only; credentials on this device survive.
       const existingMeta = await d.meta.toArray();
@@ -888,6 +1017,7 @@ export async function importBackup(b: BackupV3, opts: ImportOptions = {}): Promi
       await d.transactions.bulkAdd(backup.transactions);
       await d.statementImports.bulkAdd(statementImports);
       await d.fulfillments.bulkAdd(backup.fulfillments);
+      await d.approvedMappings.bulkAdd(backup.approvedMappings);
       await d.meta.bulkPut(
         backup.settings
           .filter((s) => !isCredentialMetaKey(s.key))
@@ -912,6 +1042,8 @@ export async function clearAll(): Promise<void> {
       d.transactions,
       d.statementImports,
       d.fulfillments,
+      d.approvedMappings,
+      d.sharedInputs,
       d.meta,
     ],
     async () => {
@@ -926,6 +1058,8 @@ export async function clearAll(): Promise<void> {
         d.transactions.clear(),
         d.statementImports.clear(),
         d.fulfillments.clear(),
+        d.approvedMappings.clear(),
+        d.sharedInputs.clear(),
         // keep meta so PIN stays; caller decides
       ]);
     },
