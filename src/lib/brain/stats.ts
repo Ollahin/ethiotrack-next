@@ -63,9 +63,7 @@ export function computeAgentStats(agent: Agent, txns: Transaction[]): AgentStats
     if (airtimeMovementKind(t) === "sent") distributionAmounts.push(t.amountSantim);
   }
   const payDays = paymentDaysFor(agent.id, txns);
-  const openCredits = mine.filter(
-    (t) => airtimeMovementKind(t) === "sent" && !t.isSettled,
-  );
+  const openCredits = mine.filter((t) => airtimeMovementKind(t) === "sent" && !t.isSettled);
   const oldest = openCredits.map((t) => new Date(t.date).getTime()).sort((a, b) => a - b)[0];
   const oldestDays = oldest ? Math.round((Date.now() - oldest) / 86_400_000) : null;
   return {

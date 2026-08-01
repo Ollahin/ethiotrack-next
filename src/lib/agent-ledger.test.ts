@@ -173,7 +173,13 @@ describe("agent reversal safety", () => {
 
   it("delivered balance for a distributor nets reversals", () => {
     const rows = [
-      txn({ id: "s", type: "airtime_evd", amountSantim: 61_500_00, partyId: "a", distributorId: "d" }),
+      txn({
+        id: "s",
+        type: "airtime_evd",
+        amountSantim: 61_500_00,
+        partyId: "a",
+        distributorId: "d",
+      }),
       txn({
         id: "r",
         type: "airtime_evd",
@@ -182,7 +188,13 @@ describe("agent reversal safety", () => {
         distributorId: "d",
         isReversal: true,
       }),
-      txn({ id: "o", type: "airtime_evd", amountSantim: 9_000_00, partyId: "a", distributorId: "other" }),
+      txn({
+        id: "o",
+        type: "airtime_evd",
+        amountSantim: 9_000_00,
+        partyId: "a",
+        distributorId: "other",
+      }),
     ];
     expect(agentDeliveredBalanceForDistributor(rows, "a", "d")).toBe(41_500_00);
     expect(agentDeliveredBalanceForDistributor(rows, "a", "")).toBe(0);

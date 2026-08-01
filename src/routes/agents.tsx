@@ -351,7 +351,9 @@ function AgentDetail({
                   {t.isSettled && (
                     <span className="text-[10px] text-money-in font-semibold">settled</span>
                   )}
-                  <span className="text-xs text-ink-soft">{formatTxnDate(t.date, t.dateIsDayOnly)}</span>
+                  <span className="text-xs text-ink-soft">
+                    {formatTxnDate(t.date, t.dateIsDayOnly)}
+                  </span>
                 </div>
                 <div className="text-[11px] text-ink-soft truncate">{t.note}</div>
               </div>

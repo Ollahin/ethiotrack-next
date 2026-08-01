@@ -103,7 +103,13 @@ describe("distributorLedger", () => {
       }),
     ];
     const led = distributorLedger(rows, "distA", weekRangeOf("2026-08-10"));
-    expect(led.evd).toEqual({ received: 20_000_00, sent: 0, reversed: 0, netDelivered: 0, net: 20_000_00 });
+    expect(led.evd).toEqual({
+      received: 20_000_00,
+      sent: 0,
+      reversed: 0,
+      netDelivered: 0,
+      net: 20_000_00,
+    });
     expect(expectedStock(0, led.evd)).toBe(20_000_00);
   });
 
@@ -177,8 +183,20 @@ describe("distributorLedger", () => {
     ];
     const led = distributorLedger(rows, "d");
     expect(led.count).toBe(4);
-    expect(led.evd).toEqual({ received: 800_00, sent: 300_00, reversed: 0, netDelivered: 300_00, net: 500_00 });
-    expect(led.float).toEqual({ received: 1_000_00, sent: 250_00, reversed: 0, netDelivered: 250_00, net: 750_00 });
+    expect(led.evd).toEqual({
+      received: 800_00,
+      sent: 300_00,
+      reversed: 0,
+      netDelivered: 300_00,
+      net: 500_00,
+    });
+    expect(led.float).toEqual({
+      received: 1_000_00,
+      sent: 250_00,
+      reversed: 0,
+      netDelivered: 250_00,
+      net: 750_00,
+    });
   });
 
   it("counts legacy airtime rows without a direction as sent", () => {

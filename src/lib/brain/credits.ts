@@ -7,9 +7,7 @@ import type { Transaction } from "../types";
  */
 export function openCreditsFor(agentId: string, txns: Transaction[]): Transaction[] {
   return txns
-    .filter(
-      (t) => t.partyId === agentId && airtimeMovementKind(t) === "sent" && !t.isSettled,
-    )
+    .filter((t) => t.partyId === agentId && airtimeMovementKind(t) === "sent" && !t.isSettled)
     .sort((a, b) => (a.date < b.date ? -1 : 1));
 }
 
