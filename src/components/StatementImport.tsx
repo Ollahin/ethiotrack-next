@@ -165,7 +165,10 @@ export function StatementImport({
       }
       await updateStatementImport(importId, {
         rawText: outcome.text.slice(0, 40_000),
-        status: outcome.status,
+        // The persisted import record has no "partial" state: a partially
+        // reconstructed image is still a parsed image whose unresolved rows
+        // are shown for review.
+        status: outcome.status === "partial" ? "parsed" : outcome.status,
         orientation: outcome.orientation ?? undefined,
         layout: outcome.match?.kind,
         ocrConfidence: job.kind === "image" ? (outcome.confidence ?? undefined) : undefined,
@@ -177,6 +180,12 @@ export function StatementImport({
       }
       if (outcome.status === "empty") {
         toast.warning(`${job.file.name}: no complete rows found — image kept for retry.`);
+      } else if (outcome.status === "partial") {
+        toast.warning(
+          `${job.file.name}: ${outcome.summary.incomplete} row${
+            outcome.summary.incomplete === 1 ? "" : "s"
+          } could not be fully read — review them before saving.`,
+        );
       }
     } catch (e) {
       console.error(e);
@@ -448,7 +457,9 @@ export function StatementImport({
                   className={`text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded ${
                     o.status === "parsed"
                       ? "bg-money-in/10 text-money-in"
-                      : "bg-money-out/10 text-money-out"
+                      : o.status === "partial"
+                        ? "bg-airtime/10 text-airtime"
+                        : "bg-money-out/10 text-money-out"
                   }`}
                 >
                   {job.saved ? "saved" : o.status}
@@ -505,7 +516,7 @@ export function StatementImport({
                         <span className="font-medium">{row.agentName ?? "—"}</span>
                         {!complete && (
                           <span className="text-[10px] uppercase font-semibold px-1 py-0.5 rounded bg-muted text-ink-soft">
-                            Incomplete
+                            Incomplete{row.reason ? ` · ${row.reason}` : ""}
                           </span>
                         )}
                         {row.isReversal && (
