@@ -205,7 +205,7 @@ export function parseMjAmount(normalizedLine: string): MjAmount | null {
   let dateText: string | undefined;
   let leadNoise: string | undefined;
   if (lead.length > 0) {
-    if (DATE_RX.test(lead)) {
+    if (LEAD_DATE_RX.test(lead)) {
       dateText = lead;
     } else if (isNameLikeLead(lead)) {
       // Name-like lead: this is an agent line, not an amount line.
