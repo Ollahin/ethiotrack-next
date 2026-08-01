@@ -57,8 +57,9 @@ a boundary regression suite is in place.
 
 ## Current task
 
-Task 0.3C-e — SMS classification and field-extraction primitives
+Task 0.4C-a — backup, reset and recovery (complete; backup format v3,
+atomic replace-only restore, browser journey proven)
 
 ## Next task
 
-Task 0.3C-f — Bilingual pairing and reference-based deduplication
+Awaiting assignment
