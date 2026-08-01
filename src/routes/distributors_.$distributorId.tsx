@@ -11,7 +11,7 @@ import {
   weekRangeOf,
   type AirtimeMovement,
 } from "@/lib/distributor-ledger";
-import { formatEtb, formatDateTime } from "@/lib/format";
+import { formatEtb, formatTxnDate } from "@/lib/format";
 import {
   AIRTIME_FORM_LABEL,
   DISTRIBUTOR_FORMAT_LABEL,
@@ -54,6 +54,12 @@ function MovementCard({ label, movement }: { label: string; movement: AirtimeMov
           <div className="flex justify-between gap-2">
             <dt className="text-ink-soft">Reversed back</dt>
             <dd className="tabular-nums text-amber-500">+{formatEtb(movement.reversed)}</dd>
+          </div>
+        )}
+        {movement.reversed > 0 && (
+          <div className="flex justify-between gap-2">
+            <dt className="text-ink-soft">Net delivered</dt>
+            <dd className="tabular-nums">{formatEtb(movement.netDelivered)}</dd>
           </div>
         )}
         <div className="flex justify-between gap-2 font-semibold">
@@ -110,7 +116,7 @@ function TxnRow({ t }: { t: Transaction }) {
         </div>
         <div className="mt-1 text-sm font-semibold truncate">{t.partyName || "—"}</div>
         <div className="text-[11px] text-ink-soft truncate">
-          {formatDateTime(t.date)}
+          {formatTxnDate(t.date, t.dateIsDayOnly)}
           {t.reference ? ` · ${t.reference}` : ""} · {t.source}
         </div>
       </div>

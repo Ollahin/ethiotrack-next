@@ -22,10 +22,15 @@ export interface AgentLedger {
   reversed: number;
   /** Cash received from the agent (type "in"), in santim. */
   cashIn: number;
-  /** Unsettled airtime credit still owed by the agent, in santim. */
+  /** Unsettled airtime credit still owed by the agent, never negative. */
   openCredit: number;
   /** How many airtime credits remain unsettled. */
   unsettledCount: number;
+  /**
+   * Reversal value beyond the recorded unsettled delivered airtime. A
+   * receivable is never negative: this surplus is surfaced for review instead.
+   */
+  excessReversal: number;
 }
 
 const EMPTY: AgentLedger = {
@@ -36,6 +41,7 @@ const EMPTY: AgentLedger = {
   cashIn: 0,
   openCredit: 0,
   unsettledCount: 0,
+  excessReversal: 0,
 };
 
 /** Whether an airtime row moved stock towards the agent (reversals included). */
@@ -61,6 +67,7 @@ export function agentLedger(txns: Transaction[], agentId: string, range?: DateRa
   const rows = agentTransactions(txns, agentId, range);
   if (rows.length === 0) return { ...EMPTY };
   const led: AgentLedger = { ...EMPTY, count: rows.length };
+  let rawOpenCredit = 0;
   for (const t of rows) {
     if (t.type === "in") {
       led.cashIn += t.amountSantim;
@@ -73,14 +80,38 @@ export function agentLedger(txns: Transaction[], agentId: string, range?: DateRa
     else led.floatSent += signed;
     if (reversal) {
       // A reversal takes airtime back: it reduces what the agent owes.
+      // It is never itself an open credit.
       led.reversed += t.amountSantim;
-      led.openCredit -= t.amountSantim;
+      rawOpenCredit -= t.amountSantim;
       continue;
     }
     if (!t.isSettled) {
-      led.openCredit += t.amountSantim;
+      rawOpenCredit += t.amountSantim;
       led.unsettledCount += 1;
     }
   }
+  // A receivable can never be negative. Surplus reversal is a review signal.
+  led.openCredit = Math.max(0, rawOpenCredit);
+  led.excessReversal = Math.max(0, -rawOpenCredit);
   return led;
+}
+
+/**
+ * Net airtime an agent has actually received from one distributor, in santim:
+ * ordinary sends minus reversals. Used to decide whether a new reversal
+ * exceeds what the books say was delivered.
+ */
+export function agentDeliveredBalanceForDistributor(
+  txns: Transaction[],
+  agentId: string,
+  distributorId: string,
+): number {
+  if (!agentId || !distributorId) return 0;
+  let net = 0;
+  for (const t of txns) {
+    if (t.partyId !== agentId || t.distributorId !== distributorId) continue;
+    if (!isAirtimeSentToAgent(t)) continue;
+    net += airtimeMovementKind(t) === "sent_reversal" ? -t.amountSantim : t.amountSantim;
+  }
+  return net;
 }

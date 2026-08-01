@@ -20,7 +20,7 @@ import {
   useDistributors,
   useTransactions,
 } from "@/lib/db";
-import { formatDateTime, formatEtb } from "@/lib/format";
+import { formatEtb, formatTxnDate } from "@/lib/format";
 import { CHANNELS, TYPE_LABEL, type TxnType } from "@/lib/types";
 import { airtimeMovementKind, isInflowTransaction } from "@/lib/airtime-movement";
 import { Trash2, X } from "lucide-react";
@@ -316,7 +316,7 @@ function HistoryPage() {
                       <span>·</span>
                       <span>{t.channel}</span>
                       <span>·</span>
-                      <span>{formatDateTime(t.date)}</span>
+                      <span>{formatTxnDate(t.date, t.dateIsDayOnly)}</span>
                       {t.reference && (
                         <>
                           <span>·</span>

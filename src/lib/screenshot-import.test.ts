@@ -8,6 +8,8 @@ import {
   isRowComplete,
   outcomeFrom,
   pickOrientation,
+  isScreenshotDistributorCompatible,
+  reversalOverrun,
   rowDateIso,
   rowDateParts,
   runOrientedOcr,
@@ -215,5 +217,22 @@ describe("rowDateParts", () => {
   it("refuses a truncated year rather than guessing", () => {
     expect(rowDateParts("24 Jul 202")).toBeNull();
     expect(rowDateParts("Jul 2026")).toBeNull();
+  });
+});
+
+describe("distributor compatibility and reversal overrun", () => {
+  it("requires a distributor and matches the airtime form", () => {
+    expect(isScreenshotDistributorCompatible("airtime_evd", null)).toBe(false);
+    expect(isScreenshotDistributorCompatible("airtime_evd", { forms: ["float"] })).toBe(false);
+    expect(isScreenshotDistributorCompatible("airtime_evd", { forms: ["evd"] })).toBe(true);
+    expect(isScreenshotDistributorCompatible("airtime_float", { forms: [] })).toBe(true);
+    expect(isScreenshotDistributorCompatible(undefined, { forms: ["evd"] })).toBe(false);
+  });
+
+  it("flags only reversals beyond the recorded delivered balance", () => {
+    expect(reversalOverrun(1_000_00, 5_000_00)).toBe(0);
+    expect(reversalOverrun(5_000_00, 5_000_00)).toBe(0);
+    expect(reversalOverrun(6_000_00, 5_000_00)).toBe(1_000_00);
+    expect(reversalOverrun(6_000_00, -2_000_00)).toBe(6_000_00);
   });
 });

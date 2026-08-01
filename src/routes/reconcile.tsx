@@ -436,6 +436,7 @@ function ReconcilePage() {
                   <th className="text-right px-2 py-2">Opening</th>
                   <th className="text-right px-2 py-2">Received</th>
                   <th className="text-right px-2 py-2">Sent</th>
+                  <th className="text-right px-2 py-2">Reversed</th>
                   <th className="text-right px-2 py-2">Expected</th>
                   <th className="text-right px-2 py-2">Actual</th>
                   <th className="text-right px-4 py-2">Variance</th>
@@ -464,6 +465,9 @@ function ReconcilePage() {
                       </td>
                       <td className="px-2 py-2 text-right tabular-nums text-money-out">
                         −{formatEtb(r.evd.sent)}
+                      </td>
+                      <td className="px-2 py-2 text-right tabular-nums text-amber-500">
+                        {r.evd.reversed > 0 ? "+" + formatEtb(r.evd.reversed) : "—"}
                       </td>
                       <td className="px-2 py-2 text-right tabular-nums font-semibold">
                         {formatEtb(r.evdExpected)}
@@ -499,6 +503,9 @@ function ReconcilePage() {
                       </td>
                       <td className="px-2 py-2 text-right tabular-nums text-money-out">
                         −{formatEtb(r.float.sent)}
+                      </td>
+                      <td className="px-2 py-2 text-right tabular-nums text-amber-500">
+                        {r.float.reversed > 0 ? "+" + formatEtb(r.float.reversed) : "—"}
                       </td>
                       <td className="px-2 py-2 text-right tabular-nums font-semibold">
                         {formatEtb(r.fltExpected)}

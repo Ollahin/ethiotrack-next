@@ -106,3 +106,12 @@ export function startOfDay(d = new Date()): Date {
   x.setHours(0, 0, 0, 0);
   return x;
 }
+
+/**
+ * Render a transaction timestamp at the precision the source actually gave.
+ * Day-only captures (e.g. an MJ screenshot showing "24 Jul 2026") never get a
+ * fabricated clock time; genuine source times are kept.
+ */
+export function formatTxnDate(iso: string, dayOnly?: boolean): string {
+  return dayOnly ? formatDate(iso) : formatDateTime(iso);
+}

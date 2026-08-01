@@ -95,3 +95,12 @@ Do not begin parser, OCR, database, reconciliation or UI restructuring until the
 - Blocker fixed: importer no longer auto-creates agents; unmatched rows must be linked explicitly before saving.
 - Blocker fixed: importer no longer stamps `new Date()`; the captured row date is used, otherwise the reviewer must enter a capture date.
 - New pure helper `rowDateIso` with tests. Tests: 578 passing.
+
+## Task 0.4B-a2d — screenshot sends and reversals propagate correctly
+
+- Agents overview now reads "Net airtime delivered", shows reversed value, floors open credit at zero and surfaces `excessReversal` as a review signal (per agent and in totals).
+- Screenshot import requires an explicitly chosen, form-compatible distributor; no fuzzy linking, no save without one.
+- Reversals larger than the agent's recorded delivered balance with that distributor require a written explanation plus confirmation; the explanation is persisted on the saved rows (`overrideReason`) and on the import record, and those rows are flagged for review.
+- Reconciliation shows Received / Sent / Reversed / Expected. Proof case: 200,000 received, 61,500 sent, 104,000 reversed → expected 242,500.
+- Day-only captured dates render without a fabricated clock time via `formatTxnDate`.
+- Verification: 594 tests passing, lint clean (warnings only), production build succeeds.

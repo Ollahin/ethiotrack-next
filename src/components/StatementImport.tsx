@@ -9,11 +9,15 @@ import {
   updateStatementImport,
   useAgents,
   useDistributors,
+  useTransactions,
 } from "@/lib/db";
+import { agentDeliveredBalanceForDistributor } from "@/lib/agent-ledger";
 import {
   failedOutcome,
   isRowComplete,
+  isScreenshotDistributorCompatible,
   outcomeFrom,
+  reversalOverrun,
   rowDateIso,
   rowDateParts,
   runOrientedOcr,
@@ -54,6 +58,12 @@ interface Job {
   /** Reviewer-entered fallback timestamp for rows whose date wasn't captured. */
   manualDate: string;
   showRaw: boolean;
+  /** Row indexes whose reversal exceeds the agent's recorded delivered balance. */
+  overrunRows: number[];
+  /** Reviewer's written explanation for saving those reversals anyway. */
+  overrideReason: string;
+  /** Second explicit confirmation for the override. */
+  overrideConfirmed: boolean;
 }
 
 /** Exact, case/whitespace-normalized agent match only — never fuzzy. */
@@ -66,6 +76,7 @@ function exactAgent(name: string | undefined, agents: Agent[]): Agent | null {
 export function StatementImport() {
   const agents = useAgents();
   const distributors = useDistributors();
+  const txns = useTransactions();
   const [distributorId, setDistributorId] = useState<string>("");
   const [jobs, setJobs] = useState<Job[]>([]);
 
@@ -149,6 +160,9 @@ export function StatementImport() {
       overrides: {},
       manualDate: "",
       showRaw: false,
+      overrunRows: [],
+      overrideReason: "",
+      overrideConfirmed: false,
     }));
     setJobs((js) => [...js, ...next]);
     // Each screenshot is processed independently: one failure never discards
@@ -177,11 +191,23 @@ export function StatementImport() {
   async function saveJob(job: Job) {
     const outcome = job.outcome;
     if (!outcome) return;
+    // Every screenshot row is booked against an explicitly chosen distributor.
+    if (!distributorId || !selectedDistributor) {
+      toast.error("Choose the distributor these rows came from before saving.");
+      return;
+    }
     const picked = outcome.rows
       .map((row, i) => ({ row, i }))
       .filter(({ row, i }) => outcome.selected[i] && isRowComplete(row));
     if (!picked.length) {
       toast.error("Nothing selected to save.");
+      return;
+    }
+    const incompatible = picked.filter(
+      ({ row }) => !isScreenshotDistributorCompatible(row.airtimeType, selectedDistributor),
+    );
+    if (incompatible.length) {
+      toast.error(`${selectedDistributor.name} does not supply the airtime form in these rows.`);
       return;
     }
     // Strict linking: an agent is used only when the OCR name matches an
@@ -205,6 +231,30 @@ export function StatementImport() {
       return;
     }
     const inputs: Array<Omit<Transaction, "id" | "createdAt">> = [];
+    // Reversal override safety: a reversal larger than what the books say was
+    // delivered to that agent by this distributor is never saved silently.
+    const deliveredLeft = new Map<string, number>();
+    const overrun: number[] = [];
+    for (const { row, i } of picked) {
+      if (!row.isReversal) continue;
+      const agentId = job.overrides[i] || exactAgent(row.agentName, agents)?.id;
+      if (!agentId) continue;
+      const left =
+        deliveredLeft.get(agentId) ??
+        agentDeliveredBalanceForDistributor(txns, agentId, distributorId);
+      if (reversalOverrun(row.amountSantim!, left) > 0) overrun.push(i);
+      deliveredLeft.set(agentId, left - row.amountSantim!);
+    }
+    const reasonOk = job.overrideReason.trim().length >= 5;
+    if (overrun.length && !(job.overrideConfirmed && reasonOk)) {
+      patchJob(job.key, { overrunRows: overrun });
+      toast.error(
+        !reasonOk
+          ? "Explain why this larger-than-recorded reversal is correct."
+          : "Confirm the excess reversal before saving.",
+      );
+      return;
+    }
     for (const { row, i } of picked) {
       const id: string | undefined = job.overrides[i] || exactAgent(row.agentName, agents)?.id;
       const captured = rowDateParts(row.dateText);
@@ -221,13 +271,14 @@ export function StatementImport() {
         partyId: id,
         partyType: id ? "agent" : undefined,
         channel: "Distributor",
-        distributorId: distributorId || undefined,
+        distributorId,
         reference: row.reference,
         note: row.raw,
+        ...(overrun.includes(i) ? { overrideReason: job.overrideReason.trim() } : {}),
         date: iso,
         dateIsDayOnly: captured?.dayOnly ?? true,
         isSettled: false,
-        needsReview: row.needsReview || row.isReversal,
+        needsReview: row.needsReview || row.isReversal || overrun.includes(i),
         source: job.kind === "image" ? "screenshot_import" : "pdf_import",
         statementImportId: job.importId,
       });
@@ -238,6 +289,9 @@ export function StatementImport() {
         rowCount: inputs.length,
         totalSantim: inputs.reduce((s, t) => s + t.amountSantim, 0),
         status: "parsed",
+        ...(overrun.length
+          ? { parseError: `Excess reversal override: ${job.overrideReason.trim()}` }
+          : {}),
       });
     }
     patchJob(job.key, { saved: true });
@@ -256,10 +310,10 @@ export function StatementImport() {
             PDF or screenshot. Runs entirely in your browser.
           </div>
         </div>
-        {distributors.length > 0 && (
+        {distributors.length > 0 ? (
           <Select value={distributorId} onValueChange={setDistributorId}>
             <SelectTrigger className="w-44 h-8 text-xs">
-              <SelectValue placeholder="Distributor" />
+              <SelectValue placeholder="Distributor (required)" />
             </SelectTrigger>
             <SelectContent>
               {distributors.map((d) => (
@@ -269,8 +323,16 @@ export function StatementImport() {
               ))}
             </SelectContent>
           </Select>
+        ) : (
+          <span className="text-xs text-money-out">Add a distributor first</span>
         )}
       </div>
+
+      {!distributorId && (
+        <div className="text-xs text-money-out">
+          Choose the distributor these screenshots came from — rows cannot be saved without one.
+        </div>
+      )}
 
       <label
         className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-border rounded-lg p-6 cursor-pointer hover:bg-muted/40"
@@ -431,6 +493,34 @@ export function StatementImport() {
               </>
             )}
 
+            {job.overrunRows.length > 0 && !job.saved && (
+              <div className="rounded-md border border-money-out/40 bg-money-out/5 p-2 space-y-2">
+                <div className="text-xs text-money-out flex items-start gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span>
+                    {job.overrunRows.length} reversal
+                    {job.overrunRows.length === 1 ? "" : "s"} exceed what the books show was
+                    delivered to that agent by this distributor. Saving is an override.
+                  </span>
+                </div>
+                <textarea
+                  value={job.overrideReason}
+                  onChange={(e) => patchJob(job.key, { overrideReason: e.target.value })}
+                  placeholder="Explain why this reversal is correct (kept with the saved rows)…"
+                  className="w-full rounded-md border border-border bg-background p-2 text-xs"
+                  rows={2}
+                />
+                <label className="flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={job.overrideConfirmed}
+                    onChange={(e) => patchJob(job.key, { overrideConfirmed: e.target.checked })}
+                  />
+                  I confirm this excess reversal and take responsibility for it.
+                </label>
+              </div>
+            )}
+
             {o?.text && (
               <div className="rounded-md border border-border">
                 <button
@@ -464,7 +554,7 @@ export function StatementImport() {
               </Button>
               <Button
                 className="flex-1"
-                disabled={job.busy || job.saved || !o || o.summary.complete === 0}
+                disabled={job.busy || job.saved || !o || o.summary.complete === 0 || !distributorId}
                 onClick={() => void saveJob(job)}
               >
                 {job.saved ? "Saved" : "Save rows"}
