@@ -161,6 +161,13 @@ export interface Transaction {
   /** Airtime stock direction (airtime_evd / airtime_float only). Missing = "sent". */
   airtimeDirection?: AirtimeDirection;
   /**
+   * True when the source row is a reversal of an earlier airtime movement
+   * (e.g. a negative amount on an MJ "Transfers → Sent" screen). The row keeps
+   * the direction of the screen it came from — a sent reversal is never a
+   * distributor receipt — and `amountSantim` stays the non-negative magnitude.
+   */
+  isReversal?: boolean;
+  /**
    * Principal amount of an outgoing distributor payment, i.e. the airtime value
    * bought. `amountSantim` stays the final bank debit (principal + charges +
    * VAT). Absent means principal equals the debit.
