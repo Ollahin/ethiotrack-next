@@ -410,18 +410,17 @@ export function StatementImport() {
 
             {o?.text && (
               <>
-                {!job.saved &&
-                  o.rows.some((r, i) => o.selected[i] && !rowDateIso(r.dateText)) && (
-                    <label className="flex items-center gap-2 text-xs text-ink-soft">
-                      <span className="shrink-0">Capture date for undated rows</span>
-                      <input
-                        type="datetime-local"
-                        value={job.manualDate}
-                        onChange={(e) => patchJob(job.key, { manualDate: e.target.value })}
-                        className="h-8 rounded-md border border-border bg-background px-2 text-xs"
-                      />
-                    </label>
-                  )}
+                {!job.saved && o.rows.some((r, i) => o.selected[i] && !rowDateIso(r.dateText)) && (
+                  <label className="flex items-center gap-2 text-xs text-ink-soft">
+                    <span className="shrink-0">Capture date for undated rows</span>
+                    <input
+                      type="datetime-local"
+                      value={job.manualDate}
+                      onChange={(e) => patchJob(job.key, { manualDate: e.target.value })}
+                      className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+                    />
+                  </label>
+                )}
               </>
             )}
 
