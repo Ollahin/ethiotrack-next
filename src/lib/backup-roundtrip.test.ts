@@ -115,9 +115,9 @@ async function seedBaseline() {
   await metaSet("pin_v1", { hash: "secret", salt: "s" });
 }
 
-function ledgerTotals(txns: Transaction[], distributorId: string) {
-  const l = distributorLedger(txns, distributorId);
-  return { ...l, stock: expectedStock(0, l) };
+function ledgerTotals(txns: Transaction[], distributorId: string, form: "evd" | "float") {
+  const m = distributorLedger(txns, distributorId)[form];
+  return { ...m, stock: expectedStock(0, m) };
 }
 
 beforeEach(async () => {
@@ -140,8 +140,8 @@ describe("backup round trip", () => {
     await seedBaseline();
     const before = await exportBackup();
     const beforeTxns = await db().transactions.toArray();
-    const evdBefore = ledgerTotals(beforeTxns, DIST_EVD.id);
-    const floatBefore = ledgerTotals(beforeTxns, DIST_FLOAT.id);
+    const evdBefore = ledgerTotals(beforeTxns, DIST_EVD.id, "evd");
+    const floatBefore = ledgerTotals(beforeTxns, DIST_FLOAT.id, "float");
 
     expect(evdBefore.sent).toBe(6_150_000);
     expect(evdBefore.reversed).toBe(10_400_000);
@@ -161,12 +161,12 @@ describe("backup round trip", () => {
     expect(await db().agents.count()).toBe(1);
     expect(await db().distributors.count()).toBe(2);
     expect(await db().statementImports.count()).toBe(1);
-    expect(ledgerTotals(after, DIST_EVD.id)).toMatchObject({
+    expect(ledgerTotals(after, DIST_EVD.id, "evd")).toMatchObject({
       sent: 6_150_000,
       reversed: 10_400_000,
       stock: 4_250_000,
     });
-    expect(ledgerTotals(after, DIST_FLOAT.id)).toMatchObject({
+    expect(ledgerTotals(after, DIST_FLOAT.id, "float")).toMatchObject({
       received: 15_150_000,
       sent: 2_020_000,
       stock: 13_130_000,
