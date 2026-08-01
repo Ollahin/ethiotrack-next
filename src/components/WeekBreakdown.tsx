@@ -9,7 +9,8 @@ import {
   getWeekEnd,
 } from "@/lib/db";
 import { formatEtb } from "@/lib/format";
-import type { Bank, Distributor, Transaction } from "@/lib/types";
+import { distributorLedger, expectedStock, weekRangeOf } from "@/lib/distributor-ledger";
+import type { Bank, Transaction } from "@/lib/types";
 
 function inWeek(t: Transaction, start: string, end: string): boolean {
   const d = t.date.slice(0, 10);
@@ -30,25 +31,6 @@ function bankRow(bank: Bank, opening: number, txns: Transaction[]) {
     outSum,
     closing: opening + inSum - outSum,
     count: txns.filter((t) => t.bankId === bank.id).length,
-  };
-}
-
-function distRow(d: Distributor, evdOpen: number, fltOpen: number, txns: Transaction[]) {
-  let evd = 0,
-    flt = 0;
-  for (const t of txns) {
-    if (t.distributorId !== d.id) continue;
-    if (t.type === "airtime_evd") evd += t.amountSantim;
-    else if (t.type === "airtime_float") flt += t.amountSantim;
-  }
-  return {
-    evdOpen,
-    fltOpen,
-    evd,
-    flt,
-    evdClosing: evdOpen - evd, // stock consumed as it is sold to agents
-    fltClosing: fltOpen - flt,
-    count: txns.filter((t) => t.distributorId === d.id).length,
   };
 }
 
@@ -135,40 +117,51 @@ export function WeekBreakdown() {
               <thead className="text-[10px] uppercase tracking-wider text-ink-soft">
                 <tr className="border-b border-border/60">
                   <th className="text-left px-4 py-2">Distributor</th>
-                  <th className="text-right px-2 py-2">EVD open</th>
-                  <th className="text-right px-2 py-2">EVD sold</th>
-                  <th className="text-right px-2 py-2">Float open</th>
-                  <th className="text-right px-4 py-2">Float sold</th>
+                  <th className="text-right px-2 py-2">EVD received</th>
+                  <th className="text-right px-2 py-2">EVD sent</th>
+                  <th className="text-right px-2 py-2">EVD reversed</th>
+                  <th className="text-right px-2 py-2">EVD stock</th>
+                  <th className="text-right px-2 py-2">Float received</th>
+                  <th className="text-right px-2 py-2">Float sent</th>
+                  <th className="text-right px-4 py-2">Float stock</th>
                 </tr>
               </thead>
               <tbody>
                 {distributors.map((d) => {
-                  const row = distRow(
-                    d,
-                    opening?.evdStockByDistributor?.[d.id] ?? 0,
-                    opening?.floatStockByDistributor?.[d.id] ?? 0,
-                    weekTxns,
-                  );
+                  const ledger = distributorLedger(weekTxns, d.id, weekRangeOf(weekStart));
+                  const evdOpen = opening?.evdStockByDistributor?.[d.id] ?? 0;
+                  const fltOpen = opening?.floatStockByDistributor?.[d.id] ?? 0;
+                  const evdStock = expectedStock(evdOpen, ledger.evd);
+                  const fltStock = expectedStock(fltOpen, ledger.float);
                   return (
                     <tr key={d.id} className="border-b border-border/40 last:border-0">
                       <td className="px-4 py-2">
                         <div className="font-semibold truncate">{d.name}</div>
                         <div className="text-[10px] text-ink-soft">
-                          {row.count} txn{row.count === 1 ? "" : "s"} · stock left EVD{" "}
-                          {formatEtb(row.evdClosing)}
+                          {ledger.count} txn{ledger.count === 1 ? "" : "s"} · net EVD delivered{" "}
+                          {formatEtb(ledger.evd.netDelivered)}
                         </div>
                       </td>
                       <td className="px-2 py-2 text-right tabular-nums">
-                        {formatEtb(row.evdOpen)}
+                        {formatEtb(ledger.evd.received)}
                       </td>
                       <td className="px-2 py-2 text-right tabular-nums text-airtime">
-                        {formatEtb(row.evd)}
+                        {formatEtb(ledger.evd.sent)}
+                      </td>
+                      <td className="px-2 py-2 text-right tabular-nums text-money-out">
+                        {formatEtb(ledger.evd.reversed)}
+                      </td>
+                      <td className="px-2 py-2 text-right tabular-nums font-semibold">
+                        {formatEtb(evdStock)}
                       </td>
                       <td className="px-2 py-2 text-right tabular-nums">
-                        {formatEtb(row.fltOpen)}
+                        {formatEtb(ledger.float.received)}
                       </td>
-                      <td className="px-4 py-2 text-right tabular-nums text-credit">
-                        {formatEtb(row.flt)}
+                      <td className="px-2 py-2 text-right tabular-nums text-credit">
+                        {formatEtb(ledger.float.sent)}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums font-semibold">
+                        {formatEtb(fltStock)}
                       </td>
                     </tr>
                   );

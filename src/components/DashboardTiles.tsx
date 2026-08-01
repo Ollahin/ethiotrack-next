@@ -1,5 +1,6 @@
 import type { Transaction } from "@/lib/types";
 import { formatEtb } from "@/lib/format";
+import { airtimeMovementKind } from "@/lib/airtime-movement";
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -18,11 +19,20 @@ export function DashboardTiles({
   const t = txns.filter((x) => x.date.slice(0, 10) === today && !x.isPersonal);
   const sum = (type: Transaction["type"]) =>
     t.filter((x) => x.type === type).reduce((s, x) => s + x.amountSantim, 0);
-  const salesToday = sum("airtime_evd") + sum("airtime_float");
+  // Only ordinary airtime that left towards agents counts as sent. Received
+  // airtime and reversal rows are never airtime sold.
+  const airtimeSentToday = t
+    .filter((x) => airtimeMovementKind(x) === "sent")
+    .reduce((s, x) => s + x.amountSantim, 0);
   const receiptsToday = sum("in");
 
   const tiles = [
-    { label: "Today's Sales", value: salesToday, color: "text-airtime", bar: "bg-airtime" },
+    {
+      label: "Today's Airtime Sent",
+      value: airtimeSentToday,
+      color: "text-airtime",
+      bar: "bg-airtime",
+    },
     { label: "Today's Receipts", value: receiptsToday, color: "text-money-in", bar: "bg-money-in" },
     { label: "Open Credits", value: openCredit, color: "text-credit", bar: "bg-credit" },
     {
