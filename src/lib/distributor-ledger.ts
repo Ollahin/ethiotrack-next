@@ -23,11 +23,13 @@ export interface DateRange {
 
 export interface AirtimeMovement {
   received: number;
-  /** Airtime that left towards agents, already net of reversals. */
+  /** Ordinary airtime that left towards agents (reversals excluded). */
   sent: number;
   /** Portion of earlier sent airtime given back by reversal rows. */
   reversed: number;
-  /** received - sent (positive = stock grew). */
+  /** sent - reversed: airtime actually delivered, net of reversals. */
+  netDelivered: number;
+  /** received - sent + reversed (positive = stock grew). */
   net: number;
 }
 
@@ -37,7 +39,7 @@ export interface DistributorLedger {
   float: AirtimeMovement;
 }
 
-const EMPTY: AirtimeMovement = { received: 0, sent: 0, reversed: 0, net: 0 };
+const EMPTY: AirtimeMovement = { received: 0, sent: 0, reversed: 0, netDelivered: 0, net: 0 };
 
 /** Monday of the ISO week containing `d`, as YYYY-MM-DD (local calendar). */
 export function weekStartOf(d: Date | string = new Date()): string {
@@ -108,9 +110,10 @@ function movementOf(rows: Transaction[]): AirtimeMovement {
     else if (kind === "sent") sent += t.amountSantim;
     else if (kind === "sent_reversal") reversed += t.amountSantim;
   }
-  // A reversal is not a receipt: it reduces the airtime actually delivered.
-  const netSent = sent - reversed;
-  return { received, sent: netSent, reversed, net: received - netSent };
+  // A reversal is not a receipt: it gives stock back and reduces the airtime
+  // actually delivered, but it is never added to `received`.
+  const netDelivered = sent - reversed;
+  return { received, sent, reversed, netDelivered, net: received - netDelivered };
 }
 
 /** Count, EVD and Float received/sent/net for one distributor in a range. */
@@ -128,9 +131,9 @@ export function distributorLedger(
   };
 }
 
-/** Expected closing stock: opening + received - sent. */
+/** Expected closing stock: opening + received - sent + reversed. */
 export function expectedStock(opening: number, movement: AirtimeMovement): number {
-  return opening + movement.received - movement.sent;
+  return opening + movement.received - movement.sent + movement.reversed;
 }
 
 /** Display direction of one airtime row; legacy rows read as "sent". */
