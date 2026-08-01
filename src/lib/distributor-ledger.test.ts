@@ -132,6 +132,7 @@ describe("distributorLedger", () => {
       received: 500_000_00,
       sent: 45_000_00,
       reversed: 0,
+      netDelivered: 45_000_00,
       net: 455_000_00,
     });
     expect(expectedStock(0, led.float)).toBe(455_000_00);
@@ -189,6 +190,7 @@ describe("distributorLedger", () => {
       received: 0,
       sent: 700_00,
       reversed: 0,
+      netDelivered: 700_00,
       net: -700_00,
     });
   });
