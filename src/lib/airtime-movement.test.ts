@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   airtimeDirectionOf,
+  airtimeMovementKind,
   airtimeStockDelta,
+  isReversalTransaction,
   isAirtimeTransaction,
   isInflowTransaction,
   transactionFlowSign,
