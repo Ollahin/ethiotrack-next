@@ -37,7 +37,8 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: str
 function TxnRow({ t, distributorName }: { t: Transaction; distributorName?: string }) {
   const isPayment = t.type === "in";
   const kind = isPayment ? "Payment" : t.type === "airtime_evd" ? "EVD" : "Float";
-  const action = isPayment ? "Payment" : "Sent";
+  const reversal = t.isReversal === true;
+  const action = isPayment ? "Payment" : reversal ? "Reversal" : "Sent";
   return (
     <li className="px-4 py-3 flex items-start justify-between gap-3">
       <div className="min-w-0">
@@ -54,9 +55,19 @@ function TxnRow({ t, distributorName }: { t: Transaction; distributorName?: stri
           >
             {kind}
           </span>
-          <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-ink-soft">
+          <span
+            className={
+              "text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded " +
+              (reversal ? "bg-amber-500/15 text-amber-500" : "bg-muted text-ink-soft")
+            }
+          >
             {action}
           </span>
+          {reversal && (
+            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-ink-soft">
+              Returned · reduces delivered
+            </span>
+          )}
           {t.isSettled && (
             <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-money-in/10 text-money-in">
               Settled
