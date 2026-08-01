@@ -124,3 +124,24 @@ describe("agent week navigation", () => {
     expect(agentTransactions(rows, "a1")).toHaveLength(2);
   });
 });
+
+describe("agent reversal semantics", () => {
+  const week = weekRangeOf("2026-08-10");
+  it("a sent reversal reduces net delivered and open credit, and is never a receipt", () => {
+    const rows = [
+      txn({ id: "s", type: "airtime_evd", amountSantim: 5_000_00 }),
+      txn({
+        id: "r",
+        type: "airtime_evd",
+        amountSantim: 1_000_00,
+        airtimeDirection: "sent",
+        isReversal: true,
+      }),
+    ];
+    const led = agentLedger(rows, "a1", week);
+    expect(led.evdSent).toBe(4_000_00);
+    expect(led.reversed).toBe(1_000_00);
+    expect(led.openCredit).toBe(4_000_00);
+    expect(isAirtimeSentToAgent(rows[1])).toBe(true);
+  });
+});

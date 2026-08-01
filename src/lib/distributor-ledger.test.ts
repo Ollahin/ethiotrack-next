@@ -193,3 +193,22 @@ describe("distributorLedger", () => {
     );
   });
 });
+
+describe("distributor reversal semantics", () => {
+  it("a sent reversal gives stock back without counting as a receipt", () => {
+    const rows = [
+      txn({ id: "s", type: "airtime_evd", amountSantim: 5_000_00 }),
+      txn({
+        id: "r",
+        type: "airtime_evd",
+        amountSantim: 1_000_00,
+        airtimeDirection: "sent",
+        isReversal: true,
+      }),
+    ];
+    const evd = distributorLedger(rows, "d").evd;
+    expect(evd).toEqual({ received: 0, sent: 4_000_00, reversed: 1_000_00, net: -4_000_00 });
+    expect(rowMovementKind(rows[1])).toBe("sent_reversal");
+    expect(expectedStock(10_000_00, evd)).toBe(6_000_00);
+  });
+});
