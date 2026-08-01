@@ -152,6 +152,17 @@ function amountToSantim(token: string): number {
   return major * 100 + minor;
 }
 
+/**
+ * A lead segment is name-like when it holds a word of four or more letters.
+ * Mangled date/index noise ("@5 ITk2A26", "b 3") stays below that bar.
+ */
+function isNameLikeLead(lead: string): boolean {
+  return lead
+    .split(/[^\p{L}]+/u)
+    .filter(Boolean)
+    .some((t) => t.length >= 4);
+}
+
 function classifySignPrefix(prefix: string): MjSignEvidence {
   if (prefix.length === 0) return "none";
   const trimmed = prefix.trim();
@@ -196,7 +207,7 @@ export function parseMjAmount(normalizedLine: string): MjAmount | null {
   if (lead.length > 0) {
     if (DATE_RX.test(lead)) {
       dateText = lead;
-    } else if (hasNameSubstance(lead.replace(/[\p{N}]/gu, " "))) {
+    } else if (isNameLikeLead(lead)) {
       // Name-like lead: this is an agent line, not an amount line.
       return null;
     } else {
