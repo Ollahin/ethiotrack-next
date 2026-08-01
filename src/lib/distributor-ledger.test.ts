@@ -189,9 +189,9 @@ describe("distributorLedger", () => {
   });
 
   it("expected stock is opening + received - sent", () => {
-    expect(expectedStock(10_000_00, { received: 5_000_00, sent: 2_000_00, reversed: 0, net: 3_000_00 })).toBe(
-      13_000_00,
-    );
+    expect(
+      expectedStock(10_000_00, { received: 5_000_00, sent: 2_000_00, reversed: 0, net: 3_000_00 }),
+    ).toBe(13_000_00);
   });
 });
 
