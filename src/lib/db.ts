@@ -14,6 +14,17 @@ import type {
   Transaction,
 } from "./types";
 import { makeId } from "./ids";
+import {
+  BACKUP_APP,
+  BACKUP_VERSION,
+  base64ToBytes,
+  bytesToBase64,
+  countsOf,
+  isCredentialMetaKey,
+  validateBackup,
+  type BackupV3,
+  type SerializedStatementImport,
+} from "./backup-format";
 
 /**
  * Canonical dedup fingerprint for a transaction. Shared by:
@@ -707,23 +718,44 @@ export async function metaSet(key: string, value: unknown): Promise<void> {
 
 // -- backup ------------------------------------------------------------------
 
-export interface Backup {
-  version: 2;
-  exportedAt: string;
-  agents: Agent[];
-  distributors: Distributor[];
-  banks: Bank[];
-  dailyOpenings: DailyOpening[];
-  dailyClosings: DailyClosing[];
-  periodOpenings?: PeriodOpening[];
-  periodClosings?: PeriodClosing[];
-  transactions: Transaction[];
-  statementImports: StatementImport[];
-  /** Added in v5 — optional so older backups still import. */
-  fulfillments?: FulfillmentEntry[];
+export type Backup = BackupV3;
+
+/** True when this device account holds no financial or entity records. */
+export async function accountIsEmpty(): Promise<boolean> {
+  const d = db();
+  const counts = await Promise.all([
+    d.agents.count(),
+    d.distributors.count(),
+    d.banks.count(),
+    d.dailyOpenings.count(),
+    d.dailyClosings.count(),
+    d.periodOpenings.count(),
+    d.periodClosings.count(),
+    d.transactions.count(),
+    d.statementImports.count(),
+    d.fulfillments.count(),
+  ]);
+  return counts.every((n) => n === 0);
 }
 
-export async function exportBackup(): Promise<Backup> {
+async function serializeStatementImport(s: StatementImport): Promise<SerializedStatementImport> {
+  const { rawImage, ...rest } = s;
+  if (!rawImage) return rest;
+  const bytes = new Uint8Array(await rawImage.arrayBuffer());
+  return { ...rest, rawImageBase64: bytesToBase64(bytes), rawImageType: rawImage.type || undefined };
+}
+
+function deserializeStatementImport(s: SerializedStatementImport): StatementImport {
+  const { rawImageBase64, rawImageType, ...rest } = s;
+  if (!rawImageBase64) return rest;
+  const bytes = base64ToBytes(rawImageBase64);
+  return {
+    ...rest,
+    rawImage: new Blob([bytes as unknown as BlobPart], { type: rawImageType || "image/png" }),
+  };
+}
+
+export async function exportBackup(): Promise<BackupV3> {
   const d = db();
   const [
     agents,
@@ -736,6 +768,7 @@ export async function exportBackup(): Promise<Backup> {
     transactions,
     statementImports,
     fulfillments,
+    meta,
   ] = await Promise.all([
     d.agents.toArray(),
     d.distributors.toArray(),
@@ -747,10 +780,17 @@ export async function exportBackup(): Promise<Backup> {
     d.transactions.toArray(),
     d.statementImports.toArray(),
     d.fulfillments.toArray(),
+    d.meta.toArray(),
   ]);
-  return {
-    version: 2,
+
+  const body: Omit<BackupV3, "counts"> = {
+    app: BACKUP_APP,
+    version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
+    // Credentials (PIN, master PIN, license, lockout state) stay on the device.
+    settings: meta
+      .filter((m) => !isCredentialMetaKey(m.key) && m.value !== undefined)
+      .map((m) => ({ key: m.key, value: m.value })),
     agents,
     distributors,
     banks,
@@ -759,12 +799,46 @@ export async function exportBackup(): Promise<Backup> {
     periodOpenings,
     periodClosings,
     transactions,
-    statementImports,
+    statementImports: await Promise.all(statementImports.map(serializeStatementImport)),
     fulfillments,
   };
+  return { ...body, counts: countsOf(body) };
 }
 
-export async function importBackup(b: Backup): Promise<void> {
+export interface ImportOptions {
+  /**
+   * Required when the account already holds records. Importing always replaces
+   * the whole account: there is no silent merge or dedupe of financial history.
+   */
+  replaceExisting?: boolean;
+}
+
+export class BackupImportError extends Error {
+  readonly errors: string[];
+  constructor(errors: string[]) {
+    super(errors[0] ?? "Backup could not be imported");
+    this.name = "BackupImportError";
+    this.errors = errors;
+  }
+}
+
+/**
+ * Atomically replace this device account with a validated backup. The whole
+ * write runs in one Dexie transaction, so any failure leaves the previous
+ * account exactly as it was — never a partial restore.
+ */
+export async function importBackup(b: BackupV3, opts: ImportOptions = {}): Promise<void> {
+  const validation = validateBackup(b);
+  if (!validation.ok) throw new BackupImportError(validation.errors);
+  const backup = validation.backup;
+
+  if (!opts.replaceExisting && !(await accountIsEmpty())) {
+    throw new BackupImportError([
+      "This device account already holds data. Confirm replacement before importing.",
+    ]);
+  }
+
+  const statementImports = backup.statementImports.map(deserializeStatementImport);
   const d = db();
   await d.transaction(
     "rw",
@@ -779,18 +853,44 @@ export async function importBackup(b: Backup): Promise<void> {
       d.transactions,
       d.statementImports,
       d.fulfillments,
+      d.meta,
     ],
     async () => {
-      if (b.agents) await d.agents.bulkPut(b.agents);
-      if (b.distributors) await d.distributors.bulkPut(b.distributors);
-      if (b.banks) await d.banks.bulkPut(b.banks);
-      if (b.dailyOpenings) await d.dailyOpenings.bulkPut(b.dailyOpenings);
-      if (b.dailyClosings) await d.dailyClosings.bulkPut(b.dailyClosings);
-      if (b.periodOpenings) await d.periodOpenings.bulkPut(b.periodOpenings);
-      if (b.periodClosings) await d.periodClosings.bulkPut(b.periodClosings);
-      if (b.transactions) await d.transactions.bulkPut(b.transactions);
-      if (b.statementImports) await d.statementImports.bulkPut(b.statementImports);
-      if (b.fulfillments) await d.fulfillments.bulkPut(b.fulfillments);
+      await Promise.all([
+        d.agents.clear(),
+        d.distributors.clear(),
+        d.banks.clear(),
+        d.dailyOpenings.clear(),
+        d.dailyClosings.clear(),
+        d.periodOpenings.clear(),
+        d.periodClosings.clear(),
+        d.transactions.clear(),
+        d.statementImports.clear(),
+        d.fulfillments.clear(),
+      ]);
+      // Replace portable settings only; credentials on this device survive.
+      const existingMeta = await d.meta.toArray();
+      await Promise.all(
+        existingMeta
+          .filter((m) => !isCredentialMetaKey(m.key))
+          .map((m) => d.meta.delete(m.key)),
+      );
+
+      await d.agents.bulkAdd(backup.agents);
+      await d.distributors.bulkAdd(backup.distributors);
+      await d.banks.bulkAdd(backup.banks);
+      await d.dailyOpenings.bulkAdd(backup.dailyOpenings);
+      await d.dailyClosings.bulkAdd(backup.dailyClosings);
+      await d.periodOpenings.bulkAdd(backup.periodOpenings);
+      await d.periodClosings.bulkAdd(backup.periodClosings);
+      await d.transactions.bulkAdd(backup.transactions);
+      await d.statementImports.bulkAdd(statementImports);
+      await d.fulfillments.bulkAdd(backup.fulfillments);
+      await d.meta.bulkPut(
+        backup.settings
+          .filter((s) => !isCredentialMetaKey(s.key))
+          .map((s) => ({ key: s.key, value: s.value })),
+      );
     },
   );
 }
