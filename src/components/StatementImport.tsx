@@ -15,6 +15,7 @@ import {
   isRowComplete,
   outcomeFrom,
   rowDateIso,
+  rowDateParts,
   runOrientedOcr,
   scoreCandidate,
   type Orientation,
@@ -206,11 +207,14 @@ export function StatementImport() {
     const inputs: Array<Omit<Transaction, "id" | "createdAt">> = [];
     for (const { row, i } of picked) {
       const id: string | undefined = job.overrides[i] || exactAgent(row.agentName, agents)?.id;
-      const iso = rowDateIso(row.dateText) ?? manualIso!;
+      const captured = rowDateParts(row.dateText);
+      const iso = captured?.iso ?? manualIso!;
       inputs.push({
         type: row.airtimeType!,
         amountSantim: row.amountSantim!,
-        airtimeDirection: "sent",
+        // A reversal gives the airtime back: it must undo the earlier sent
+        // movement instead of reducing stock a second time.
+        airtimeDirection: row.isReversal ? "received" : "sent",
         partyName: row.agentName ?? "Unknown",
         partyId: id,
         partyType: id ? "agent" : undefined,
@@ -219,6 +223,7 @@ export function StatementImport() {
         reference: row.reference,
         note: row.raw,
         date: iso,
+        dateIsDayOnly: captured?.dayOnly ?? true,
         isSettled: false,
         needsReview: row.needsReview || row.isReversal,
         source: job.kind === "image" ? "screenshot_import" : "pdf_import",
