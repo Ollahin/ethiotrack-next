@@ -7,7 +7,6 @@ import {
   addTransactionsBulk,
   recordStatementImport,
   updateStatementImport,
-  upsertAgent,
   useAgents,
   useDistributors,
 } from "@/lib/db";
@@ -15,6 +14,7 @@ import {
   failedOutcome,
   isRowComplete,
   outcomeFrom,
+  rowDateIso,
   runOrientedOcr,
   scoreCandidate,
   type Orientation,
@@ -50,6 +50,8 @@ interface Job {
   saved: boolean;
   outcome: ScreenshotOutcome | null;
   overrides: Record<number, string>;
+  /** Reviewer-entered fallback timestamp for rows whose date wasn't captured. */
+  manualDate: string;
   showRaw: boolean;
 }
 
@@ -144,6 +146,7 @@ export function StatementImport() {
       saved: false,
       outcome: null,
       overrides: {},
+      manualDate: "",
       showRaw: false,
     }));
     setJobs((js) => [...js, ...next]);
@@ -180,22 +183,30 @@ export function StatementImport() {
       toast.error("Nothing selected to save.");
       return;
     }
-    const NAME_OK = /^[A-Za-z\u1200-\u137F][A-Za-z\u1200-\u137F\s'.-]{1,58}$/;
-    const created: Record<string, string> = {};
-    let autoCreated = 0;
+    // Strict linking: an agent is used only when the OCR name matches an
+    // existing agent exactly, or the reviewer picked one. Never auto-create.
+    const unlinked = picked.filter(
+      ({ row, i }) => !(job.overrides[i] || exactAgent(row.agentName, agents)?.id),
+    );
+    if (unlinked.length) {
+      toast.error(
+        `Link ${unlinked.length} row${unlinked.length === 1 ? "" : "s"} to an agent before saving.`,
+      );
+      return;
+    }
+    // Never invent a timestamp: use the captured date, else the reviewer's.
+    const manualIso = job.manualDate ? new Date(job.manualDate).toISOString() : null;
+    const undated = picked.filter(({ row }) => !rowDateIso(row.dateText) && !manualIso);
+    if (undated.length) {
+      toast.error(
+        `${undated.length} selected row${undated.length === 1 ? " has" : "s have"} no date — enter the capture date below.`,
+      );
+      return;
+    }
     const inputs: Array<Omit<Transaction, "id" | "createdAt">> = [];
     for (const { row, i } of picked) {
-      let id: string | undefined = job.overrides[i] || exactAgent(row.agentName, agents)?.id;
-      if (!id && row.agentName && NAME_OK.test(row.agentName)) {
-        const key = row.agentName.trim().toLowerCase();
-        if (created[key]) id = created[key];
-        else {
-          const rec = await upsertAgent({ name: row.agentName.trim() });
-          created[key] = rec.id;
-          id = rec.id;
-          autoCreated++;
-        }
-      }
+      const id: string | undefined = job.overrides[i] || exactAgent(row.agentName, agents)?.id;
+      const iso = rowDateIso(row.dateText) ?? manualIso!;
       inputs.push({
         type: row.airtimeType!,
         amountSantim: row.amountSantim!,
@@ -207,7 +218,7 @@ export function StatementImport() {
         distributorId: distributorId || undefined,
         reference: row.reference,
         note: row.raw,
-        date: new Date().toISOString(),
+        date: iso,
         isSettled: false,
         needsReview: row.needsReview || row.isReversal,
         source: job.kind === "image" ? "screenshot_import" : "pdf_import",
@@ -225,8 +236,7 @@ export function StatementImport() {
     patchJob(job.key, { saved: true });
     toast.success(
       `${job.file.name}: saved ${res.inserted} rows` +
-        (res.skipped ? `, skipped ${res.skipped} duplicate` : "") +
-        (autoCreated ? ` · added ${autoCreated} new agent${autoCreated === 1 ? "" : "s"}` : ""),
+        (res.skipped ? `, skipped ${res.skipped} duplicate` : ""),
     );
   }
 
@@ -396,6 +406,22 @@ export function StatementImport() {
                   );
                 })}
               </ul>
+            )}
+
+            {o?.text && (
+              <>
+                {!job.saved && o.rows.some((r, i) => o.selected[i] && !rowDateIso(r.dateText)) && (
+                  <label className="flex items-center gap-2 text-xs text-ink-soft">
+                    <span className="shrink-0">Capture date for undated rows</span>
+                    <input
+                      type="datetime-local"
+                      value={job.manualDate}
+                      onChange={(e) => patchJob(job.key, { manualDate: e.target.value })}
+                      className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+                    />
+                  </label>
+                )}
+              </>
             )}
 
             {o?.text && (

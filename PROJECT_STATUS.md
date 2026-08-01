@@ -88,3 +88,10 @@ repository. Future tasks reference it instead of repeating its rules.
 ## Important rule
 
 Do not begin parser, OCR, database, reconciliation or UI restructuring until the validation baseline and corpus evaluator are complete.
+
+## Task 0.4B-a2 — real screenshot capture audit
+
+- Real-browser run: 5 generated screenshots imported in one batch through the live Tesseract OCR engine; raw import persisted before OCR, each tile parsed independently (MJ clean, MJ reversal, Refill, rotated -> 270 correction, cropped).
+- Blocker fixed: importer no longer auto-creates agents; unmatched rows must be linked explicitly before saving.
+- Blocker fixed: importer no longer stamps `new Date()`; the captured row date is used, otherwise the reviewer must enter a capture date.
+- New pure helper `rowDateIso` with tests. Tests: 578 passing.
