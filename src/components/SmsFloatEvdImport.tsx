@@ -16,7 +16,7 @@ import {
   SMS_EVENT_MAPPING,
   adaptSmsEvents,
   isDistributorCompatible,
-  matchDistributorByLabel,
+  matchDistributorForEvent,
   resolveSmsDate,
 } from "@/lib/float-evd-sms-adapter";
 import { addTransactionsBulk, recordStatementImport, useAgents, useDistributors } from "@/lib/db";
@@ -74,7 +74,7 @@ export function SmsFloatEvdImport({ initialText }: SmsFloatEvdImportProps = {}) 
   const defaults = useMemo(() => {
     const map: Record<number, RowState> = {};
     for (const ev of events) {
-      const preselect = matchDistributorByLabel(ev.counterpartyLabel, distributors, ev.eventKind);
+      const preselect = matchDistributorForEvent(ev, distributors);
       map[ev.sourceOrder] = {
         // Pending events stay unselected until the operator checks them.
         selected: ev.pairingStatus === "complete",

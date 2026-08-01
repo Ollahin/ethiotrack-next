@@ -5,6 +5,7 @@ import {
   adaptSmsEvents,
   isDistributorCompatible,
   matchDistributorByLabel,
+  matchDistributorForEvent,
   normalizeName,
   resolveSmsDate,
 } from "./float-evd-sms-adapter";
@@ -231,6 +232,85 @@ describe("distributor compatibility", () => {
       }),
     ).toEqual({ ok: false, reason: "missing_distributor" });
     expect(adaptSmsEvent(event("float_sent_to_agent"), { ...dist }).ok).toBe(true);
+  });
+
+  it("resolves an exact configured alias to the canonical distributor", () => {
+    const list = [
+      {
+        id: "moderntech",
+        name: "Moderntech",
+        aliases: ["Moderntech_Adama Amede Asela menahariya_DD"],
+        ...float,
+      },
+    ];
+    expect(
+      matchDistributorByLabel(
+        "Moderntech_Adama Amede Asela menahariya_DD",
+        list,
+        "float_sent_to_agent",
+      )?.id,
+    ).toBe("moderntech");
+    // Case and whitespace only.
+    expect(
+      matchDistributorByLabel(
+        "  moderntech_adama   amede asela menahariya_dd ",
+        list,
+        "float_sent_to_agent",
+      )?.id,
+    ).toBe("moderntech");
+    // Similar, partial, reordered and misspelled labels stay unresolved.
+    for (const label of [
+      "Moderntech_Adama Amede Asela menahariya_D",
+      "Moderntech_Adama Amede Asela",
+      "Adama Amede Asela menahariya_DD Moderntech",
+      "Modernteck_Adama Amede Asela menahariya_DD",
+    ]) {
+      expect(matchDistributorByLabel(label, list, "float_sent_to_agent")).toBeNull();
+    }
+  });
+
+  it("rejects a duplicate compatible alias and an incompatible alias", () => {
+    const alias = "Shop Label X";
+    const dup = [
+      { id: "d1", name: "One", aliases: [alias], ...float },
+      { id: "d2", name: "Two", aliases: [alias], ...float },
+    ];
+    expect(matchDistributorByLabel(alias, dup, "float_sent_to_agent")).toBeNull();
+    // Only one is compatible, so the other no longer creates ambiguity.
+    const mixed = [
+      { id: "d1", name: "One", aliases: [alias], ...float },
+      { id: "d2", name: "Two", aliases: [alias], ...evd },
+    ];
+    expect(matchDistributorByLabel(alias, mixed, "float_sent_to_agent")?.id).toBe("d1");
+    expect(
+      matchDistributorByLabel(
+        alias,
+        [{ id: "d2", name: "Two", aliases: [alias], ...evd }],
+        "float_sent_to_agent",
+      ),
+    ).toBeNull();
+  });
+
+  it("falls back to the shop label when the counterparty label does not match", () => {
+    const list = [{ id: "moderntech", name: "Moderntech", aliases: ["Sample Shop A"], ...float }];
+    expect(
+      matchDistributorForEvent(
+        event("float_sent_to_agent", {
+          counterpartyLabel: "Sample Administrator",
+          shopLabel: "Sample Shop A",
+        }),
+        list,
+      )?.id,
+    ).toBe("moderntech");
+    expect(
+      matchDistributorForEvent(
+        event("float_sent_to_agent", {
+          counterpartyLabel: "Sample Administrator",
+          shopLabel: "Sample Shop B",
+        }),
+        list,
+      ),
+    ).toBeNull();
   });
 });
 
