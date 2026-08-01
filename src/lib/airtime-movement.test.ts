@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   airtimeDirectionOf,
+  airtimeMovementKind,
   airtimeStockDelta,
+  isReversalTransaction,
   isAirtimeTransaction,
   isInflowTransaction,
   transactionFlowSign,
@@ -127,5 +129,20 @@ describe("transactionFlowSign / isInflowTransaction", () => {
     }
     expect(inSum).toBe(400_00);
     expect(outSum).toBe(80_00);
+  });
+});
+
+describe("reversal-aware stock semantics", () => {
+  it("a sent reversal adds stock back but is not a receipt", () => {
+    const rev = {
+      type: "airtime_evd",
+      airtimeDirection: "sent",
+      isReversal: true,
+      amountSantim: 1_000_00,
+    } as const;
+    expect(airtimeMovementKind(rev)).toBe("sent_reversal");
+    expect(airtimeDirectionOf(rev)).toBe("sent");
+    expect(airtimeStockDelta(rev)).toBe(1_000_00);
+    expect(isReversalTransaction(rev)).toBe(true);
   });
 });

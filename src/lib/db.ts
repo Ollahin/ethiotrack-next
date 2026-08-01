@@ -24,12 +24,17 @@ import { makeId } from "./ids";
  */
 export const DUPLICATE_WINDOW_MS = 10 * 60_000;
 export function duplicateKey(
-  t: Pick<Transaction, "type" | "amountSantim" | "partyName" | "channel" | "airtimeDirection">,
+  t: Pick<
+    Transaction,
+    "type" | "amountSantim" | "partyName" | "channel" | "airtimeDirection" | "isReversal"
+  >,
 ): string {
   // Airtime sent out and airtime received in are never the same event, so the
-  // direction (legacy missing = "sent") is part of the identity.
+  // direction (legacy missing = "sent") is part of the identity. A reversal is
+  // likewise never the same event as the movement it reverses.
   const dir = airtimeDirectionOf(t) ?? "-";
-  return `${t.type}|${dir}|${t.amountSantim}|${(t.partyName ?? "").toLowerCase()}|${t.channel}`;
+  const rev = t.isReversal ? "rev" : "-";
+  return `${t.type}|${dir}|${rev}|${t.amountSantim}|${(t.partyName ?? "").toLowerCase()}|${t.channel}`;
 }
 
 /**
@@ -37,11 +42,12 @@ export function duplicateKey(
  * only unique within the same channel, type and airtime direction.
  */
 export function referenceKey(
-  t: Pick<Transaction, "type" | "channel" | "airtimeDirection">,
+  t: Pick<Transaction, "type" | "channel" | "airtimeDirection" | "isReversal">,
   reference: string,
 ): string {
   const dir = airtimeDirectionOf(t) ?? "-";
-  return `${t.channel}|${t.type}|${dir}|${reference.trim().toUpperCase()}`;
+  const rev = t.isReversal ? "rev" : "-";
+  return `${t.channel}|${t.type}|${dir}|${rev}|${reference.trim().toUpperCase()}`;
 }
 
 // -- schema ------------------------------------------------------------------

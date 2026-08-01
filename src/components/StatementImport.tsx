@@ -212,9 +212,11 @@ export function StatementImport() {
       inputs.push({
         type: row.airtimeType!,
         amountSantim: row.amountSantim!,
-        // A reversal gives the airtime back: it must undo the earlier sent
-        // movement instead of reducing stock a second time.
-        airtimeDirection: row.isReversal ? "received" : "sent",
+        // The row keeps the direction of the screen it came from. A reversal
+        // is flagged as such and handled by the reversal-aware stock rules —
+        // it is never recorded as a distributor receipt.
+        airtimeDirection: "sent",
+        ...(row.isReversal ? { isReversal: true as const } : {}),
         partyName: row.agentName ?? "Unknown",
         partyId: id,
         partyType: id ? "agent" : undefined,

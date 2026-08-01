@@ -5,7 +5,7 @@ import { getWeekStart, useDistributors, useTransactions } from "@/lib/db";
 import {
   distributorLedger,
   distributorTransactions,
-  rowDirection,
+  rowMovementKind,
   shiftWeekStart,
   weekEndOf,
   weekRangeOf,
@@ -50,6 +50,12 @@ function MovementCard({ label, movement }: { label: string; movement: AirtimeMov
           <dt className="text-ink-soft">Sent</dt>
           <dd className="tabular-nums text-money-out">−{formatEtb(movement.sent)}</dd>
         </div>
+        {movement.reversed > 0 && (
+          <div className="flex justify-between gap-2">
+            <dt className="text-ink-soft">Reversed back</dt>
+            <dd className="tabular-nums text-amber-500">+{formatEtb(movement.reversed)}</dd>
+          </div>
+        )}
         <div className="flex justify-between gap-2 font-semibold">
           <dt>Net</dt>
           <dd className="tabular-nums">
@@ -63,8 +69,10 @@ function MovementCard({ label, movement }: { label: string; movement: AirtimeMov
 }
 
 function TxnRow({ t }: { t: Transaction }) {
-  const dir = rowDirection(t);
-  const received = dir === "received";
+  const kind = rowMovementKind(t);
+  const received = kind === "received";
+  const reversal = kind === "sent_reversal";
+  const addsStock = received || reversal;
   return (
     <li className="px-4 py-3 flex items-start justify-between gap-3">
       <div className="min-w-0">
@@ -80,11 +88,20 @@ function TxnRow({ t }: { t: Transaction }) {
           <span
             className={
               "text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded " +
-              (received ? "bg-money-in/10 text-money-in" : "bg-money-out/10 text-money-out")
+              (reversal
+                ? "bg-amber-500/15 text-amber-500"
+                : received
+                  ? "bg-money-in/10 text-money-in"
+                  : "bg-money-out/10 text-money-out")
             }
           >
-            {received ? "Received" : "Sent"}
+            {reversal ? "Reversal" : received ? "Received" : "Sent"}
           </span>
+          {reversal && (
+            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-ink-soft">
+              Undoes sent · not a receipt
+            </span>
+          )}
           {t.needsReview && (
             <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500">
               Review
@@ -100,10 +117,10 @@ function TxnRow({ t }: { t: Transaction }) {
       <div
         className={
           "tabular-nums text-sm font-semibold shrink-0 " +
-          (received ? "text-money-in" : "text-money-out")
+          (reversal ? "text-amber-500" : received ? "text-money-in" : "text-money-out")
         }
       >
-        {received ? "+" : "−"}
+        {addsStock ? "+" : "−"}
         {formatEtb(t.amountSantim)}
       </div>
     </li>

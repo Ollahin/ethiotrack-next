@@ -6,7 +6,13 @@
 // Personal and non-airtime rows never move airtime stock. Visible rows are
 // never merged or deduplicated — repeated transactions stay separate.
 
-import { airtimeDirectionOf, airtimeStockDelta, isAirtimeTransaction } from "./airtime-movement";
+import {
+  airtimeDirectionOf,
+  airtimeMovementKind,
+  airtimeStockDelta,
+  isAirtimeTransaction,
+  type AirtimeMovementKind,
+} from "./airtime-movement";
 import type { AirtimeDirection, Transaction } from "./types";
 
 /** Inclusive YYYY-MM-DD calendar range (local dates as stored on the row). */
@@ -17,7 +23,10 @@ export interface DateRange {
 
 export interface AirtimeMovement {
   received: number;
+  /** Airtime that left towards agents, already net of reversals. */
   sent: number;
+  /** Portion of earlier sent airtime given back by reversal rows. */
+  reversed: number;
   /** received - sent (positive = stock grew). */
   net: number;
 }
@@ -28,7 +37,7 @@ export interface DistributorLedger {
   float: AirtimeMovement;
 }
 
-const EMPTY: AirtimeMovement = { received: 0, sent: 0, net: 0 };
+const EMPTY: AirtimeMovement = { received: 0, sent: 0, reversed: 0, net: 0 };
 
 /** Monday of the ISO week containing `d`, as YYYY-MM-DD (local calendar). */
 export function weekStartOf(d: Date | string = new Date()): string {
@@ -92,12 +101,16 @@ export function distributorTransactions(
 function movementOf(rows: Transaction[]): AirtimeMovement {
   let received = 0;
   let sent = 0;
+  let reversed = 0;
   for (const t of rows) {
-    const delta = airtimeStockDelta(t);
-    if (delta > 0) received += delta;
-    else sent += -delta;
+    const kind = airtimeMovementKind(t);
+    if (kind === "received") received += t.amountSantim;
+    else if (kind === "sent") sent += t.amountSantim;
+    else if (kind === "sent_reversal") reversed += t.amountSantim;
   }
-  return { received, sent, net: received - sent };
+  // A reversal is not a receipt: it reduces the airtime actually delivered.
+  const netSent = sent - reversed;
+  return { received, sent: netSent, reversed, net: received - netSent };
 }
 
 /** Count, EVD and Float received/sent/net for one distributor in a range. */
@@ -123,4 +136,14 @@ export function expectedStock(opening: number, movement: AirtimeMovement): numbe
 /** Display direction of one airtime row; legacy rows read as "sent". */
 export function rowDirection(t: Transaction): AirtimeDirection {
   return airtimeDirectionOf(t) ?? "sent";
+}
+
+/** Display movement kind of one airtime row; legacy rows read as "sent". */
+export function rowMovementKind(t: Transaction): AirtimeMovementKind {
+  return airtimeMovementKind(t) ?? "sent";
+}
+
+/** Signed stock effect of one row, for display next to the amount. */
+export function rowStockDelta(t: Transaction): number {
+  return airtimeStockDelta(t);
 }
