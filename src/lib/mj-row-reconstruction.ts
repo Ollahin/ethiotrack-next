@@ -139,6 +139,9 @@ export function stripMjDecorationPrefix(text: string): string {
 /** A defensible money token: grouped or plain integer part, 2 decimals. */
 const AMOUNT_TOKEN_SOURCE = "(?:\\d{1,3}(?:,\\d{3})+|\\d+)\\.\\d{2}";
 const AMOUNT_TAIL_RX = new RegExp(`(${AMOUNT_TOKEN_SOURCE})$`, "u");
+/** A whole-lead date, e.g. "24 Jul 2026" or "2026-07-24". Nothing partial. */
+const LEAD_DATE_RX =
+  /^(?:\d{1,2}[-/ ](?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[-/ ]\d{4}|\d{4}-\d{2}-\d{2})$/i;
 /** Clock-like token, e.g. "4:50" — never a financial amount line. */
 const TIMESTAMP_RX = /\d\s?:\s?\d{2}/;
 const PERCENT_RX = /%/;
