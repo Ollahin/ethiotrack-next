@@ -56,6 +56,12 @@ function MovementCard({ label, movement }: { label: string; movement: AirtimeMov
             <dd className="tabular-nums text-amber-500">+{formatEtb(movement.reversed)}</dd>
           </div>
         )}
+        {movement.reversed > 0 && (
+          <div className="flex justify-between gap-2">
+            <dt className="text-ink-soft">Net delivered</dt>
+            <dd className="tabular-nums">{formatEtb(movement.netDelivered)}</dd>
+          </div>
+        )}
         <div className="flex justify-between gap-2 font-semibold">
           <dt>Net</dt>
           <dd className="tabular-nums">
