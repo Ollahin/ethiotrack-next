@@ -182,12 +182,13 @@ describe("distributorLedger", () => {
     expect(distributorLedger(rows, "d").evd).toEqual({
       received: 0,
       sent: 700_00,
+      reversed: 0,
       net: -700_00,
     });
   });
 
   it("expected stock is opening + received - sent", () => {
-    expect(expectedStock(10_000_00, { received: 5_000_00, sent: 2_000_00, net: 3_000_00 })).toBe(
+    expect(expectedStock(10_000_00, { received: 5_000_00, sent: 2_000_00, reversed: 0, net: 3_000_00 })).toBe(
       13_000_00,
     );
   });
