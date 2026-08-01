@@ -207,8 +207,16 @@ function AgentHistoryPage() {
       </p>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat label="EVD sent" value={formatEtb(ledger.evdSent)} tone="text-airtime" />
-        <Stat label="Float sent" value={formatEtb(ledger.floatSent)} tone="text-credit" />
+        <Stat
+          label={ledger.reversed > 0 ? "EVD delivered (net of reversals)" : "EVD sent"}
+          value={formatEtb(ledger.evdSent)}
+          tone="text-airtime"
+        />
+        <Stat
+          label={ledger.reversed > 0 ? "Float delivered (net of reversals)" : "Float sent"}
+          value={formatEtb(ledger.floatSent)}
+          tone="text-credit"
+        />
         <Stat label="Cash received" value={formatEtb(ledger.cashIn)} tone="text-money-in" />
         <Stat
           label={`Open credit · ${ledger.unsettledCount} unsettled`}
