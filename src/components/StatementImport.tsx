@@ -1,16 +1,20 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { extractPdfText } from "@/lib/pdf-parser";
 import { extractImageTextAt, OCR_LOW_CONFIDENCE } from "@/lib/ocr";
 import { detectStatementTemplate, type StatementRow } from "@/lib/distributor-parser";
 import {
   addTransactionsBulk,
+  approveMapping,
   recordStatementImport,
+  recordMappingUse,
   updateStatementImport,
   useAgents,
+  useApprovedMappings,
   useDistributors,
   useTransactions,
 } from "@/lib/db";
+import { findMapping, type ApprovedMapping } from "@/lib/approved-mappings";
 import { agentDeliveredBalanceForDistributor } from "@/lib/agent-ledger";
 import {
   failedOutcome,
@@ -64,6 +68,8 @@ interface Job {
   overrideReason: string;
   /** Second explicit confirmation for the override. */
   overrideConfirmed: boolean;
+  /** Row indexes whose confirmed link the reviewer chose to change by hand. */
+  editing: Record<number, boolean>;
 }
 
 /** Exact, case/whitespace-normalized agent match only — never fuzzy. */
@@ -73,12 +79,46 @@ function exactAgent(name: string | undefined, agents: Agent[]): Agent | null {
   return agents.find((a) => a.name.trim().toLowerCase().replace(/\s+/g, " ") === key) ?? null;
 }
 
-export function StatementImport() {
+export interface StatementImportProps {
+  /** Files handed over from the shared inbox — never re-uploaded by the operator. */
+  initialFiles?: File[];
+  /** Fired only after rows were actually written. */
+  onSaved?: () => void;
+  /** Hide the drop zone when the file was already supplied by the inbox. */
+  hideDropzone?: boolean;
+}
+
+export function StatementImport({
+  initialFiles,
+  onSaved,
+  hideDropzone,
+}: StatementImportProps = {}) {
   const agents = useAgents();
   const distributors = useDistributors();
   const txns = useTransactions();
+  const mappings = useApprovedMappings();
   const [distributorId, setDistributorId] = useState<string>("");
   const [jobs, setJobs] = useState<Job[]>([]);
+
+  /**
+   * Resolve the agent for a row: an exact name match first, then a link the
+   * operator previously approved for this exact label. Never fuzzy.
+   */
+  function resolvedAgent(
+    row: StatementRow,
+    all: ApprovedMapping[],
+  ): { agent: Agent | null; mapping: ApprovedMapping | null } {
+    const exact = exactAgent(row.agentName, agents);
+    if (exact) return { agent: exact, mapping: null };
+    const mapping = findMapping(row.agentName, "distributor_statement", "agent", all);
+    if (!mapping) return { agent: null, mapping: null };
+    const agent = agents.find((a) => a.id === mapping.targetId) ?? null;
+    return { agent, mapping: agent ? mapping : null };
+  }
+
+  function linkedAgentId(job: Job, row: StatementRow, i: number): string | undefined {
+    return job.overrides[i] || resolvedAgent(row, mappings).agent?.id;
+  }
 
   const selectedDistributor = distributors.find((d) => d.id === distributorId);
   const activeFormat: DistributorStatementFormat =
@@ -163,6 +203,7 @@ export function StatementImport() {
       overrunRows: [],
       overrideReason: "",
       overrideConfirmed: false,
+      editing: {},
     }));
     setJobs((js) => [...js, ...next]);
     // Each screenshot is processed independently: one failure never discards
@@ -171,6 +212,15 @@ export function StatementImport() {
       await processJob(job).catch((e) => console.error(e));
     }
   }
+
+  // Shared captures are processed from their stored bytes exactly once.
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current || !initialFiles?.length) return;
+    seededRef.current = true;
+    void handleFiles(initialFiles);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFiles]);
 
   function toggleRow(key: string, index: number) {
     setJobs((js) =>
@@ -212,9 +262,7 @@ export function StatementImport() {
     }
     // Strict linking: an agent is used only when the OCR name matches an
     // existing agent exactly, or the reviewer picked one. Never auto-create.
-    const unlinked = picked.filter(
-      ({ row, i }) => !(job.overrides[i] || exactAgent(row.agentName, agents)?.id),
-    );
+    const unlinked = picked.filter(({ row, i }) => !linkedAgentId(job, row, i));
     if (unlinked.length) {
       toast.error(
         `Link ${unlinked.length} row${unlinked.length === 1 ? "" : "s"} to an agent before saving.`,
@@ -237,7 +285,7 @@ export function StatementImport() {
     const overrun: number[] = [];
     for (const { row, i } of picked) {
       if (!row.isReversal) continue;
-      const agentId = job.overrides[i] || exactAgent(row.agentName, agents)?.id;
+      const agentId = linkedAgentId(job, row, i);
       if (!agentId) continue;
       const left =
         deliveredLeft.get(agentId) ??
@@ -256,7 +304,7 @@ export function StatementImport() {
       return;
     }
     for (const { row, i } of picked) {
-      const id: string | undefined = job.overrides[i] || exactAgent(row.agentName, agents)?.id;
+      const id: string | undefined = linkedAgentId(job, row, i);
       const captured = rowDateParts(row.dateText);
       const iso = captured?.iso ?? manualIso!;
       inputs.push({
@@ -284,6 +332,28 @@ export function StatementImport() {
       });
     }
     const res = await addTransactionsBulk(inputs);
+    // Remember the links the operator just approved by hand, and count the
+    // reuse of the ones that pre-selected themselves.
+    for (const { row, i } of picked) {
+      const label = row.agentName?.trim();
+      if (!label) continue;
+      const chosen = job.overrides[i];
+      if (chosen) {
+        const agent = agents.find((a) => a.id === chosen);
+        if (agent) {
+          await approveMapping({
+            label,
+            sourceFamily: "distributor_statement",
+            targetType: "agent",
+            targetId: agent.id,
+            targetName: agent.name,
+          });
+        }
+      } else {
+        const { mapping } = resolvedAgent(row, mappings);
+        if (mapping) await recordMappingUse(mapping.id);
+      }
+    }
     if (job.importId) {
       await updateStatementImport(job.importId, {
         rowCount: inputs.length,
@@ -299,6 +369,7 @@ export function StatementImport() {
       `${job.file.name}: saved ${res.inserted} rows` +
         (res.skipped ? `, skipped ${res.skipped} duplicate` : ""),
     );
+    onSaved?.();
   }
 
   return (
@@ -334,32 +405,34 @@ export function StatementImport() {
         </div>
       )}
 
-      <label
-        className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-border rounded-lg p-6 cursor-pointer hover:bg-muted/40"
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault();
-          const fs = Array.from(e.dataTransfer.files);
-          if (fs.length) void handleFiles(fs);
-        }}
-      >
-        <UploadCloud className="h-6 w-6 text-ink-soft" />
-        <div className="text-sm">Drop PDFs or screenshots here, or click to browse</div>
-        <div className="text-[11px] text-ink-soft">
-          Multiple screenshots supported · rotation is detected automatically
-        </div>
-        <input
-          type="file"
-          multiple
-          accept="application/pdf,image/*"
-          className="hidden"
-          onChange={(e) => {
-            const fs = Array.from(e.target.files ?? []);
+      {!hideDropzone && (
+        <label
+          className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-border rounded-lg p-6 cursor-pointer hover:bg-muted/40"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            const fs = Array.from(e.dataTransfer.files);
             if (fs.length) void handleFiles(fs);
-            e.target.value = "";
           }}
-        />
-      </label>
+        >
+          <UploadCloud className="h-6 w-6 text-ink-soft" />
+          <div className="text-sm">Drop PDFs or screenshots here, or click to browse</div>
+          <div className="text-[11px] text-ink-soft">
+            Multiple screenshots supported · rotation is detected automatically
+          </div>
+          <input
+            type="file"
+            multiple
+            accept="application/pdf,image/*"
+            className="hidden"
+            onChange={(e) => {
+              const fs = Array.from(e.target.files ?? []);
+              if (fs.length) void handleFiles(fs);
+              e.target.value = "";
+            }}
+          />
+        </label>
+      )}
 
       {jobs.map((job) => {
         const o = job.outcome;
@@ -414,7 +487,12 @@ export function StatementImport() {
               <ul className="text-sm divide-y divide-border rounded-md border border-border max-h-72 overflow-y-auto">
                 {o.rows.map((row, i) => {
                   const complete = isRowComplete(row);
-                  const agent = exactAgent(row.agentName, agents);
+                  const { agent, mapping } = resolvedAgent(row, mappings);
+                  const chosen = job.overrides[i]
+                    ? (agents.find((a) => a.id === job.overrides[i]) ?? null)
+                    : null;
+                  const linked = chosen ?? agent;
+                  const editing = !!job.editing[i];
                   return (
                     <li key={i} className="p-2">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -446,15 +524,34 @@ export function StatementImport() {
                         <span className="text-[10px] uppercase font-semibold text-ink-soft">
                           {row.airtimeType === "airtime_evd" ? "EVD" : "FLOAT"}
                         </span>
-                        {agent ? (
-                          <span className="w-full text-xs text-money-in">→ {agent.name}</span>
+                        {linked && !editing ? (
+                          <span className="w-full text-xs text-money-in flex items-center gap-2">
+                            <span>
+                              → {linked.name}
+                              {chosen ? "" : mapping ? " (approved link)" : ""}
+                            </span>
+                            {!job.saved && (
+                              <button
+                                type="button"
+                                className="underline text-ink-soft"
+                                onClick={() =>
+                                  patchJob(job.key, { editing: { ...job.editing, [i]: true } })
+                                }
+                              >
+                                Change
+                              </button>
+                            )}
+                          </span>
                         ) : (
                           complete &&
                           !job.saved && (
                             <Select
                               value={job.overrides[i] ?? ""}
                               onValueChange={(v) =>
-                                patchJob(job.key, { overrides: { ...job.overrides, [i]: v } })
+                                patchJob(job.key, {
+                                  overrides: { ...job.overrides, [i]: v },
+                                  editing: { ...job.editing, [i]: false },
+                                })
                               }
                             >
                               <SelectTrigger className="w-full h-7 text-xs mt-1">

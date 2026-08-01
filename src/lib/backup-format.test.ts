@@ -29,7 +29,7 @@ function txn(over: Partial<Transaction> = {}): Transaction {
 function backup(over: Partial<Omit<BackupV4, "counts">> = {}): BackupV4 {
   const body: Omit<BackupV4, "counts"> = {
     app: BACKUP_APP,
-    version: 4,
+    version: 5,
     exportedAt: "2026-08-01T00:00:00.000Z",
     settings: [],
     agents: [],
@@ -43,6 +43,7 @@ function backup(over: Partial<Omit<BackupV4, "counts">> = {}): BackupV4 {
     statementImports: [],
     fulfillments: [],
     approvedMappings: [],
+    sharedInputs: [],
     ...over,
   };
   return { ...body, counts: countsOf(body) };
@@ -50,7 +51,7 @@ function backup(over: Partial<Omit<BackupV4, "counts">> = {}): BackupV4 {
 
 describe("backup format", () => {
   it("exposes a versioned format", () => {
-    expect(BACKUP_VERSION).toBe(4);
+    expect(BACKUP_VERSION).toBe(5);
   });
 
   it("accepts a well-formed empty backup", () => {
@@ -166,7 +167,7 @@ describe("backup format", () => {
     const r = validateBackup(legacy);
     expect(r).toMatchObject({ ok: true, migratedFromVersion: 2 });
     if (!r.ok) return;
-    expect(r.backup.version).toBe(4);
+    expect(r.backup.version).toBe(5);
     expect(r.backup.counts.transactions).toBe(1);
     expect(r.backup.settings).toEqual([]);
     expect(r.backup.approvedMappings).toEqual([]);
