@@ -91,6 +91,7 @@ describe("agentLedger", () => {
     expect(agentLedger([txn({ id: "x" })], "nope")).toEqual({
       count: 0,
       evdSent: 0,
+      excessReversal: 0,
       floatSent: 0,
       reversed: 0,
       cashIn: 0,
@@ -144,5 +145,41 @@ describe("agent reversal semantics", () => {
     expect(led.reversed).toBe(1_000_00);
     expect(led.openCredit).toBe(4_000_00);
     expect(isAirtimeSentToAgent(rows[1])).toBe(true);
+  });
+});
+
+describe("agent reversal safety", () => {
+  it("floors open credit at zero and surfaces the excess for review", () => {
+    const rows = [
+      txn({ id: "s", type: "airtime_evd", amountSantim: 30_000_00, partyId: "a" }),
+      txn({
+        id: "r",
+        type: "airtime_evd",
+        amountSantim: 50_000_00,
+        partyId: "a",
+        isReversal: true,
+      }),
+    ];
+    const led = agentLedger(rows, "a");
+    expect(led.openCredit).toBe(0);
+    expect(led.excessReversal).toBe(20_000_00);
+    expect(led.reversed).toBe(50_000_00);
+  });
+
+  it("delivered balance for a distributor nets reversals", () => {
+    const rows = [
+      txn({ id: "s", type: "airtime_evd", amountSantim: 61_500_00, partyId: "a", distributorId: "d" }),
+      txn({
+        id: "r",
+        type: "airtime_evd",
+        amountSantim: 20_000_00,
+        partyId: "a",
+        distributorId: "d",
+        isReversal: true,
+      }),
+      txn({ id: "o", type: "airtime_evd", amountSantim: 9_000_00, partyId: "a", distributorId: "other" }),
+    ];
+    expect(agentDeliveredBalanceForDistributor(rows, "a", "d")).toBe(41_500_00);
+    expect(agentDeliveredBalanceForDistributor(rows, "a", "")).toBe(0);
   });
 });
