@@ -199,3 +199,20 @@ describe("sanitized image fixtures", () => {
     }
   });
 });
+
+describe("rowDateParts", () => {
+  it("accepts a day-only statement date and flags it", () => {
+    const d = rowDateParts("24 Jul 2026");
+    expect(d?.dayOnly).toBe(true);
+    expect(d?.iso).toBe(new Date(2026, 6, 24, 0, 0, 0, 0).toISOString());
+  });
+
+  it("keeps a captured clock time as not day-only", () => {
+    expect(rowDateParts("2026-08-02 4:51 PM")?.dayOnly).toBe(false);
+  });
+
+  it("refuses a truncated year rather than guessing", () => {
+    expect(rowDateParts("24 Jul 202")).toBeNull();
+    expect(rowDateParts("Jul 2026")).toBeNull();
+  });
+});
