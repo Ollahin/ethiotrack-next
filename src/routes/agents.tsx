@@ -21,7 +21,7 @@ import {
 } from "@/lib/db";
 import { computeAgentStats } from "@/lib/brain/stats";
 import { openCreditsFor, planFifoSettlement } from "@/lib/brain/credits";
-import { formatEtb, parseEtbToSantim, formatDate } from "@/lib/format";
+import { formatEtb, parseEtbToSantim, formatTxnDate } from "@/lib/format";
 import type { Agent, Transaction } from "@/lib/types";
 import { Trash2, UserPlus, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -315,7 +315,7 @@ function AgentDetail({
                   {t.isSettled && (
                     <span className="text-[10px] text-money-in font-semibold">settled</span>
                   )}
-                  <span className="text-xs text-ink-soft">{formatDate(t.date)}</span>
+                  <span className="text-xs text-ink-soft">{formatTxnDate(t.date, t.dateIsDayOnly)}</span>
                 </div>
                 <div className="text-[11px] text-ink-soft truncate">{t.note}</div>
               </div>

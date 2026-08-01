@@ -11,7 +11,7 @@ import {
   weekRangeOf,
   type AirtimeMovement,
 } from "@/lib/distributor-ledger";
-import { formatEtb, formatDateTime } from "@/lib/format";
+import { formatEtb, formatTxnDate } from "@/lib/format";
 import {
   AIRTIME_FORM_LABEL,
   DISTRIBUTOR_FORMAT_LABEL,
@@ -110,7 +110,7 @@ function TxnRow({ t }: { t: Transaction }) {
         </div>
         <div className="mt-1 text-sm font-semibold truncate">{t.partyName || "—"}</div>
         <div className="text-[11px] text-ink-soft truncate">
-          {formatDateTime(t.date)}
+          {formatTxnDate(t.date, t.dateIsDayOnly)}
           {t.reference ? ` · ${t.reference}` : ""} · {t.source}
         </div>
       </div>

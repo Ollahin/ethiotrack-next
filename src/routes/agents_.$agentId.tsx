@@ -4,7 +4,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, UserRound } from "lucide-react";
 import { getWeekStart, useAgents, useDistributors, useTransactions } from "@/lib/db";
 import { agentLedger, agentTransactions } from "@/lib/agent-ledger";
 import { shiftWeekStart, weekEndOf, weekRangeOf } from "@/lib/distributor-ledger";
-import { formatEtb, formatDateTime } from "@/lib/format";
+import { formatEtb, formatTxnDate } from "@/lib/format";
 import type { Transaction } from "@/lib/types";
 
 export const Route = createFileRoute("/agents_/$agentId")({
@@ -80,7 +80,7 @@ function TxnRow({ t, distributorName }: { t: Transaction; distributorName?: stri
           )}
         </div>
         <div className="text-[11px] text-ink-soft mt-1 truncate">
-          {formatDateTime(t.date)}
+          {formatTxnDate(t.date, t.dateIsDayOnly)}
           {distributorName ? ` · ${distributorName}` : ""}
           {t.reference ? ` · ${t.reference}` : ""} · {t.source}
         </div>
