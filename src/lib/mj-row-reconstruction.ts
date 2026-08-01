@@ -399,8 +399,8 @@ export interface MjReconstructedRow {
   candidateLineIndexes: number[];
   status: MjRowStatus;
   isReversal: boolean;
-  /** MJ screens carry no date token; always null. */
-  date: null;
+  /** Date token read off the amount line, or null when the screen had none. */
+  date: string | null;
   warnings: MjWarningCode[];
 }
 
@@ -443,7 +443,7 @@ export function reconstructMjRows(lines: MjLine[]): MjReconstructedRow[] {
 
     if (anchor.amount.isReversal) warnings.push("reversal");
     if (anchor.amount.signEvidence === "ambiguous") warnings.push("ambiguous_sign");
-    warnings.push("no_date_in_source");
+    if (!anchor.amount.dateText) warnings.push("no_date_in_source");
 
     rows.push({
       sourceOrder: rows.length,
@@ -454,7 +454,7 @@ export function reconstructMjRows(lines: MjLine[]): MjReconstructedRow[] {
       candidateLineIndexes: inWindow.map((c) => c.sourceIndex),
       status,
       isReversal: anchor.amount.isReversal,
-      date: null,
+      date: anchor.amount.dateText ?? null,
       warnings,
     });
   }
@@ -513,8 +513,9 @@ function toStatementRow(row: MjReconstructedRow, agentName: string): StatementRo
     airtimeType: "airtime_evd",
     amountSantim: row.amount.amountSantim,
     isReversal: row.isReversal,
-    // MJ screens carry no date token, so every row needs a human eyeball —
-    // identical to the existing MJ contract (`santim < 0 || !dateText`).
+    ...(row.date ? { dateText: row.date } : {}),
+    // MJ rows always need a human eyeball: undated screens have no timestamp,
+    // and dated screens are day-only.
     needsReview: true,
   };
 }
