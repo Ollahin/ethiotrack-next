@@ -171,8 +171,9 @@ function classifySignPrefix(prefix: string): MjSignEvidence {
   const trimmed = prefix.trim();
   if (trimmed.length === 0) return "none";
   if (HYPHEN_CLASS.test(trimmed)) {
-    // Attached minus only when the glyph touches the digits.
-    return prefix === trimmed ? "attached_minus" : "spaced_prefix_ignored";
+    // Attached minus only when the glyph touches the digits. Leading space
+    // (from a same-line date) is irrelevant; trailing space is decisive.
+    return prefix.trimStart() === trimmed ? "attached_minus" : "spaced_prefix_ignored";
   }
   if (/^[:;.,·|]+$/u.test(trimmed)) return "punctuation_prefix_ignored";
   return "ambiguous";
