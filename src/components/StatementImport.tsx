@@ -310,10 +310,10 @@ export function StatementImport() {
             PDF or screenshot. Runs entirely in your browser.
           </div>
         </div>
-        {distributors.length > 0 && (
+        {distributors.length > 0 ? (
           <Select value={distributorId} onValueChange={setDistributorId}>
             <SelectTrigger className="w-44 h-8 text-xs">
-              <SelectValue placeholder="Distributor" />
+              <SelectValue placeholder="Distributor (required)" />
             </SelectTrigger>
             <SelectContent>
               {distributors.map((d) => (
@@ -323,8 +323,16 @@ export function StatementImport() {
               ))}
             </SelectContent>
           </Select>
+        ) : (
+          <span className="text-xs text-money-out">Add a distributor first</span>
         )}
       </div>
+
+      {!distributorId && (
+        <div className="text-xs text-money-out">
+          Choose the distributor these screenshots came from — rows cannot be saved without one.
+        </div>
+      )}
 
       <label
         className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-border rounded-lg p-6 cursor-pointer hover:bg-muted/40"
