@@ -191,11 +191,23 @@ export function StatementImport() {
   async function saveJob(job: Job) {
     const outcome = job.outcome;
     if (!outcome) return;
+    // Every screenshot row is booked against an explicitly chosen distributor.
+    if (!distributorId || !selectedDistributor) {
+      toast.error("Choose the distributor these rows came from before saving.");
+      return;
+    }
     const picked = outcome.rows
       .map((row, i) => ({ row, i }))
       .filter(({ row, i }) => outcome.selected[i] && isRowComplete(row));
     if (!picked.length) {
       toast.error("Nothing selected to save.");
+      return;
+    }
+    const incompatible = picked.filter(
+      ({ row }) => !isScreenshotDistributorCompatible(row.airtimeType, selectedDistributor),
+    );
+    if (incompatible.length) {
+      toast.error(`${selectedDistributor.name} does not supply the airtime form in these rows.`);
       return;
     }
     // Strict linking: an agent is used only when the OCR name matches an
@@ -219,6 +231,30 @@ export function StatementImport() {
       return;
     }
     const inputs: Array<Omit<Transaction, "id" | "createdAt">> = [];
+    // Reversal override safety: a reversal larger than what the books say was
+    // delivered to that agent by this distributor is never saved silently.
+    const deliveredLeft = new Map<string, number>();
+    const overrun: number[] = [];
+    for (const { row, i } of picked) {
+      if (!row.isReversal) continue;
+      const agentId = job.overrides[i] || exactAgent(row.agentName, agents)?.id;
+      if (!agentId) continue;
+      const left =
+        deliveredLeft.get(agentId) ??
+        agentDeliveredBalanceForDistributor(txns, agentId, distributorId);
+      if (reversalOverrun(row.amountSantim!, left) > 0) overrun.push(i);
+      deliveredLeft.set(agentId, left - row.amountSantim!);
+    }
+    const reasonOk = job.overrideReason.trim().length >= 5;
+    if (overrun.length && !(job.overrideConfirmed && reasonOk)) {
+      patchJob(job.key, { overrunRows: overrun });
+      toast.error(
+        !reasonOk
+          ? "Explain why this larger-than-recorded reversal is correct."
+          : "Confirm the excess reversal before saving.",
+      );
+      return;
+    }
     for (const { row, i } of picked) {
       const id: string | undefined = job.overrides[i] || exactAgent(row.agentName, agents)?.id;
       const captured = rowDateParts(row.dateText);
@@ -235,13 +271,14 @@ export function StatementImport() {
         partyId: id,
         partyType: id ? "agent" : undefined,
         channel: "Distributor",
-        distributorId: distributorId || undefined,
+        distributorId,
         reference: row.reference,
         note: row.raw,
+        ...(overrun.includes(i) ? { overrideReason: job.overrideReason.trim() } : {}),
         date: iso,
         dateIsDayOnly: captured?.dayOnly ?? true,
         isSettled: false,
-        needsReview: row.needsReview || row.isReversal,
+        needsReview: row.needsReview || row.isReversal || overrun.includes(i),
         source: job.kind === "image" ? "screenshot_import" : "pdf_import",
         statementImportId: job.importId,
       });
@@ -252,6 +289,9 @@ export function StatementImport() {
         rowCount: inputs.length,
         totalSantim: inputs.reduce((s, t) => s + t.amountSantim, 0),
         status: "parsed",
+        ...(overrun.length
+          ? { parseError: `Excess reversal override: ${job.overrideReason.trim()}` }
+          : {}),
       });
     }
     patchJob(job.key, { saved: true });
