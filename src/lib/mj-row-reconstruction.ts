@@ -57,6 +57,14 @@ export interface MjAmount {
   rawAmountText: string;
   /** The decoration/sign prefix that preceded the numeric token. */
   prefixText: string;
+  /**
+   * Date token that shared the amount line, exactly as read. Real MJ screens
+   * right-align the amount on the same line as the transfer date; the token is
+   * only kept when it is a recognizable date, never guessed.
+   */
+  dateText?: string;
+  /** Non-date text that preceded the amount on the same line (evidence only). */
+  leadNoise?: string;
 }
 
 export interface MjAmountAnchor {
@@ -130,7 +138,10 @@ export function stripMjDecorationPrefix(text: string): string {
 
 /** A defensible money token: grouped or plain integer part, 2 decimals. */
 const AMOUNT_TOKEN_SOURCE = "(?:\\d{1,3}(?:,\\d{3})+|\\d+)\\.\\d{2}";
-const AMOUNT_LINE_RX = new RegExp(`^([^\\p{L}\\p{N}]*)(${AMOUNT_TOKEN_SOURCE})$`, "u");
+const AMOUNT_TAIL_RX = new RegExp(`(${AMOUNT_TOKEN_SOURCE})$`, "u");
+/** A whole-lead date, e.g. "24 Jul 2026" or "2026-07-24". Nothing partial. */
+const LEAD_DATE_RX =
+  /^(?:\d{1,2}[-/ ](?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[-/ ]\d{4}|\d{4}-\d{2}-\d{2})$/i;
 /** Clock-like token, e.g. "4:50" — never a financial amount line. */
 const TIMESTAMP_RX = /\d\s?:\s?\d{2}/;
 const PERCENT_RX = /%/;
@@ -144,13 +155,25 @@ function amountToSantim(token: string): number {
   return major * 100 + minor;
 }
 
+/**
+ * A lead segment is name-like when it holds a word of four or more letters.
+ * Mangled date/index noise ("@5 ITk2A26", "b 3") stays below that bar.
+ */
+function isNameLikeLead(lead: string): boolean {
+  return lead
+    .split(/[^\p{L}]+/u)
+    .filter(Boolean)
+    .some((t) => t.length >= 4);
+}
+
 function classifySignPrefix(prefix: string): MjSignEvidence {
   if (prefix.length === 0) return "none";
   const trimmed = prefix.trim();
   if (trimmed.length === 0) return "none";
   if (HYPHEN_CLASS.test(trimmed)) {
-    // Attached minus only when the glyph touches the digits.
-    return prefix === trimmed ? "attached_minus" : "spaced_prefix_ignored";
+    // Attached minus only when the glyph touches the digits. Leading space
+    // (from a same-line date) is irrelevant; trailing space is decisive.
+    return prefix.trimStart() === trimmed ? "attached_minus" : "spaced_prefix_ignored";
   }
   if (/^[:;.,·|]+$/u.test(trimmed)) return "punctuation_prefix_ignored";
   return "ambiguous";
@@ -162,6 +185,12 @@ function classifySignPrefix(prefix: string): MjSignEvidence {
  *
  * The input must be the *normalized* line, not the decoration-stripped one:
  * sign evidence lives in the prefix.
+ *
+ * Real MJ screens right-align the amount on the same line as the transfer
+ * date ("24 Jul 2026 257,300.00"), so a leading segment is tolerated when it
+ * is either a recognizable date (kept as `dateText`) or short OCR noise with
+ * no name-like word (kept as `leadNoise`). A line whose lead reads like a
+ * name is never an amount, so agent lines stay agent lines.
  */
 export function parseMjAmount(normalizedLine: string): MjAmount | null {
   const line = normalizedLine.trim();
@@ -169,11 +198,27 @@ export function parseMjAmount(normalizedLine: string): MjAmount | null {
   if (PERCENT_RX.test(line)) return null;
   if (TIMESTAMP_RX.test(line)) return null;
 
-  const match = AMOUNT_LINE_RX.exec(line);
+  const match = AMOUNT_TAIL_RX.exec(line);
   if (!match) return null;
+  const token = match[1];
+  const head = line.slice(0, line.length - token.length);
+  const prefixMatch = /[^\p{L}\p{N}]*$/u.exec(head);
+  const prefix = prefixMatch ? prefixMatch[0] : "";
+  const lead = head.slice(0, head.length - prefix.length).trim();
 
-  const prefix = match[1];
-  const token = match[2];
+  let dateText: string | undefined;
+  let leadNoise: string | undefined;
+  if (lead.length > 0) {
+    if (LEAD_DATE_RX.test(lead)) {
+      dateText = lead;
+    } else if (isNameLikeLead(lead)) {
+      // Name-like lead: this is an agent line, not an amount line.
+      return null;
+    } else {
+      leadNoise = lead;
+    }
+  }
+
   const signEvidence = classifySignPrefix(prefix);
 
   return {
@@ -182,6 +227,8 @@ export function parseMjAmount(normalizedLine: string): MjAmount | null {
     signEvidence,
     rawAmountText: token,
     prefixText: prefix,
+    ...(dateText ? { dateText } : {}),
+    ...(leadNoise ? { leadNoise } : {}),
   };
 }
 
@@ -356,8 +403,8 @@ export interface MjReconstructedRow {
   candidateLineIndexes: number[];
   status: MjRowStatus;
   isReversal: boolean;
-  /** MJ screens carry no date token; always null. */
-  date: null;
+  /** Date token read off the amount line, or null when the screen had none. */
+  date: string | null;
   warnings: MjWarningCode[];
 }
 
@@ -400,7 +447,7 @@ export function reconstructMjRows(lines: MjLine[]): MjReconstructedRow[] {
 
     if (anchor.amount.isReversal) warnings.push("reversal");
     if (anchor.amount.signEvidence === "ambiguous") warnings.push("ambiguous_sign");
-    warnings.push("no_date_in_source");
+    if (!anchor.amount.dateText) warnings.push("no_date_in_source");
 
     rows.push({
       sourceOrder: rows.length,
@@ -411,7 +458,7 @@ export function reconstructMjRows(lines: MjLine[]): MjReconstructedRow[] {
       candidateLineIndexes: inWindow.map((c) => c.sourceIndex),
       status,
       isReversal: anchor.amount.isReversal,
-      date: null,
+      date: anchor.amount.dateText ?? null,
       warnings,
     });
   }
@@ -470,8 +517,9 @@ function toStatementRow(row: MjReconstructedRow, agentName: string): StatementRo
     airtimeType: "airtime_evd",
     amountSantim: row.amount.amountSantim,
     isReversal: row.isReversal,
-    // MJ screens carry no date token, so every row needs a human eyeball —
-    // identical to the existing MJ contract (`santim < 0 || !dateText`).
+    ...(row.date ? { dateText: row.date } : {}),
+    // MJ rows always need a human eyeball: undated screens have no timestamp,
+    // and dated screens are day-only.
     needsReview: true,
   };
 }

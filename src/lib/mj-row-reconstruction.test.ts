@@ -683,3 +683,48 @@ describe("MJ boundary regressions", () => {
     expect(JSON.stringify(second)).toBe(JSON.stringify(first));
   });
 });
+
+describe("MJ same-line date and amount (real screen layout)", () => {
+  it("reads a date that shares the amount line", () => {
+    const a = parseMjAmount("24 Jul 2026 257,300.00");
+    expect(a?.amountSantim).toBe(25730000);
+    expect(a?.dateText).toBe("24 Jul 2026");
+    expect(a?.isReversal).toBe(false);
+  });
+
+  it("keeps the attached minus when a date shares the line", () => {
+    const a = parseMjAmount("24 Jul 2026 -5,250.00");
+    expect(a?.amountSantim).toBe(525000);
+    expect(a?.isReversal).toBe(true);
+    expect(a?.dateText).toBe("24 Jul 2026");
+  });
+
+  it("keeps the amount but no date when the lead is OCR noise", () => {
+    const a = parseMjAmount("@5 ITk2A26 10,000.00");
+    expect(a?.amountSantim).toBe(1000000);
+    expect(a?.dateText).toBeUndefined();
+    expect(a?.leadNoise).toBe("@5 ITk2A26");
+  });
+
+  it("never turns a name-like line into an amount", () => {
+    expect(parseMjAmount("Dammeeeecard 10,000.00")).toBeNull();
+  });
+
+  it("emits dated rows for a real MJ screen shape", () => {
+    const result = adaptMjTransfersSent(
+      [
+        "barisohaji - barisohaji",
+        "24 Jul 2026 257,300.00",
+        "Abduyyeee",
+        "barisohaji - barisohaji",
+        "24 Jul 2026 -5,000.00",
+        "Zeddd",
+      ].join("\n"),
+    );
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows[0].dateText).toBe("24 Jul 2026");
+    expect(result.rows[0].agentName).toBe("Abduyyeee");
+    expect(result.rows[1].isReversal).toBe(true);
+    expect(result.rows[1].agentName).toBe("Zeddd");
+  });
+});

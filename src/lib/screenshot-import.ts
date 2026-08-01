@@ -206,6 +206,51 @@ export function outcomeFrom(best: ScoredCandidate): ScreenshotOutcome {
   };
 }
 
+/** Month names accepted in day-only statement dates ("25 Jul 2026"). */
+const MONTHS: Record<string, number> = {
+  jan: 1,
+  feb: 2,
+  mar: 3,
+  apr: 4,
+  may: 5,
+  jun: 6,
+  jul: 7,
+  aug: 8,
+  sep: 9,
+  oct: 10,
+  nov: 11,
+  dec: 12,
+};
+
+export interface RowDate {
+  iso: string;
+  /** True when the source carried a calendar day but no clock time. */
+  dayOnly: boolean;
+}
+
+/**
+ * Parse a statement row's captured date text, reporting whether the source
+ * carried a time. Only source-faithful shapes are accepted; nothing is
+ * inferred or defaulted.
+ */
+export function rowDateParts(dateText: string | undefined): RowDate | null {
+  if (!dateText) return null;
+  const text = dateText.trim();
+  const dayMonth = /^(\d{1,2})[-/ ]([A-Za-z]{3,})[-/ ](\d{4})$/.exec(text);
+  if (dayMonth) {
+    const day = Number(dayMonth[1]);
+    const month = MONTHS[dayMonth[2].slice(0, 3).toLowerCase()];
+    const year = Number(dayMonth[3]);
+    if (!month || day < 1 || day > 31) return null;
+    const dt = new Date(year, month - 1, day, 0, 0, 0, 0);
+    if (dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day)
+      return null;
+    return { iso: dt.toISOString(), dayOnly: true };
+  }
+  const iso = isoFromNumericDate(text);
+  return iso;
+}
+
 /**
  * Parse a statement row's captured date text into an ISO timestamp.
  *
@@ -214,8 +259,11 @@ export function outcomeFrom(best: ScoredCandidate): ScreenshotOutcome {
  * the reviewer for a date instead of inventing one.
  */
 export function rowDateIso(dateText: string | undefined): string | null {
-  if (!dateText) return null;
-  const m = /(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{1,2}):(\d{2})\s*(AM|PM)?)?/i.exec(dateText.trim());
+  return rowDateParts(dateText)?.iso ?? null;
+}
+
+function isoFromNumericDate(text: string): RowDate | null {
+  const m = /(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{1,2}):(\d{2})\s*(AM|PM)?)?/i.exec(text);
   if (!m) return null;
   const [, y, mo, d, hh, mi, ap] = m;
   const year = Number(y);
@@ -233,5 +281,5 @@ export function rowDateIso(dateText: string | undefined): string | null {
   if (minute > 59) return null;
   const dt = new Date(year, month - 1, day, hour, minute, 0, 0);
   if (dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day) return null;
-  return dt.toISOString();
+  return { iso: dt.toISOString(), dayOnly: hh === undefined };
 }
