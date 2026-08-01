@@ -60,13 +60,17 @@ function AgentsPage() {
   const totals = useMemo(() => {
     let airtimeOut = 0,
       cashIn = 0,
-      open = 0;
+      open = 0,
+      reversed = 0,
+      excess = 0;
     for (const { stats } of rows) {
       airtimeOut += stats.totalOutSantim;
       cashIn += stats.totalInSantim;
       open += stats.openCreditSantim;
+      reversed += stats.reversedSantim;
+      excess += stats.excessReversalSantim;
     }
-    return { airtimeOut, cashIn, open };
+    return { airtimeOut, cashIn, open, reversed, excess };
   }, [rows]);
 
   const focused = selected ? agents.find((a) => a.id === selected) : null;
@@ -90,11 +94,22 @@ function AgentsPage() {
       </div>
 
       {rows.length > 0 && (
-        <div className="grid grid-cols-3 gap-2 rounded-xl border border-border bg-card p-3 text-xs">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 rounded-xl border border-border bg-card p-3 text-xs">
           <div>
-            <div className="text-ink-soft">Airtime sent</div>
+            <div className="text-ink-soft">Net airtime delivered</div>
             <div className="font-bold tabular-nums text-airtime">
               {formatEtb(totals.airtimeOut)}
+            </div>
+            {totals.reversed > 0 && (
+              <div className="text-[10px] text-amber-500">
+                after {formatEtb(totals.reversed)} reversed
+              </div>
+            )}
+          </div>
+          <div>
+            <div className="text-ink-soft">Reversed back</div>
+            <div className="font-bold tabular-nums text-amber-500">
+              {formatEtb(totals.reversed)}
             </div>
           </div>
           <div>
@@ -110,6 +125,11 @@ function AgentsPage() {
             >
               {formatEtb(totals.open)}
             </div>
+            {totals.excess > 0 && (
+              <div className="text-[10px] text-amber-500">
+                {formatEtb(totals.excess)} excess reversal — review
+              </div>
+            )}
           </div>
         </div>
       )}
