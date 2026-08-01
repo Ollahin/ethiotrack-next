@@ -155,6 +155,19 @@ describe("row completeness and selection", () => {
 });
 
 describe("failure handling", () => {
+  it("parses captured row dates and refuses to invent missing ones", () => {
+    const pm = rowDateIso("2026-08-02 4:51 PM")!;
+    expect(new Date(pm).getHours()).toBe(16);
+    expect(new Date(pm).getMinutes()).toBe(51);
+    const am = rowDateIso("2026-08-02 12:19 AM")!;
+    expect(new Date(am).getHours()).toBe(0);
+    const dateOnly = rowDateIso("2026-08-02")!;
+    expect(new Date(dateOnly).getHours()).toBe(0);
+    expect(rowDateIso(undefined)).toBeNull();
+    expect(rowDateIso("yesterday")).toBeNull();
+    expect(rowDateIso("2026-13-02 4:51 PM")).toBeNull();
+  });
+
   it("produces a retryable failed outcome that keeps no invented rows", () => {
     const out = failedOutcome(new Error("worker did not load"));
     expect(out.status).toBe("failed");
