@@ -16,7 +16,7 @@ import {
   SMS_EVENT_MAPPING,
   adaptSmsEvents,
   isDistributorCompatible,
-  matchDistributorByLabel,
+  matchDistributorForEvent,
   resolveSmsDate,
 } from "@/lib/float-evd-sms-adapter";
 import { addTransactionsBulk, recordStatementImport, useAgents, useDistributors } from "@/lib/db";
