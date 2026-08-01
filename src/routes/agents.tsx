@@ -171,7 +171,23 @@ function AgentsPage() {
                 <span>·</span>
                 <span>in {formatEtb(stats.totalInSantim)}</span>
                 <span>·</span>
-                <span>out {formatEtb(stats.totalOutSantim)}</span>
+                <span>net delivered {formatEtb(stats.totalOutSantim)}</span>
+                {stats.reversedSantim > 0 && (
+                  <>
+                    <span>·</span>
+                    <span className="text-amber-500">
+                      reversed {formatEtb(stats.reversedSantim)}
+                    </span>
+                  </>
+                )}
+                {stats.excessReversalSantim > 0 && (
+                  <>
+                    <span>·</span>
+                    <span className="text-amber-500 font-semibold">
+                      excess reversal {formatEtb(stats.excessReversalSantim)} — review
+                    </span>
+                  </>
+                )}
                 {stats.avgPaymentDays !== null && (
                   <>
                     <span>·</span>
