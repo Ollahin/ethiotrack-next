@@ -283,3 +283,34 @@ function isoFromNumericDate(text: string): RowDate | null {
   if (dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day) return null;
   return { iso: dt.toISOString(), dayOnly: hh === undefined };
 }
+
+/** Minimal distributor shape needed to judge screenshot-row compatibility. */
+export interface ScreenshotDistributorInput {
+  forms?: ("evd" | "float")[];
+  telecoms?: unknown[];
+}
+
+/**
+ * Whether a screenshot row's airtime form is supplied by the chosen
+ * distributor. A distributor with no declared forms supplies both. Matching is
+ * strictly by declared form — never by name similarity.
+ */
+export function isScreenshotDistributorCompatible(
+  airtimeType: "airtime_evd" | "airtime_float" | undefined,
+  distributor: ScreenshotDistributorInput | null | undefined,
+): boolean {
+  if (!distributor) return false;
+  if (!airtimeType) return false;
+  const form = airtimeType === "airtime_evd" ? "evd" : "float";
+  const forms = distributor.forms ?? [];
+  return forms.length === 0 || forms.includes(form);
+}
+
+/**
+ * Reversal value that exceeds the agent's recorded delivered balance with the
+ * same distributor. Anything above zero is an override that must be warned
+ * about, confirmed and explained before it can be saved.
+ */
+export function reversalOverrun(reversalSantim: number, deliveredBalanceSantim: number): number {
+  return Math.max(0, reversalSantim - Math.max(0, deliveredBalanceSantim));
+}
