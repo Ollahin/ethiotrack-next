@@ -168,6 +168,11 @@ export interface Transaction {
    */
   isReversal?: boolean;
   /**
+   * Reviewer's written explanation, preserved as evidence whenever a reversal
+   * larger than the agent's recorded delivered balance is saved as an override.
+   */
+  overrideReason?: string;
+  /**
    * Principal amount of an outgoing distributor payment, i.e. the airtime value
    * bought. `amountSantim` stays the final bank debit (principal + charges +
    * VAT). Absent means principal equals the debit.
