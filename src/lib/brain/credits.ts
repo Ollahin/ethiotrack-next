@@ -1,13 +1,14 @@
+import { airtimeMovementKind } from "../airtime-movement";
 import type { Transaction } from "../types";
 
-/** Open (unsettled) credits for an agent, oldest first. */
+/**
+ * Open (unsettled) credits for an agent, oldest first. Only ordinary sends
+ * create a receivable — a reversal gives airtime back and is never a credit.
+ */
 export function openCreditsFor(agentId: string, txns: Transaction[]): Transaction[] {
   return txns
     .filter(
-      (t) =>
-        t.partyId === agentId &&
-        (t.type === "airtime_evd" || t.type === "airtime_float") &&
-        !t.isSettled,
+      (t) => t.partyId === agentId && airtimeMovementKind(t) === "sent" && !t.isSettled,
     )
     .sort((a, b) => (a.date < b.date ? -1 : 1));
 }
