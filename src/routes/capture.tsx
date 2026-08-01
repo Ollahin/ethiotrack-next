@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PasteImport } from "@/components/PasteImport";
+import { SmartCapture } from "@/components/SmartCapture";
 import { StatementImport } from "@/components/StatementImport";
 import { TransactionForm } from "@/components/TransactionForm";
 
@@ -9,12 +9,13 @@ export const Route = createFileRoute("/capture")({
       { title: "Capture · EthioTrack" },
       {
         name: "description",
-        content: "Paste bank SMS, drop distributor PDF, or enter transactions by hand.",
+        content:
+          "Paste any bank or airtime message, drop a distributor screenshot, or enter transactions by hand.",
       },
       { property: "og:title", content: "Quick capture · EthioTrack" },
       {
         property: "og:description",
-        content: "Three ingestion pipelines: paste, PDF import, manual entry.",
+        content: "One smart capture box, screenshot import, and manual entry.",
       },
     ],
   }),
@@ -27,11 +28,12 @@ function CapturePage() {
       <div>
         <h1 className="text-xl md:text-2xl font-bold">Quick Capture</h1>
         <p className="text-sm text-ink-soft">
-          Paste, drop, or type — the Brain links agents and settles credits automatically.
+          Paste, share, drop or type — the app works out what it is and shows you the rows before
+          anything is saved.
         </p>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <PasteImport />
+        <SmartCapture />
         <StatementImport />
       </div>
       <TransactionForm />

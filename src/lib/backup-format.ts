@@ -18,11 +18,12 @@ import type {
   StatementImport,
   Transaction,
 } from "./types";
+import type { ApprovedMapping } from "./approved-mappings";
 
 export const BACKUP_APP = "ethiotrack" as const;
-export const BACKUP_VERSION = 3 as const;
+export const BACKUP_VERSION = 4 as const;
 /** Older formats we still accept and migrate forward. */
-export const SUPPORTED_BACKUP_VERSIONS = [2, 3] as const;
+export const SUPPORTED_BACKUP_VERSIONS = [2, 3, 4] as const;
 
 /**
  * Credentials never travel in a backup. A backup file is portable, so shipping
@@ -62,12 +63,13 @@ export interface BackupCounts {
   transactions: number;
   statementImports: number;
   fulfillments: number;
+  approvedMappings: number;
   settings: number;
 }
 
-export interface BackupV3 {
+export interface BackupV4 {
   app: typeof BACKUP_APP;
-  version: 3;
+  version: 4;
   exportedAt: string;
   settings: BackupSetting[];
   agents: Agent[];
@@ -80,8 +82,19 @@ export interface BackupV3 {
   transactions: Transaction[];
   statementImports: SerializedStatementImport[];
   fulfillments: FulfillmentEntry[];
+  /**
+   * Human-approved counterparty mappings. They are review shortcuts, not
+   * financial records: restoring them never changes a saved transaction.
+   */
+  approvedMappings: ApprovedMapping[];
   counts: BackupCounts;
 }
+
+/** Previous format: identical minus the approved-mapping list. */
+export type BackupV3 = Omit<BackupV4, "version" | "approvedMappings" | "counts"> & {
+  version: 3;
+  counts: Omit<BackupCounts, "approvedMappings">;
+};
 
 /** Legacy v2 backup, as written by earlier builds. */
 export interface BackupV2 {
@@ -226,6 +239,20 @@ const fulfillmentSchema = z
 
 const settingSchema = z.object({ key: z.string().min(1), value: z.unknown() });
 
+const approvedMappingSchema = z
+  .object({
+    id: idString,
+    label: z.string(),
+    normalizedLabel: z.string().min(1),
+    targetType: z.enum(["agent", "distributor", "bank"]),
+    targetId: idString,
+    targetName: z.string(),
+    approvedAt: z.string(),
+    lastUsedAt: z.string().optional(),
+    useCount: z.number().int().nonnegative(),
+  })
+  .passthrough();
+
 const countsSchema = z.object({
   agents: z.number().int().nonnegative(),
   distributors: z.number().int().nonnegative(),
@@ -237,7 +264,27 @@ const countsSchema = z.object({
   transactions: z.number().int().nonnegative(),
   statementImports: z.number().int().nonnegative(),
   fulfillments: z.number().int().nonnegative(),
+  approvedMappings: z.number().int().nonnegative(),
   settings: z.number().int().nonnegative(),
+});
+
+const backupV4Schema = z.object({
+  app: z.literal(BACKUP_APP),
+  version: z.literal(4),
+  exportedAt: z.string().min(1),
+  settings: z.array(settingSchema),
+  agents: z.array(agentSchema),
+  distributors: z.array(distributorSchema),
+  banks: z.array(bankSchema),
+  dailyOpenings: z.array(dailyOpeningSchema),
+  dailyClosings: z.array(dailyClosingSchema),
+  periodOpenings: z.array(periodOpeningSchema),
+  periodClosings: z.array(periodClosingSchema),
+  transactions: z.array(transactionSchema),
+  statementImports: z.array(statementImportSchema),
+  fulfillments: z.array(fulfillmentSchema),
+  approvedMappings: z.array(approvedMappingSchema),
+  counts: countsSchema,
 });
 
 const backupV3Schema = z.object({
@@ -255,7 +302,7 @@ const backupV3Schema = z.object({
   transactions: z.array(transactionSchema),
   statementImports: z.array(statementImportSchema),
   fulfillments: z.array(fulfillmentSchema),
-  counts: countsSchema,
+  counts: countsSchema.omit({ approvedMappings: true }),
 });
 
 const backupV2Schema = z.object({
@@ -275,7 +322,7 @@ const backupV2Schema = z.object({
 
 // -- counts ------------------------------------------------------------------
 
-export function countsOf(b: Omit<BackupV3, "counts">): BackupCounts {
+export function countsOf(b: Omit<BackupV4, "counts">): BackupCounts {
   return {
     agents: b.agents.length,
     distributors: b.distributors.length,
@@ -287,6 +334,7 @@ export function countsOf(b: Omit<BackupV3, "counts">): BackupCounts {
     transactions: b.transactions.length,
     statementImports: b.statementImports.length,
     fulfillments: b.fulfillments.length,
+    approvedMappings: b.approvedMappings.length,
     settings: b.settings.length,
   };
 }
@@ -294,7 +342,7 @@ export function countsOf(b: Omit<BackupV3, "counts">): BackupCounts {
 // -- validation --------------------------------------------------------------
 
 export type BackupValidation =
-  | { ok: true; backup: BackupV3; migratedFromVersion?: number }
+  | { ok: true; backup: BackupV4; migratedFromVersion?: number }
   | { ok: false; errors: string[] };
 
 function duplicateIds(rows: { id: string }[]): string[] {
@@ -311,7 +359,7 @@ function duplicateIds(rows: { id: string }[]): string[] {
  * Structural + referential validation. Every dangling id is reported: a backup
  * whose histories cannot be rebuilt must never be applied silently.
  */
-export function checkIntegrity(b: BackupV3): string[] {
+export function checkIntegrity(b: BackupV4): string[] {
   const errors: string[] = [];
 
   const tables: [string, { id: string }[]][] = [
@@ -421,13 +469,31 @@ export function checkIntegrity(b: BackupV3): string[] {
     }
   }
 
+  // Approved mappings must point at entities the backup actually restores,
+  // otherwise a restored mapping would pre-select a non-existent counterparty.
+  const mappingKeys = new Set<string>();
+  for (const m of b.approvedMappings) {
+    const pool =
+      m.targetType === "agent" ? agentIds : m.targetType === "distributor" ? distIds : bankIds;
+    if (!pool.has(m.targetId)) {
+      errors.push(
+        `approved mapping ${m.id}: targetId ${m.targetId} has no matching ${m.targetType}`,
+      );
+    }
+    const key = `${m.targetType}::${m.normalizedLabel}`;
+    if (mappingKeys.has(key)) {
+      errors.push(`approved mappings: duplicate ${m.targetType} label "${m.normalizedLabel}"`);
+    }
+    mappingKeys.add(key);
+  }
+
   return errors;
 }
 
-function migrateV2(v2: z.infer<typeof backupV2Schema>): BackupV3 {
-  const body: Omit<BackupV3, "counts"> = {
+function migrateV2(v2: z.infer<typeof backupV2Schema>): BackupV4 {
+  const body: Omit<BackupV4, "counts"> = {
     app: BACKUP_APP,
-    version: 3,
+    version: 4,
     exportedAt: v2.exportedAt,
     settings: [],
     agents: (v2.agents ?? []) as unknown as Agent[],
@@ -440,6 +506,17 @@ function migrateV2(v2: z.infer<typeof backupV2Schema>): BackupV3 {
     transactions: (v2.transactions ?? []) as unknown as Transaction[],
     statementImports: (v2.statementImports ?? []) as unknown as SerializedStatementImport[],
     fulfillments: (v2.fulfillments ?? []) as unknown as FulfillmentEntry[],
+    approvedMappings: [],
+  };
+  return { ...body, counts: countsOf(body) };
+}
+
+/** v3 → v4: mappings did not exist yet, so the list starts empty. */
+function migrateV3(v3: z.infer<typeof backupV3Schema>): BackupV4 {
+  const body: Omit<BackupV4, "counts"> = {
+    ...(v3 as unknown as Omit<BackupV4, "counts" | "version" | "approvedMappings">),
+    version: 4,
+    approvedMappings: [],
   };
   return { ...body, counts: countsOf(body) };
 }
@@ -466,12 +543,17 @@ export function validateBackup(raw: unknown): BackupValidation {
     };
   }
 
-  let backup: BackupV3;
+  let backup: BackupV4;
   let migratedFromVersion: number | undefined;
-  if (version === 3) {
+  if (version === 4) {
+    const parsed = backupV4Schema.safeParse(raw);
+    if (!parsed.success) return { ok: false, errors: issueMessages(parsed.error) };
+    backup = parsed.data as unknown as BackupV4;
+  } else if (version === 3) {
     const parsed = backupV3Schema.safeParse(raw);
     if (!parsed.success) return { ok: false, errors: issueMessages(parsed.error) };
-    backup = parsed.data as unknown as BackupV3;
+    backup = migrateV3(parsed.data);
+    migratedFromVersion = 3;
   } else {
     const parsed = backupV2Schema.safeParse(raw);
     if (!parsed.success) return { ok: false, errors: issueMessages(parsed.error) };

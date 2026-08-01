@@ -15,6 +15,7 @@ import {
   MoreHorizontal,
   UserCog,
   Download,
+  Inbox,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { lock } from "@/lib/crypto";
@@ -42,6 +43,7 @@ const TABS = [
 ] as const;
 
 const MORE_TABS = [
+  { to: "/inbox", label: "Shared inbox", icon: Inbox },
   { to: "/alerts", label: "Alerts", icon: ShieldAlert },
   { to: "/distributors", label: "Distributors", icon: Truck },
   { to: "/banks", label: "Banks", icon: Landmark },

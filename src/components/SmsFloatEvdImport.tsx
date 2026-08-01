@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -45,14 +45,29 @@ interface RowState {
   agentId?: string;
 }
 
-export function SmsFloatEvdImport() {
-  const [text, setText] = useState("");
+export interface SmsFloatEvdImportProps {
+  /** Text handed over by Smart Capture — reviewed immediately, never saved. */
+  initialText?: string;
+}
+
+export function SmsFloatEvdImport({ initialText }: SmsFloatEvdImportProps = {}) {
+  const [text, setText] = useState(initialText ?? "");
   const [userDate, setUserDate] = useState("");
-  const [result, setResult] = useState<SmsParseResult | null>(null);
-  const [parsedText, setParsedText] = useState("");
+  const [result, setResult] = useState<SmsParseResult | null>(
+    initialText && initialText.trim() ? parseFloatEvdSms(initialText) : null,
+  );
+  const [parsedText, setParsedText] = useState(initialText ?? "");
   const [rowState, setRowState] = useState<Record<number, RowState>>({});
   const agents = useAgents();
   const distributors = useDistributors();
+
+  useEffect(() => {
+    if (initialText === undefined) return;
+    setText(initialText);
+    setParsedText(initialText);
+    setResult(initialText.trim() ? parseFloatEvdSms(initialText) : null);
+    setRowState({});
+  }, [initialText]);
 
   const events = useMemo(() => result?.events ?? [], [result]);
 
@@ -168,7 +183,7 @@ export function SmsFloatEvdImport() {
           />
         </div>
         <Button onClick={parse} variant="secondary">
-          Review messages
+          Re-read messages
         </Button>
         {result && (
           <Button className="ml-auto" disabled={!canImport} onClick={importSelected}>
