@@ -11,6 +11,16 @@ import type { AirtimeDirection, Transaction, TxnType } from "./types";
 
 export type AirtimeTxnType = Extract<TxnType, "airtime_evd" | "airtime_float">;
 
+/**
+ * What an airtime row does to stock:
+ *  - "received": airtime arrived from an upstream distributor,
+ *  - "sent": airtime left towards an agent,
+ *  - "sent_reversal": a distributor Sent-screen reversal that undoes an
+ *    earlier sent movement. It is NOT a distributor receipt: stock goes back
+ *    up, but no new airtime was bought or received.
+ */
+export type AirtimeMovementKind = "received" | "sent" | "sent_reversal";
+
 /** Airtime-bearing transaction types. Money and personal rows are excluded. */
 export function isAirtimeTransaction(t: Pick<Transaction, "type">): boolean {
   return t.type === "airtime_evd" || t.type === "airtime_float";
@@ -27,30 +37,53 @@ export function airtimeDirectionOf(
   return t.airtimeDirection === "received" ? "received" : "sent";
 }
 
+/** A reversal of an airtime row, as read from the source statement. */
+export function isReversalTransaction(t: Pick<Transaction, "type" | "isReversal">): boolean {
+  return isAirtimeTransaction(t) && t.isReversal === true;
+}
+
 /**
- * Signed inventory movement in santim for one transaction:
- * received → positive, sent (including legacy) → negative, otherwise zero.
+ * The movement kind of one airtime row. Reversal evidence is stored on the
+ * row itself, so a reversal never has to be disguised as a receipt.
+ */
+export function airtimeMovementKind(
+  t: Pick<Transaction, "type" | "airtimeDirection" | "isReversal">,
+): AirtimeMovementKind | null {
+  const dir = airtimeDirectionOf(t);
+  if (dir === null) return null;
+  if (dir === "sent" && t.isReversal === true) return "sent_reversal";
+  return dir;
+}
+
+/**
+ * Signed inventory movement in santim for one transaction: received →
+ * positive, sent (including legacy) → negative, sent reversal → positive
+ * (it gives back exactly the earlier sent amount), otherwise zero.
  */
 export function airtimeStockDelta(
-  t: Pick<Transaction, "type" | "airtimeDirection" | "amountSantim">,
+  t: Pick<Transaction, "type" | "airtimeDirection" | "isReversal" | "amountSantim">,
 ): number {
-  const dir = airtimeDirectionOf(t);
-  if (dir === null) return 0;
-  return dir === "received" ? t.amountSantim : -t.amountSantim;
+  const kind = airtimeMovementKind(t);
+  if (kind === null) return 0;
+  return kind === "sent" ? -t.amountSantim : t.amountSantim;
 }
 
 /**
  * Presentation sign for one transaction: +1 for value coming in
- * (money in, received airtime), -1 for value going out. Derived from the
- * same direction authority as `airtimeStockDelta`; never reads stored signs.
+ * (money in, received airtime, reversed-out airtime), -1 for value going out.
+ * Derived from the same authority as `airtimeStockDelta`.
  */
-export function transactionFlowSign(t: Pick<Transaction, "type" | "airtimeDirection">): 1 | -1 {
-  const dir = airtimeDirectionOf(t);
-  if (dir !== null) return dir === "received" ? 1 : -1;
+export function transactionFlowSign(
+  t: Pick<Transaction, "type" | "airtimeDirection" | "isReversal">,
+): 1 | -1 {
+  const kind = airtimeMovementKind(t);
+  if (kind !== null) return kind === "sent" ? -1 : 1;
   return t.type === "in" ? 1 : -1;
 }
 
 /** Whether a transaction should be counted as inflow in a summary. */
-export function isInflowTransaction(t: Pick<Transaction, "type" | "airtimeDirection">): boolean {
+export function isInflowTransaction(
+  t: Pick<Transaction, "type" | "airtimeDirection" | "isReversal">,
+): boolean {
   return transactionFlowSign(t) === 1;
 }
