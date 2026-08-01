@@ -49,7 +49,11 @@ function ShareTargetPage() {
       <p className="text-sm text-ink-soft">
         This page only receives content sent from another app's share sheet.
       </p>
-      <Link to="/inbox" search={{ text: undefined, fallback: undefined }} className="text-sm underline">
+      <Link
+        to="/inbox"
+        search={{ text: undefined, fallback: undefined }}
+        className="text-sm underline"
+      >
         Open the shared inbox
       </Link>
     </div>
