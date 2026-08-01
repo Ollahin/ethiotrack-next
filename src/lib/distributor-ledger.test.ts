@@ -5,6 +5,7 @@ import {
   expectedStock,
   isInRange,
   rowDirection,
+  rowMovementKind,
   shiftWeekStart,
   weekEndOf,
   weekRangeOf,

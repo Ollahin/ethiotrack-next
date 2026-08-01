@@ -129,3 +129,18 @@ describe("transactionFlowSign / isInflowTransaction", () => {
     expect(outSum).toBe(80_00);
   });
 });
+
+describe("reversal-aware stock semantics", () => {
+  it("a sent reversal adds stock back but is not a receipt", () => {
+    const rev = {
+      type: "airtime_evd",
+      airtimeDirection: "sent",
+      isReversal: true,
+      amountSantim: 1_000_00,
+    } as const;
+    expect(airtimeMovementKind(rev)).toBe("sent_reversal");
+    expect(airtimeDirectionOf(rev)).toBe("sent");
+    expect(airtimeStockDelta(rev)).toBe(1_000_00);
+    expect(isReversalTransaction(rev)).toBe(true);
+  });
+});
