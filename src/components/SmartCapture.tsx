@@ -19,8 +19,8 @@ import {
 export interface SmartCaptureProps {
   /** Text pre-loaded from the shared inbox. */
   initialText?: string;
-  /** Called once the operator hands the text to a reviewer. */
-  onReviewed?: () => void;
+  /** Fired only after rows were actually saved from this capture. */
+  onSaved?: () => void;
 }
 
 /**
@@ -28,10 +28,11 @@ export interface SmartCaptureProps {
  * parser owns it, states the evidence, and hands the text to that parser's
  * review list. Nothing is saved without going through that review.
  */
-export function SmartCapture({ initialText, onReviewed }: SmartCaptureProps = {}) {
+export function SmartCapture({ initialText, onSaved }: SmartCaptureProps = {}) {
   const [text, setText] = useState(initialText ?? "");
   const [handed, setHanded] = useState<{ text: string; family: CaptureFamily } | null>(null);
   const [override, setOverride] = useState<CaptureFamily | null>(null);
+  const [clipboardError, setClipboardError] = useState<string | null>(null);
 
   const classification = useMemo(() => classifyCapturedText(text), [text]);
   const chosen: CaptureFamily = override ?? classification.family;
@@ -40,8 +41,26 @@ export function SmartCapture({ initialText, onReviewed }: SmartCaptureProps = {}
   function review() {
     if (!canReview) return;
     setHanded({ text, family: chosen });
-    onReviewed?.();
   }
+
+  async function pasteFromClipboard() {
+    setClipboardError(null);
+    try {
+      const clip = await navigator.clipboard.readText();
+      if (!clip.trim()) {
+        setClipboardError("The clipboard is empty.");
+        return;
+      }
+      setText(clip);
+      setOverride(null);
+      setHanded(null);
+    } catch {
+      setClipboardError("This browser blocked clipboard access — paste into the box instead.");
+    }
+  }
+
+  /** Every family the operator may hand the text to by hand. */
+  const MANUAL_FAMILIES: CaptureFamily[] = ["bank_message", "airtime_sms", "distributor_statement"];
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-3">
@@ -64,6 +83,26 @@ export function SmartCapture({ initialText, onReviewed }: SmartCaptureProps = {}
         }}
       />
 
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" onClick={() => void pasteFromClipboard()}>
+          Paste from clipboard
+        </Button>
+        {text.trim().length > 0 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setText("");
+              setOverride(null);
+              setHanded(null);
+            }}
+          >
+            Clear
+          </Button>
+        )}
+      </div>
+      {clipboardError && <div className="text-xs text-money-out">{clipboardError}</div>}
+
       {text.trim().length > 0 && (
         <div className="rounded-md border border-border bg-muted/40 p-2 space-y-2 text-xs">
           <div className="flex flex-wrap items-center gap-2">
@@ -81,29 +120,35 @@ export function SmartCapture({ initialText, onReviewed }: SmartCaptureProps = {}
             <span className="text-ink-soft">{classification.evidence}</span>
           </div>
 
-          {classification.candidates.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-ink-soft">Not right?</span>
-              <Select
-                value={chosen}
-                onValueChange={(v) => {
-                  setOverride(v as CaptureFamily);
-                  setHanded(null);
-                }}
-              >
-                <SelectTrigger className="h-7 w-auto min-w-[12rem] text-[11px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {classification.candidates.map((c) => (
-                    <SelectItem key={c.family} value={c.family}>
-                      {CAPTURE_FAMILY_LABEL[c.family]} · {c.evidence}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-ink-soft">
+              {classification.candidates.length > 0
+                ? "Not right?"
+                : "Nothing was recognised — choose the type yourself:"}
+            </span>
+            <Select
+              value={chosen === "unknown" ? "" : chosen}
+              onValueChange={(v) => {
+                setOverride(v as CaptureFamily);
+                setHanded(null);
+              }}
+            >
+              <SelectTrigger className="h-7 w-auto min-w-[12rem] text-[11px]">
+                <SelectValue placeholder="Pick a capture type…" />
+              </SelectTrigger>
+              <SelectContent>
+                {MANUAL_FAMILIES.map((family) => {
+                  const candidate = classification.candidates.find((c) => c.family === family);
+                  return (
+                    <SelectItem key={family} value={family}>
+                      {CAPTURE_FAMILY_LABEL[family]}
+                      {candidate ? ` · ${candidate.evidence}` : " · reviewed by hand"}
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
 
           {chosen === "distributor_statement" && (
             <div className="text-airtime">
@@ -125,11 +170,13 @@ export function SmartCapture({ initialText, onReviewed }: SmartCaptureProps = {}
         </div>
       )}
 
-      {handed?.family === "bank_message" && <PasteImport embedded initialText={handed.text} />}
+      {handed?.family === "bank_message" && (
+        <PasteImport embedded initialText={handed.text} onSaved={onSaved} />
+      )}
       {handed?.family === "airtime_sms" && (
         <div className="space-y-2">
           <div className="font-semibold text-sm">Float / EVD messages</div>
-          <SmsFloatEvdImport initialText={handed.text} />
+          <SmsFloatEvdImport initialText={handed.text} onSaved={onSaved} />
         </div>
       )}
     </div>

@@ -17,13 +17,15 @@ import type {
   PeriodOpening,
   StatementImport,
   Transaction,
+  SharedInput,
 } from "./types";
 import type { ApprovedMapping } from "./approved-mappings";
+import { familyOf } from "./approved-mappings";
 
 export const BACKUP_APP = "ethiotrack" as const;
-export const BACKUP_VERSION = 4 as const;
+export const BACKUP_VERSION = 5 as const;
 /** Older formats we still accept and migrate forward. */
-export const SUPPORTED_BACKUP_VERSIONS = [2, 3, 4] as const;
+export const SUPPORTED_BACKUP_VERSIONS = [2, 3, 4, 5] as const;
 
 /**
  * Credentials never travel in a backup. A backup file is portable, so shipping
@@ -47,6 +49,12 @@ export type SerializedStatementImport = Omit<StatementImport, "rawImage"> & {
   rawImageType?: string;
 };
 
+/** Pending shared inputs travel too; their Blob is base64 in JSON. */
+export type SerializedSharedInput = Omit<SharedInput, "blob"> & {
+  blobBase64?: string;
+  blobType?: string;
+};
+
 export interface BackupSetting {
   key: string;
   value: unknown;
@@ -64,12 +72,13 @@ export interface BackupCounts {
   statementImports: number;
   fulfillments: number;
   approvedMappings: number;
+  sharedInputs: number;
   settings: number;
 }
 
-export interface BackupV4 {
+export interface BackupV5 {
   app: typeof BACKUP_APP;
-  version: 4;
+  version: 5;
   exportedAt: string;
   settings: BackupSetting[];
   agents: Agent[];
@@ -87,13 +96,25 @@ export interface BackupV4 {
    * financial records: restoring them never changes a saved transaction.
    */
   approvedMappings: ApprovedMapping[];
+  /**
+   * Inbox items that were shared but not yet imported or dismissed. They are
+   * queue state, not financial history: restoring them re-offers the same
+   * review, it never books a row.
+   */
+  sharedInputs: SerializedSharedInput[];
   counts: BackupCounts;
 }
 
-/** Previous format: identical minus the approved-mapping list. */
-export type BackupV3 = Omit<BackupV4, "version" | "approvedMappings" | "counts"> & {
+/** Alias kept so existing call sites keep compiling against "the current format". */
+export type BackupV4 = BackupV5;
+
+/** Previous format: identical minus the pending shared-input queue. */
+export type BackupV3 = Omit<
+  BackupV5,
+  "version" | "approvedMappings" | "sharedInputs" | "counts"
+> & {
   version: 3;
-  counts: Omit<BackupCounts, "approvedMappings">;
+  counts: Omit<BackupCounts, "approvedMappings" | "sharedInputs">;
 };
 
 /** Legacy v2 backup, as written by earlier builds. */
@@ -250,6 +271,25 @@ const approvedMappingSchema = z
     approvedAt: z.string(),
     lastUsedAt: z.string().optional(),
     useCount: z.number().int().nonnegative(),
+    sourceFamily: z
+      .enum(["bank_message", "airtime_sms", "distributor_statement", "manual"])
+      .optional(),
+  })
+  .passthrough();
+
+const sharedInputSchema = z
+  .object({
+    id: idString,
+    receivedAt: z.string(),
+    kind: z.enum(["text", "image", "pdf", "unsupported"]),
+    title: z.string().optional(),
+    text: z.string().optional(),
+    fileName: z.string().optional(),
+    fileType: z.string().optional(),
+    status: z.enum(["pending", "reviewed", "dismissed"]),
+    reviewedAt: z.string().optional(),
+    blobBase64: z.string().optional(),
+    blobType: z.string().optional(),
   })
   .passthrough();
 
@@ -265,7 +305,28 @@ const countsSchema = z.object({
   statementImports: z.number().int().nonnegative(),
   fulfillments: z.number().int().nonnegative(),
   approvedMappings: z.number().int().nonnegative(),
+  sharedInputs: z.number().int().nonnegative(),
   settings: z.number().int().nonnegative(),
+});
+
+const backupV5Schema = z.object({
+  app: z.literal(BACKUP_APP),
+  version: z.literal(5),
+  exportedAt: z.string().min(1),
+  settings: z.array(settingSchema),
+  agents: z.array(agentSchema),
+  distributors: z.array(distributorSchema),
+  banks: z.array(bankSchema),
+  dailyOpenings: z.array(dailyOpeningSchema),
+  dailyClosings: z.array(dailyClosingSchema),
+  periodOpenings: z.array(periodOpeningSchema),
+  periodClosings: z.array(periodClosingSchema),
+  transactions: z.array(transactionSchema),
+  statementImports: z.array(statementImportSchema),
+  fulfillments: z.array(fulfillmentSchema),
+  approvedMappings: z.array(approvedMappingSchema),
+  sharedInputs: z.array(sharedInputSchema),
+  counts: countsSchema,
 });
 
 const backupV4Schema = z.object({
@@ -284,7 +345,7 @@ const backupV4Schema = z.object({
   statementImports: z.array(statementImportSchema),
   fulfillments: z.array(fulfillmentSchema),
   approvedMappings: z.array(approvedMappingSchema),
-  counts: countsSchema,
+  counts: countsSchema.omit({ sharedInputs: true }),
 });
 
 const backupV3Schema = z.object({
@@ -302,7 +363,7 @@ const backupV3Schema = z.object({
   transactions: z.array(transactionSchema),
   statementImports: z.array(statementImportSchema),
   fulfillments: z.array(fulfillmentSchema),
-  counts: countsSchema.omit({ approvedMappings: true }),
+  counts: countsSchema.omit({ approvedMappings: true, sharedInputs: true }),
 });
 
 const backupV2Schema = z.object({
@@ -335,6 +396,7 @@ export function countsOf(b: Omit<BackupV4, "counts">): BackupCounts {
     statementImports: b.statementImports.length,
     fulfillments: b.fulfillments.length,
     approvedMappings: b.approvedMappings.length,
+    sharedInputs: b.sharedInputs.length,
     settings: b.settings.length,
   };
 }
@@ -480,9 +542,11 @@ export function checkIntegrity(b: BackupV4): string[] {
         `approved mapping ${m.id}: targetId ${m.targetId} has no matching ${m.targetType}`,
       );
     }
-    const key = `${m.targetType}::${m.normalizedLabel}`;
+    const key = `${familyOf(m)}::${m.targetType}::${m.normalizedLabel}`;
     if (mappingKeys.has(key)) {
-      errors.push(`approved mappings: duplicate ${m.targetType} label "${m.normalizedLabel}"`);
+      errors.push(
+        `approved mappings: duplicate ${familyOf(m)} ${m.targetType} label "${m.normalizedLabel}"`,
+      );
     }
     mappingKeys.add(key);
   }
@@ -493,7 +557,7 @@ export function checkIntegrity(b: BackupV4): string[] {
 function migrateV2(v2: z.infer<typeof backupV2Schema>): BackupV4 {
   const body: Omit<BackupV4, "counts"> = {
     app: BACKUP_APP,
-    version: 4,
+    version: 5,
     exportedAt: v2.exportedAt,
     settings: [],
     agents: (v2.agents ?? []) as unknown as Agent[],
@@ -507,16 +571,31 @@ function migrateV2(v2: z.infer<typeof backupV2Schema>): BackupV4 {
     statementImports: (v2.statementImports ?? []) as unknown as SerializedStatementImport[],
     fulfillments: (v2.fulfillments ?? []) as unknown as FulfillmentEntry[],
     approvedMappings: [],
+    sharedInputs: [],
   };
   return { ...body, counts: countsOf(body) };
 }
 
-/** v3 → v4: mappings did not exist yet, so the list starts empty. */
+/** v3 → v5: neither mappings nor a shared inbox existed yet. */
 function migrateV3(v3: z.infer<typeof backupV3Schema>): BackupV4 {
   const body: Omit<BackupV4, "counts"> = {
-    ...(v3 as unknown as Omit<BackupV4, "counts" | "version" | "approvedMappings">),
-    version: 4,
+    ...(v3 as unknown as Omit<
+      BackupV4,
+      "counts" | "version" | "approvedMappings" | "sharedInputs"
+    >),
+    version: 5,
     approvedMappings: [],
+    sharedInputs: [],
+  };
+  return { ...body, counts: countsOf(body) };
+}
+
+/** v4 → v5: the shared inbox was not part of a backup yet. */
+function migrateV4(v4: z.infer<typeof backupV4Schema>): BackupV4 {
+  const body: Omit<BackupV4, "counts"> = {
+    ...(v4 as unknown as Omit<BackupV4, "counts" | "version" | "sharedInputs">),
+    version: 5,
+    sharedInputs: [],
   };
   return { ...body, counts: countsOf(body) };
 }
@@ -545,10 +624,15 @@ export function validateBackup(raw: unknown): BackupValidation {
 
   let backup: BackupV4;
   let migratedFromVersion: number | undefined;
-  if (version === 4) {
-    const parsed = backupV4Schema.safeParse(raw);
+  if (version === 5) {
+    const parsed = backupV5Schema.safeParse(raw);
     if (!parsed.success) return { ok: false, errors: issueMessages(parsed.error) };
     backup = parsed.data as unknown as BackupV4;
+  } else if (version === 4) {
+    const parsed = backupV4Schema.safeParse(raw);
+    if (!parsed.success) return { ok: false, errors: issueMessages(parsed.error) };
+    backup = migrateV4(parsed.data);
+    migratedFromVersion = 4;
   } else if (version === 3) {
     const parsed = backupV3Schema.safeParse(raw);
     if (!parsed.success) return { ok: false, errors: issueMessages(parsed.error) };

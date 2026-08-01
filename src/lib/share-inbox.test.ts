@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { draftsFromHandoff, pendingCount } from "./share-inbox";
+import {
+  draftsFromHandoff,
+  isCompleted,
+  isFileInput,
+  pendingCount,
+  resumableItems,
+  sharedInputToFile,
+} from "./share-inbox";
 import type { SharedInput } from "./types";
 
 const base = { id: "h1", receivedAt: "2026-01-05T08:00:00.000Z" };
@@ -52,5 +59,34 @@ describe("pendingCount", () => {
       { status: "pending" },
     ] as SharedInput[];
     expect(pendingCount(items)).toBe(2);
+  });
+});
+
+describe("shared input lifecycle", () => {
+  it("keeps an item resumable until it is saved or dismissed", () => {
+    const items = [
+      { id: "a", status: "pending" },
+      { id: "b", status: "reviewed" },
+    ] as SharedInput[];
+    expect(resumableItems(items).map((i) => i.id)).toEqual(["a"]);
+    expect(isCompleted(items[0])).toBe(false);
+    expect(isCompleted(items[1])).toBe(true);
+  });
+
+  it("rebuilds a File from the stored bytes so nothing is re-uploaded", () => {
+    const file = sharedInputToFile({
+      kind: "image",
+      blob: new Blob(["x"], { type: "image/png" }),
+      fileName: "shot.png",
+      fileType: "image/png",
+    } as SharedInput);
+    expect(file?.name).toBe("shot.png");
+    expect(file?.type).toBe("image/png");
+  });
+
+  it("refuses to invent a file for a text-only or empty share", () => {
+    expect(sharedInputToFile({ kind: "text", text: "hi" } as SharedInput)).toBeNull();
+    expect(sharedInputToFile({ kind: "image" } as SharedInput)).toBeNull();
+    expect(isFileInput({ kind: "image" } as SharedInput)).toBe(false);
   });
 });

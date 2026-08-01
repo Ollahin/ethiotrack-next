@@ -119,9 +119,11 @@ export interface PasteImportProps {
   initialText?: string;
   /** Smart Capture already shows the heading, so the card chrome is dropped. */
   embedded?: boolean;
+  /** Fired only after rows were actually written. */
+  onSaved?: () => void;
 }
 
-export function PasteImport({ initialText, embedded = false }: PasteImportProps = {}) {
+export function PasteImport({ initialText, embedded = false, onSaved }: PasteImportProps = {}) {
   const [text, setText] = useState(initialText ?? "");
   const [isPersonal, setPersonal] = useState(false);
   const [rows, setRows] = useState<ParsedRow[] | null>(
@@ -399,6 +401,7 @@ export function PasteImport({ initialText, embedded = false }: PasteImportProps 
         (res.skipped ? `, skipped ${res.skipped} duplicate(s)` : "") +
         (extras ? ` · registered ${extras}` : ""),
     );
+    if (res.inserted > 0) onSaved?.();
     if (blockedNoDate > 0) {
       toast.error(
         `${blockedNoDate} row(s) not imported: no transaction date — enter one in review.`,

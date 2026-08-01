@@ -19,7 +19,16 @@ import {
   matchDistributorForEvent,
   resolveSmsDate,
 } from "@/lib/float-evd-sms-adapter";
-import { addTransactionsBulk, recordStatementImport, useAgents, useDistributors } from "@/lib/db";
+import {
+  addTransactionsBulk,
+  approveMapping,
+  recordMappingUse,
+  recordStatementImport,
+  useAgents,
+  useApprovedMappings,
+  useDistributors,
+} from "@/lib/db";
+import { findMapping } from "@/lib/approved-mappings";
 import { formatEtb } from "@/lib/format";
 import { toast } from "sonner";
 
@@ -48,9 +57,11 @@ interface RowState {
 export interface SmsFloatEvdImportProps {
   /** Text handed over by Smart Capture — reviewed immediately, never saved. */
   initialText?: string;
+  /** Fired only after rows were actually written. */
+  onSaved?: () => void;
 }
 
-export function SmsFloatEvdImport({ initialText }: SmsFloatEvdImportProps = {}) {
+export function SmsFloatEvdImport({ initialText, onSaved }: SmsFloatEvdImportProps = {}) {
   const [text, setText] = useState(initialText ?? "");
   const [userDate, setUserDate] = useState("");
   const [result, setResult] = useState<SmsParseResult | null>(
@@ -60,6 +71,9 @@ export function SmsFloatEvdImport({ initialText }: SmsFloatEvdImportProps = {}) 
   const [rowState, setRowState] = useState<Record<number, RowState>>({});
   const agents = useAgents();
   const distributors = useDistributors();
+  const mappings = useApprovedMappings();
+  /** Rows where the operator chose to change an already-confirmed link. */
+  const [editing, setEditing] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     if (initialText === undefined) return;
@@ -75,14 +89,20 @@ export function SmsFloatEvdImport({ initialText }: SmsFloatEvdImportProps = {}) 
     const map: Record<number, RowState> = {};
     for (const ev of events) {
       const preselect = matchDistributorForEvent(ev, distributors);
+      // An agent is only pre-selected from a link the operator approved before
+      // for this exact label — never inferred from the message text.
+      const label = ev.counterpartyLabel ?? undefined;
+      const mapped = findMapping(label, "airtime_sms", "agent", mappings);
+      const mappedAgent = mapped ? agents.find((a) => a.id === mapped.targetId) : undefined;
       map[ev.sourceOrder] = {
         // Pending events stay unselected until the operator checks them.
         selected: ev.pairingStatus === "complete",
         distributorId: preselect?.id,
+        agentId: mappedAgent?.id,
       };
     }
     return map;
-  }, [events, distributors]);
+  }, [events, distributors, agents, mappings]);
 
   function stateFor(order: number): RowState {
     return rowState[order] ?? defaults[order] ?? { selected: false };
@@ -107,8 +127,12 @@ export function SmsFloatEvdImport({ initialText }: SmsFloatEvdImportProps = {}) 
 
   const blocking = selected.filter((e) => {
     const st = stateFor(e.sourceOrder);
+    const outbound = SMS_EVENT_MAPPING[e.eventKind].airtimeDirection === "sent";
     return (
       !compatibleDistributor(e, st.distributorId) ||
+      // Outbound airtime leaves the books towards someone: it is never saved
+      // without an explicitly linked agent.
+      (outbound && !st.agentId) ||
       resolveSmsDate(e, userDate || undefined) === null
     );
   });
@@ -152,10 +176,32 @@ export function SmsFloatEvdImport({ initialText }: SmsFloatEvdImportProps = {}) 
     toast.success(
       `Imported ${res.inserted}` + (res.skipped ? `, skipped ${res.skipped} duplicate(s)` : ""),
     );
+    // Learn the agent links the operator just approved for these exact labels.
+    for (const ev of selected) {
+      const st = stateFor(ev.sourceOrder);
+      const label = ev.counterpartyLabel?.trim();
+      if (!label || !st.agentId) continue;
+      const agent = agents.find((a) => a.id === st.agentId);
+      if (!agent) continue;
+      const existing = findMapping(label, "airtime_sms", "agent", mappings);
+      if (existing && existing.targetId === agent.id) {
+        await recordMappingUse(existing.id);
+      } else {
+        await approveMapping({
+          label,
+          sourceFamily: "airtime_sms",
+          targetType: "agent",
+          targetId: agent.id,
+          targetName: agent.name,
+        });
+      }
+    }
     setText("");
     setParsedText("");
     setResult(null);
     setRowState({});
+    setEditing({});
+    onSaved?.();
   }
 
   return (
@@ -240,31 +286,52 @@ export function SmsFloatEvdImport({ initialText }: SmsFloatEvdImportProps = {}) 
                     {ev.pairingStatus === "pending" && "Unpaired half — saved for review."}
                   </div>
                 )}
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
-                    <span className="text-ink-soft">Distributor</span>
-                    <Select
-                      value={compatibleDistributor(ev, st.distributorId)?.id ?? "none"}
-                      onValueChange={(v) =>
-                        setFor(ev.sourceOrder, { distributorId: v === "none" ? undefined : v })
-                      }
-                    >
-                      <SelectTrigger className="h-6 w-auto min-w-[10rem] text-[11px]">
-                        <SelectValue placeholder="Pick distributor…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Not selected</SelectItem>
-                        {choices.map((d) => (
-                          <SelectItem key={d.id} value={d.id}>
-                            {d.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                {outbound && !st.agentId && (
+                  <div className="text-[11px] text-money-out">
+                    Outbound airtime must be linked to an agent before it can be imported.
                   </div>
+                )}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {compatibleDistributor(ev, st.distributorId) && !editing[ev.sourceOrder] ? (
+                    <div className="flex items-center gap-1.5 text-[11px] bg-money-in/10 text-money-in border border-money-in/30 rounded px-2 py-1">
+                      <span>Distributor: {compatibleDistributor(ev, st.distributorId)!.name}</span>
+                      <button
+                        type="button"
+                        className="underline text-ink-soft"
+                        onClick={() => setEditing((e) => ({ ...e, [ev.sourceOrder]: true }))}
+                      >
+                        Change
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
+                      <span className="text-ink-soft">Distributor</span>
+                      <Select
+                        value={compatibleDistributor(ev, st.distributorId)?.id ?? "none"}
+                        onValueChange={(v) => {
+                          setFor(ev.sourceOrder, { distributorId: v === "none" ? undefined : v });
+                          setEditing((e) => ({ ...e, [ev.sourceOrder]: false }));
+                        }}
+                      >
+                        <SelectTrigger className="h-6 w-auto min-w-[10rem] text-[11px]">
+                          <SelectValue placeholder="Pick distributor…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Not selected</SelectItem>
+                          {choices.map((d) => (
+                            <SelectItem key={d.id} value={d.id}>
+                              {d.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   {outbound && (
                     <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
-                      <span className="text-ink-soft">Agent (optional)</span>
+                      <span className={st.agentId ? "text-ink-soft" : "text-money-out"}>
+                        Agent (required)
+                      </span>
                       <Select
                         value={st.agentId ?? "none"}
                         onValueChange={(v) =>
@@ -272,10 +339,10 @@ export function SmsFloatEvdImport({ initialText }: SmsFloatEvdImportProps = {}) 
                         }
                       >
                         <SelectTrigger className="h-6 w-auto min-w-[10rem] text-[11px]">
-                          <SelectValue placeholder="Unassigned" />
+                          <SelectValue placeholder="Link an agent…" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="none">Unassigned (review)</SelectItem>
+                          <SelectItem value="none">Not linked</SelectItem>
                           {agents.map((a) => (
                             <SelectItem key={a.id} value={a.id}>
                               {a.name}

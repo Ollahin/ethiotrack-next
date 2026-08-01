@@ -7,12 +7,27 @@
 
 export type MappingTargetType = "agent" | "distributor" | "bank";
 
+/**
+ * Where the label was read. A mapping learned from a bank alert must never
+ * pre-select a counterparty for an airtime SMS: the same word means different
+ * things in different sources, so the family is part of the key.
+ */
+export type MappingSourceFamily =
+  | "bank_message"
+  | "airtime_sms"
+  | "distributor_statement"
+  | "manual";
+
+export const DEFAULT_SOURCE_FAMILY: MappingSourceFamily = "manual";
+
 export interface ApprovedMapping {
   id: string;
   /** Raw label exactly as it appeared in the source, kept for audit. */
   label: string;
   /** Case/whitespace-normalized label used for lookup. */
   normalizedLabel: string;
+  /** Source family the label came from. Older records default to "manual". */
+  sourceFamily?: MappingSourceFamily;
   targetType: MappingTargetType;
   targetId: string;
   /** Entity name at approval time — shown when the mapping is reviewed later. */
@@ -27,20 +42,32 @@ export function normalizeLabel(label: string): string {
   return label.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-export function mappingKey(targetType: MappingTargetType, label: string): string {
-  return `${targetType}::${normalizeLabel(label)}`;
+/** Family of a stored mapping, tolerating records written before families. */
+export function familyOf(m: Pick<ApprovedMapping, "sourceFamily">): MappingSourceFamily {
+  return m.sourceFamily ?? DEFAULT_SOURCE_FAMILY;
+}
+
+export function mappingKey(
+  sourceFamily: MappingSourceFamily,
+  targetType: MappingTargetType,
+  label: string,
+): string {
+  return `${sourceFamily}::${targetType}::${normalizeLabel(label)}`;
 }
 
 export function keyOfMapping(m: ApprovedMapping): string {
-  return `${m.targetType}::${m.normalizedLabel}`;
+  return `${familyOf(m)}::${m.targetType}::${m.normalizedLabel}`;
 }
 
 /**
- * Exact-label lookup. Returns null when the label is empty or unmapped — the
- * caller must then ask the operator, never guess.
+ * Exact-label lookup within one source family. Returns null when the label is
+ * empty or unmapped — the caller must then ask the operator, never guess. A
+ * near-miss spelling is unmapped by construction: only byte-identical
+ * case/whitespace-normalized labels match.
  */
 export function findMapping(
   label: string | null | undefined,
+  sourceFamily: MappingSourceFamily,
   targetType: MappingTargetType,
   mappings: ApprovedMapping[],
 ): ApprovedMapping | null {
@@ -48,12 +75,18 @@ export function findMapping(
   const normalized = normalizeLabel(label);
   if (!normalized) return null;
   return (
-    mappings.find((m) => m.targetType === targetType && m.normalizedLabel === normalized) ?? null
+    mappings.find(
+      (m) =>
+        familyOf(m) === sourceFamily &&
+        m.targetType === targetType &&
+        m.normalizedLabel === normalized,
+    ) ?? null
   );
 }
 
 export interface MappingApproval {
   label: string;
+  sourceFamily: MappingSourceFamily;
   targetType: MappingTargetType;
   targetId: string;
   targetName: string;
@@ -74,12 +107,16 @@ export function applyApproval(
   const normalizedLabel = normalizeLabel(approval.label);
   if (!normalizedLabel) return mappings;
   const existing = mappings.find(
-    (m) => m.targetType === approval.targetType && m.normalizedLabel === normalizedLabel,
+    (m) =>
+      familyOf(m) === approval.sourceFamily &&
+      m.targetType === approval.targetType &&
+      m.normalizedLabel === normalizedLabel,
   );
   const next: ApprovedMapping = existing
     ? {
         ...existing,
         label: approval.label,
+        sourceFamily: approval.sourceFamily,
         targetId: approval.targetId,
         targetName: approval.targetName,
         ...(existing.targetId === approval.targetId
@@ -90,6 +127,7 @@ export function applyApproval(
         id: approval.id,
         label: approval.label,
         normalizedLabel,
+        sourceFamily: approval.sourceFamily,
         targetType: approval.targetType,
         targetId: approval.targetId,
         targetName: approval.targetName,

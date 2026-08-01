@@ -33,6 +33,7 @@ import {
   validateBackup,
   type BackupV4,
   type SerializedStatementImport,
+  type SerializedSharedInput,
 } from "./backup-format";
 
 /**
@@ -653,6 +654,7 @@ export async function upsertAgent(
 }
 export async function deleteAgent(id: string) {
   await db().agents.delete(id);
+  await pruneDanglingMappings();
 }
 
 export async function upsertDistributor(
@@ -674,6 +676,7 @@ export async function upsertDistributor(
 }
 export async function deleteDistributor(id: string) {
   await db().distributors.delete(id);
+  await pruneDanglingMappings();
 }
 
 export async function upsertBank(
@@ -694,6 +697,7 @@ export async function upsertBank(
 }
 export async function deleteBank(id: string) {
   await db().banks.delete(id);
+  await pruneDanglingMappings();
 }
 
 // -- day open / close --------------------------------------------------------
@@ -881,6 +885,25 @@ function deserializeStatementImport(s: SerializedStatementImport): StatementImpo
   };
 }
 
+async function serializeSharedInput(s: SharedInput): Promise<SerializedSharedInput> {
+  const { blob, ...rest } = s;
+  if (!blob) return rest;
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  return { ...rest, blobBase64: bytesToBase64(bytes), blobType: blob.type || undefined };
+}
+
+function deserializeSharedInput(s: SerializedSharedInput): SharedInput {
+  const { blobBase64, blobType, ...rest } = s;
+  if (!blobBase64) return rest;
+  const bytes = base64ToBytes(blobBase64);
+  return {
+    ...rest,
+    blob: new Blob([bytes as unknown as BlobPart], {
+      type: blobType || (rest.kind === "pdf" ? "application/pdf" : "image/png"),
+    }),
+  };
+}
+
 export async function exportBackup(): Promise<BackupV4> {
   const d = db();
   const [
@@ -895,6 +918,7 @@ export async function exportBackup(): Promise<BackupV4> {
     statementImports,
     fulfillments,
     approvedMappings,
+    sharedInputs,
     meta,
   ] = await Promise.all([
     d.agents.toArray(),
@@ -908,6 +932,7 @@ export async function exportBackup(): Promise<BackupV4> {
     d.statementImports.toArray(),
     d.fulfillments.toArray(),
     d.approvedMappings.toArray(),
+    d.sharedInputs.toArray(),
     d.meta.toArray(),
   ]);
 
@@ -929,9 +954,12 @@ export async function exportBackup(): Promise<BackupV4> {
     transactions,
     statementImports: await Promise.all(statementImports.map(serializeStatementImport)),
     fulfillments,
-    // Review shortcuts travel with the account; the shared-input inbox does
-    // not — it is a device-local queue of things not yet reviewed.
     approvedMappings,
+    // Unfinished review work travels too, so a restore resumes the same queue
+    // instead of silently losing captures that were never booked.
+    sharedInputs: await Promise.all(
+      sharedInputs.filter((s) => s.status === "pending").map(serializeSharedInput),
+    ),
   };
   return { ...body, counts: countsOf(body) };
 }
@@ -970,6 +998,7 @@ export async function importBackup(b: BackupV4, opts: ImportOptions = {}): Promi
   }
 
   const statementImports = backup.statementImports.map(deserializeStatementImport);
+  const sharedInputs = backup.sharedInputs.map(deserializeSharedInput);
   const d = db();
   await d.transaction(
     "rw",
@@ -985,6 +1014,7 @@ export async function importBackup(b: BackupV4, opts: ImportOptions = {}): Promi
       d.statementImports,
       d.fulfillments,
       d.approvedMappings,
+      d.sharedInputs,
       d.meta,
     ],
     async () => {
@@ -1000,6 +1030,7 @@ export async function importBackup(b: BackupV4, opts: ImportOptions = {}): Promi
         d.statementImports.clear(),
         d.fulfillments.clear(),
         d.approvedMappings.clear(),
+        d.sharedInputs.clear(),
       ]);
       // Replace portable settings only; credentials on this device survive.
       const existingMeta = await d.meta.toArray();
@@ -1018,6 +1049,7 @@ export async function importBackup(b: BackupV4, opts: ImportOptions = {}): Promi
       await d.statementImports.bulkAdd(statementImports);
       await d.fulfillments.bulkAdd(backup.fulfillments);
       await d.approvedMappings.bulkAdd(backup.approvedMappings);
+      await d.sharedInputs.bulkAdd(sharedInputs);
       await d.meta.bulkPut(
         backup.settings
           .filter((s) => !isCredentialMetaKey(s.key))

@@ -5,7 +5,7 @@ import { SmartCapture } from "@/components/SmartCapture";
 import { StatementImport } from "@/components/StatementImport";
 import { addSharedInput, deleteSharedInput, setSharedInputStatus, useSharedInputs } from "@/lib/db";
 import { deleteHandoff, readHandoffs } from "@/lib/share-handoff";
-import { draftsFromHandoff, pendingCount } from "@/lib/share-inbox";
+import { draftsFromHandoff, isFileInput, pendingCount, sharedInputToFile } from "@/lib/share-inbox";
 import type { SharedInput } from "@/lib/types";
 import { formatTxnDate } from "@/lib/format";
 
@@ -66,6 +66,9 @@ function InboxPage() {
   const pending = useMemo(() => items.filter((i) => i.status === "pending"), [items]);
   const reviewed = useMemo(() => items.filter((i) => i.status !== "pending"), [items]);
   const open = items.find((i) => i.id === openId) ?? null;
+  // The stored bytes are reused as-is; the operator never re-uploads a share.
+  const openFile = useMemo(() => (open ? sharedInputToFile(open) : null), [open]);
+  const openFiles = useMemo(() => (openFile ? [openFile] : undefined), [openFile]);
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-4">
@@ -115,16 +118,30 @@ function InboxPage() {
       {open?.kind === "text" && (
         <SmartCapture
           initialText={open.text ?? ""}
-          onReviewed={() => void setSharedInputStatus(open.id, "reviewed")}
+          // Only an actual save clears the item: opening or parsing it leaves
+          // it waiting, so a reload or a lock resumes the same queue.
+          onSaved={() => void setSharedInputStatus(open.id, "reviewed")}
         />
       )}
-      {open && open.kind !== "text" && (
+      {open && open.kind !== "text" && isFileInput(open) && openFiles && (
         <div className="space-y-2">
           <div className="text-xs text-ink-soft">
-            Screenshots and PDFs are read by the statement importer, which keeps the original image
-            as evidence. Upload the shared file below.
+            The shared {open.kind === "pdf" ? "PDF" : "screenshot"} is being read below from the
+            file you already shared — nothing to upload again. The original is kept as evidence.
           </div>
-          <StatementImport />
+          <StatementImport
+            key={open.id}
+            initialFiles={openFiles}
+            hideDropzone
+            onSaved={() => void setSharedInputStatus(open.id, "reviewed")}
+          />
+          {open.text?.trim() && <SmartCapture initialText={open.text} />}
+        </div>
+      )}
+      {open && open.kind !== "text" && !isFileInput(open) && (
+        <div className="rounded-md border border-money-out/40 bg-money-out/5 p-3 text-xs text-money-out">
+          This share arrived without readable file data. Share it again from your phone, or paste
+          its text below.
         </div>
       )}
 

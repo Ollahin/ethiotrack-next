@@ -64,3 +64,37 @@ export function draftsFromHandoff(record: HandoffRecord): InboxDraft[] {
 export function pendingCount(items: SharedInput[]): number {
   return items.filter((i) => i.status === "pending").length;
 }
+
+/**
+ * A shared item is completed only once a row was actually imported from it or
+ * the operator dismissed it. Opening it, parsing it or reviewing it leaves it
+ * pending, so a lock, refresh, navigation or restart resumes the same queue.
+ */
+export function isCompleted(item: Pick<SharedInput, "status">): boolean {
+  return item.status !== "pending";
+}
+
+/** Items that must still be shown after a reload. */
+export function resumableItems(items: SharedInput[]): SharedInput[] {
+  return items.filter((i) => !isCompleted(i));
+}
+
+/** True when the item carries a file the screenshot/PDF importer can read. */
+export function isFileInput(item: Pick<SharedInput, "kind" | "blob">): boolean {
+  return !!item.blob && (item.kind === "image" || item.kind === "pdf");
+}
+
+/**
+ * Turn a persisted shared Blob back into a File the existing importer accepts.
+ * The bytes are reused as-is: the operator never re-uploads a shared capture.
+ */
+export function sharedInputToFile(
+  item: Pick<SharedInput, "kind" | "blob" | "fileName" | "fileType">,
+): File | null {
+  if (!isFileInput(item)) return null;
+  const blob = item.blob!;
+  const type =
+    item.fileType || blob.type || (item.kind === "pdf" ? "application/pdf" : "image/png");
+  const name = item.fileName || (item.kind === "pdf" ? "shared.pdf" : "shared.png");
+  return new File([blob], name, { type });
+}
