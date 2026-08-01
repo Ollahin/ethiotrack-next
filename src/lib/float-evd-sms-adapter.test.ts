@@ -283,7 +283,11 @@ describe("distributor compatibility", () => {
     ];
     expect(matchDistributorByLabel(alias, mixed, "float_sent_to_agent")?.id).toBe("d1");
     expect(
-      matchDistributorByLabel(alias, [{ id: "d2", name: "Two", aliases: [alias], ...evd }], "float_sent_to_agent"),
+      matchDistributorByLabel(
+        alias,
+        [{ id: "d2", name: "Two", aliases: [alias], ...evd }],
+        "float_sent_to_agent",
+      ),
     ).toBeNull();
   });
 
