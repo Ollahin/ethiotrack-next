@@ -526,7 +526,7 @@ export function StatementImport() {
               </Button>
               <Button
                 className="flex-1"
-                disabled={job.busy || job.saved || !o || o.summary.complete === 0}
+                disabled={job.busy || job.saved || !o || o.summary.complete === 0 || !distributorId}
                 onClick={() => void saveJob(job)}
               >
                 {job.saved ? "Saved" : "Save rows"}
