@@ -8,6 +8,7 @@ import {
   isRowComplete,
   outcomeFrom,
   pickOrientation,
+  rowDateIso,
   runOrientedOcr,
   scoreCandidate,
   summarizeRows,
