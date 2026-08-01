@@ -92,6 +92,7 @@ describe("agentLedger", () => {
       count: 0,
       evdSent: 0,
       floatSent: 0,
+      reversed: 0,
       cashIn: 0,
       openCredit: 0,
       unsettledCount: 0,

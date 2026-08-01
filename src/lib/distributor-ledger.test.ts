@@ -103,7 +103,7 @@ describe("distributorLedger", () => {
       }),
     ];
     const led = distributorLedger(rows, "distA", weekRangeOf("2026-08-10"));
-    expect(led.evd).toEqual({ received: 20_000_00, sent: 0, net: 20_000_00 });
+    expect(led.evd).toEqual({ received: 20_000_00, sent: 0, reversed: 0, net: 20_000_00 });
     expect(expectedStock(0, led.evd)).toBe(20_000_00);
   });
 
@@ -128,7 +128,12 @@ describe("distributorLedger", () => {
     ];
     const led = distributorLedger(rows, "shopA", weekRangeOf("2026-08-10"));
     expect(led.count).toBe(2);
-    expect(led.float).toEqual({ received: 500_000_00, sent: 45_000_00, net: 455_000_00 });
+    expect(led.float).toEqual({
+      received: 500_000_00,
+      sent: 45_000_00,
+      reversed: 0,
+      net: 455_000_00,
+    });
     expect(expectedStock(0, led.float)).toBe(455_000_00);
   });
 
@@ -145,8 +150,8 @@ describe("distributorLedger", () => {
     const led = distributorLedger(rows, "distA", weekRangeOf("2026-08-17"));
     expect(led).toEqual({
       count: 0,
-      evd: { received: 0, sent: 0, net: 0 },
-      float: { received: 0, sent: 0, net: 0 },
+      evd: { received: 0, sent: 0, reversed: 0, net: 0 },
+      float: { received: 0, sent: 0, reversed: 0, net: 0 },
     });
   });
 
@@ -171,8 +176,8 @@ describe("distributorLedger", () => {
     ];
     const led = distributorLedger(rows, "d");
     expect(led.count).toBe(4);
-    expect(led.evd).toEqual({ received: 800_00, sent: 300_00, net: 500_00 });
-    expect(led.float).toEqual({ received: 1_000_00, sent: 250_00, net: 750_00 });
+    expect(led.evd).toEqual({ received: 800_00, sent: 300_00, reversed: 0, net: 500_00 });
+    expect(led.float).toEqual({ received: 1_000_00, sent: 250_00, reversed: 0, net: 750_00 });
   });
 
   it("counts legacy airtime rows without a direction as sent", () => {
@@ -198,9 +203,10 @@ describe("distributorLedger", () => {
 describe("distributor reversal semantics", () => {
   it("a sent reversal gives stock back without counting as a receipt", () => {
     const rows = [
-      txn({ id: "s", type: "airtime_evd", amountSantim: 5_000_00 }),
+      txn({ id: "s", type: "airtime_evd", amountSantim: 5_000_00, distributorId: "d" }),
       txn({
         id: "r",
+        distributorId: "d",
         type: "airtime_evd",
         amountSantim: 1_000_00,
         airtimeDirection: "sent",
