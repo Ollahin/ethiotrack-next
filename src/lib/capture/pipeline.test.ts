@@ -10,6 +10,7 @@ import {
   isPurposeAllowed,
 } from "./purpose";
 import { rowReadiness, summarizeReadinessStates, type ReadinessInput } from "./readiness";
+import { classifyCapturedText } from "../smart-capture";
 import { findMapping, applyApproval, type ApprovedMapping } from "../approved-mappings";
 
 /* All fixtures below are synthetic and sanitized: no real names, accounts,
@@ -251,5 +252,59 @@ describe("exact alias reuse", () => {
   it("never creates a mapping without an approval", () => {
     const none: ApprovedMapping[] = [];
     expect(findMapping("SAMPLE AGENT ONE", "bank_message", "agent", none)).toBeNull();
+  });
+});
+
+describe("source-first routing (Smart Capture)", () => {
+  it("routes a resolved bank source to the bank parser even when other scores exist", () => {
+    const c = classifyCapturedText(CBE_CREDIT);
+    expect(c.family).toBe("bank_message");
+    expect(c.ambiguous).toBe(false);
+  });
+
+  it("routes float and EVD sources to the airtime family", () => {
+    expect(classifyCapturedText(FLOAT_SENT).family).toBe("airtime_sms");
+    expect(classifyCapturedText(EVD_RECEIVED).family).toBe("airtime_sms");
+  });
+
+  it("routes a telebirr wallet message to the bank/wallet family", () => {
+    expect(classifyCapturedText(TELEBIRR_OUT).family).toBe("bank_message");
+  });
+
+  it("never routes generic ETB wording to float or EVD", () => {
+    const c = classifyCapturedText("ETB 500.00 paid on 12/07/2026");
+    expect(c.family).not.toBe("airtime_sms");
+  });
+
+  it("stays unresolved and explains itself when nothing is recognised", () => {
+    const c = classifyCapturedText("Hello, see you tomorrow at the shop.");
+    expect(c.family).toBe("unknown");
+    expect(c.evidence.length).toBeGreaterThan(0);
+  });
+});
+
+describe("settlement gating", () => {
+  it("only an explicit agent settlement clears open credits", () => {
+    expect(settlesAgentCredits("agent_settlement")).toBe(true);
+    for (const p of ["other_income", "personal", "unresolved", "distributor_payment"] as const) {
+      expect(settlesAgentCredits(p)).toBe(false);
+    }
+  });
+
+  it("an agent settlement cannot be ready without a linked agent", () => {
+    const base: ReadinessInput = {
+      sourceResolved: true,
+      familyResolved: true,
+      financialBlockers: 0,
+      hasDate: true,
+      accountSelected: true,
+      purposeResolved: true,
+      requiresLink: requiresAgent("agent_settlement"),
+      linkSatisfied: false,
+      linkCertain: true,
+      needsReview: false,
+    };
+    expect(rowReadiness(base)).not.toBe("READY");
+    expect(rowReadiness({ ...base, linkSatisfied: true })).toBe("READY");
   });
 });
