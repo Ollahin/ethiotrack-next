@@ -12,8 +12,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { parseMany, type ParsedOk, type ParsedRow } from "@/lib/parser";
-import { summarizeReadiness, type RowDecisionInput } from "@/lib/capture-disclosure";
+import { type ParsedOk, type ParsedRow } from "@/lib/parser";
+import { parseSourceRecords } from "@/lib/capture/parse-records";
+import { fingerprintSource } from "@/lib/capture/source-fingerprint";
+import {
+  PURPOSE_LABEL,
+  defaultPurpose,
+  purposeOptions,
+  requiresAgent,
+  requiresDistributor,
+  settlesAgentCredits,
+  isPersonal as isPersonalPurpose,
+  type BusinessPurpose,
+} from "@/lib/capture/purpose";
+import {
+  rowReadiness,
+  summarizeReadinessStates,
+  type ReadinessInput,
+} from "@/lib/capture/readiness";
 import {
   addTransactionsBulk,
   forceInsertTransactions,
@@ -33,11 +49,9 @@ import { formatEtb } from "@/lib/format";
 import type { AirtimeForm, Bank, Distributor, Transaction } from "@/lib/types";
 import { toast } from "sonner";
 
-type PartyAction =
-  | { kind: "none" }
-  | { kind: "new-agent" }
-  | { kind: "new-distributor" }
-  | { kind: "link"; partyType: "agent" | "distributor"; id: string };
+// Entities are never created from a capture: the operator links an existing
+// agent or distributor, or the row stays unresolved.
+type PartyAction = { kind: "none" } | { kind: "link"; partyType: "agent" | "distributor"; id: string };
 
 type BankAction = { kind: "auto" } | { kind: "skip" };
 
@@ -127,7 +141,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
   const [text, setText] = useState(initialText ?? "");
   const [isPersonal, setPersonal] = useState(false);
   const [rows, setRows] = useState<ParsedRow[] | null>(
-    initialText && initialText.trim() ? parseMany(initialText) : null,
+    initialText && initialText.trim() ? parseSourceRecords(initialText) : null,
   );
   const agents = useAgents();
   const banks = useBanks();
@@ -140,6 +154,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
   const [manualDates, setManualDates] = useState<Record<number, { date: string; time: string }>>(
     {},
   );
+  const [purposes, setPurposes] = useState<Record<number, BusinessPurpose>>({});
   const [skippedInfo, setSkippedInfo] = useState<
     Array<{ input: Omit<Transaction, "id" | "createdAt">; reason: "reference" | "heuristic" }>
   >([]);
@@ -183,7 +198,6 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
         : { kind: "none" };
     }
     if (e.agent) return { kind: "link", partyType: "agent", id: e.agent.id };
-    if (e.row.ok && e.row.party && !isGenericParty(e.row.party)) return { kind: "new-agent" };
     return { kind: "none" };
   }
 
@@ -257,20 +271,22 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
   useEffect(() => {
     if (initialText === undefined) return;
     setText(initialText);
-    setRows(initialText.trim() ? parseMany(initialText) : null);
+    setRows(initialText.trim() ? parseSourceRecords(initialText) : null);
     setPartyActions({});
     setBankActions({});
     setDistActions({});
     setManualDates({});
+    setPurposes({});
   }, [initialText]);
 
   function detect() {
     if (!text.trim()) return;
-    setRows(parseMany(text));
+    setRows(parseSourceRecords(text));
     setPartyActions({});
     setBankActions({});
     setDistActions({});
     setManualDates({});
+    setPurposes({});
   }
 
   async function importAll() {
