@@ -155,28 +155,6 @@ function exactAgentMatch(label: string | undefined, agents: Agent[]): Agent | nu
   return agents.find((a) => normalizeLabel(a.name) === key) ?? null;
 }
 
-/** Unprocessed capture text survives a refresh until it is imported. */
-const PENDING_TEXT_KEY = "ethiotrack.capture.pending-batch";
-
-function readPendingText(): string {
-  if (typeof window === "undefined") return "";
-  try {
-    return window.localStorage.getItem(PENDING_TEXT_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function writePendingText(value: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    if (value.trim()) window.localStorage.setItem(PENDING_TEXT_KEY, value);
-    else window.localStorage.removeItem(PENDING_TEXT_KEY);
-  } catch {
-    /* storage unavailable — the batch simply won't survive a refresh */
-  }
-}
-
 function suggestBankName(channel: string, accountTail?: string): string {
   if (accountTail) return `${channel} ···${accountTail}`;
   const wallets = ["Telebirr", "M-Pesa", "CoopPay", "eBirr"];
