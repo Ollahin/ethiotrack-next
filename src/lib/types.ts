@@ -190,9 +190,30 @@ export interface Transaction {
   needsReview?: boolean;
   /** For payments applied to credits: which credit txn ids they settled. */
   settlesTxnIds?: string[];
+  /**
+   * Stable capture identity for one saved row. Re-running the same import
+   * (retry, refresh, replayed share) must never write it twice.
+   */
+  captureKey?: string;
   source: TxnSource;
   statementImportId?: string;
   date: string; // ISO
+  createdAt: string;
+}
+
+/**
+ * One explicit, partial-aware application of an agent's cash payment against
+ * one outstanding airtime credit. Allocations are records in their own right:
+ * the receivable is always credit amount minus allocations, never a guess.
+ */
+export interface SettlementAllocation {
+  id: string;
+  /** The incoming money transaction that paid. */
+  paymentTxnId: string;
+  /** The airtime credit row being paid down. */
+  creditTxnId: string;
+  agentId: string;
+  amountSantim: number;
   createdAt: string;
 }
 

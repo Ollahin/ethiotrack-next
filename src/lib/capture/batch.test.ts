@@ -69,3 +69,24 @@ describe("canonical capture batch", () => {
     ).toBeNull();
   });
 });
+
+describe("large batches", () => {
+  it("keeps every message of a 200-message paste, in source order, with stable ids", () => {
+    const text = Array.from(
+      { length: 200 },
+      (_, i) =>
+        `Dear Customer, ETB ${i + 1}.00 has been debited from your account 1000${i}. Ref FT${i}.`,
+    ).join("\n\n");
+    const batch = buildBatch(text)!;
+    expect(batch.candidates).toHaveLength(200);
+    expect(batch.candidates.map((c) => c.index)).toEqual(
+      Array.from({ length: 200 }, (_, i) => i),
+    );
+    expect(new Set(batch.candidates.map((c) => c.id)).size).toBe(200);
+    // Importing the middle row leaves every sibling pending and unchanged.
+    const after = removeCandidates(batch, [batch.candidates[100].id])!;
+    expect(after.candidates).toHaveLength(199);
+    expect(after.candidates.find((c) => c.id === batch.candidates[100].id)).toBeUndefined();
+    expect(after.candidates[0].id).toBe(batch.candidates[0].id);
+  });
+});

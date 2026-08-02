@@ -1,7 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ArrowLeft, ChevronLeft, ChevronRight, UserRound } from "lucide-react";
-import { getWeekStart, useAgents, useDistributors, useTransactions } from "@/lib/db";
+import {
+  getWeekStart,
+  useAgents,
+  useDistributors,
+  useSettlementAllocations,
+  useTransactions,
+} from "@/lib/db";
 import { agentLedger, agentTransactions } from "@/lib/agent-ledger";
 import { shiftWeekStart, weekEndOf, weekRangeOf } from "@/lib/distributor-ledger";
 import { formatEtb, formatTxnDate } from "@/lib/format";
@@ -103,6 +109,7 @@ function AgentHistoryPage() {
   const agents = useAgents();
   const distributors = useDistributors();
   const txns = useTransactions();
+  const allocations = useSettlementAllocations();
   const [weekStart, setWeekStart] = useState(() => getWeekStart());
   const [allRecent, setAllRecent] = useState(false);
   const thisWeekStart = getWeekStart();
@@ -112,9 +119,9 @@ function AgentHistoryPage() {
   const range = allRecent ? undefined : weekRangeOf(weekStart);
 
   const ledger = useMemo(
-    () => agentLedger(txns, agentId, range),
+    () => agentLedger(txns, agentId, range, allocations),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [txns, agentId, allRecent, weekStart],
+    [txns, agentId, allRecent, weekStart, allocations],
   );
   const rows = useMemo(
     () =>

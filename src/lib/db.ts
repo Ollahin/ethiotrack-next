@@ -11,10 +11,12 @@ import type {
   PeriodClosing,
   PeriodOpening,
   SharedInput,
+  SettlementAllocation,
   StatementImport,
   Transaction,
 } from "./types";
 import { makeId } from "./ids";
+import { agentCredits, planAllocations } from "./settlement";
 import {
   applyApproval,
   markUsed,
@@ -86,6 +88,7 @@ class EthioTrackDB extends Dexie {
   fulfillments!: Table<FulfillmentEntry, string>;
   approvedMappings!: Table<ApprovedMapping, string>;
   sharedInputs!: Table<SharedInput, string>;
+  settlementAllocations!: Table<SettlementAllocation, string>;
   meta!: Table<{ key: string; value: unknown }, string>;
 
   constructor() {
@@ -196,6 +199,25 @@ class EthioTrackDB extends Dexie {
       fulfillments: "id, intentTxnId, recordedAt",
       approvedMappings: "id, targetType, normalizedLabel, targetId",
       sharedInputs: "id, receivedAt, status",
+      meta: "key",
+    });
+    // v7: additive only — explicit, partial-aware agent settlement allocations
+    // plus a capture identity index so a retried import can never double-write.
+    this.version(7).stores({
+      agents: "id, name, phone",
+      distributors: "id, name",
+      banks: "id, name, channel",
+      dailyOpenings: "id, date",
+      dailyClosings: "id, date, openingId",
+      periodOpenings: "id, weekStart",
+      periodClosings: "id, weekStart, openingId",
+      transactions:
+        "id, date, type, partyId, channel, isSettled, isPersonal, statementImportId, captureKey",
+      statementImports: "id, distributorId, importedAt",
+      fulfillments: "id, intentTxnId, recordedAt",
+      approvedMappings: "id, targetType, normalizedLabel, targetId",
+      sharedInputs: "id, receivedAt, status",
+      settlementAllocations: "id, paymentTxnId, creditTxnId, agentId",
       meta: "key",
     });
   }
@@ -543,31 +565,44 @@ export async function addTransactionsBulk(
   inserted: number;
   skipped: number;
   ids: string[];
+  /** Written id per input index; undefined where the input was skipped. */
+  insertedFor: Array<string | undefined>;
   skippedRows: Array<{
     index: number;
     input: Omit<Transaction, "id" | "createdAt">;
-    reason: "reference" | "heuristic";
+    reason: "reference" | "heuristic" | "capture";
   }>;
 }> {
   const existing = await db().transactions.toArray();
   const seen = new Map<string, number[]>();
   const seenRefs = new Set<string>();
+  // Capture identity: the exact same reviewed row, saved twice (retry, refresh
+  // or a replayed share) must land once.
+  const seenCaptures = new Set<string>();
   for (const t of existing) {
     const k = duplicateKey(t);
     seen.set(k, [...(seen.get(k) ?? []), new Date(t.date).getTime()]);
     if (t.reference && t.reference.trim()) {
       seenRefs.add(referenceKey(t, t.reference));
     }
+    if (t.captureKey) seenCaptures.add(t.captureKey);
   }
   const inserted: Transaction[] = [];
   const skippedRows: Array<{
     index: number;
     input: Omit<Transaction, "id" | "createdAt">;
-    reason: "reference" | "heuristic";
+    reason: "reference" | "heuristic" | "capture";
   }> = [];
   let skipped = 0;
+  const insertedFor: Array<string | undefined> = new Array(inputs.length).fill(undefined);
   for (let i = 0; i < inputs.length; i++) {
     const input = inputs[i];
+    if (input.captureKey && seenCaptures.has(input.captureKey)) {
+      skipped++;
+      skippedRows.push({ index: i, input, reason: "capture" });
+      continue;
+    }
+    if (input.captureKey) seenCaptures.add(input.captureKey);
     // Authoritative: same channel + same reference => duplicate, regardless of amount/party/time.
     if (input.reference && input.reference.trim()) {
       const rk = referenceKey(input, input.reference);
@@ -583,6 +618,7 @@ export async function addTransactionsBulk(
         createdAt: new Date().toISOString(),
       };
       inserted.push(txn);
+      insertedFor[i] = txn.id;
       seenRefs.add(rk);
       const k = duplicateKey(input);
       seen.set(k, [...(seen.get(k) ?? []), new Date(input.date).getTime()]);
@@ -602,6 +638,7 @@ export async function addTransactionsBulk(
       createdAt: new Date().toISOString(),
     };
     inserted.push(txn);
+    insertedFor[i] = txn.id;
     seen.set(k, [...(seen.get(k) ?? []), ts]);
   }
   if (inserted.length) await db().transactions.bulkPut(inserted);
@@ -609,12 +646,81 @@ export async function addTransactionsBulk(
     inserted: inserted.length,
     skipped,
     ids: inserted.map((t) => t.id),
+    insertedFor,
     skippedRows,
   };
 }
 
 export async function updateTransaction(txn: Transaction): Promise<void> {
   await db().transactions.put(txn);
+}
+
+// -- agent settlement allocations --------------------------------------------
+
+export function useSettlementAllocations(): SettlementAllocation[] {
+  return useLiveQuery(() => db().settlementAllocations.toArray(), [], []) ?? [];
+}
+
+export async function allocationsFor(agentId: string): Promise<SettlementAllocation[]> {
+  return db().settlementAllocations.where("agentId").equals(agentId).toArray();
+}
+
+/**
+ * Apply one agent payment against that agent's open credits, FIFO and
+ * partial-aware, in a single atomic write. Re-running it for the same payment
+ * is a no-op: allocations already recorded for the payment are never doubled.
+ */
+export async function recordAgentSettlement(
+  paymentTxnId: string,
+  agentId: string,
+  paymentSantim: number,
+): Promise<{ allocated: number; leftoverSantim: number; closed: number; alreadyApplied: boolean }> {
+  const d = db();
+  return d.transaction("rw", [d.transactions, d.settlementAllocations], async () => {
+    const prior = await d.settlementAllocations.where("paymentTxnId").equals(paymentTxnId).count();
+    if (prior > 0) return { allocated: 0, leftoverSantim: 0, closed: 0, alreadyApplied: true };
+
+    const all = await d.transactions.toArray();
+    const allocs = await d.settlementAllocations.toArray();
+    const credits = agentCredits(agentId, all);
+    const plan = planAllocations(paymentSantim, credits, allocs);
+    if (plan.allocations.length === 0) {
+      return { allocated: 0, leftoverSantim: plan.leftoverSantim, closed: 0, alreadyApplied: false };
+    }
+    const now = new Date().toISOString();
+    const rows: SettlementAllocation[] = plan.allocations.map((a) => ({
+      id: makeId(),
+      paymentTxnId,
+      creditTxnId: a.creditTxnId,
+      agentId,
+      amountSantim: a.amountSantim,
+      createdAt: now,
+    }));
+    await d.settlementAllocations.bulkPut(rows);
+
+    // A credit is only marked settled once it is fully covered.
+    let closed = 0;
+    for (const a of plan.allocations) {
+      if (!a.closes) continue;
+      const credit = credits.find((c) => c.id === a.creditTxnId);
+      if (!credit) continue;
+      await d.transactions.put({ ...credit, isSettled: true, settledAt: now });
+      closed++;
+    }
+    const payment = all.find((t) => t.id === paymentTxnId);
+    if (payment) {
+      await d.transactions.put({
+        ...payment,
+        settlesTxnIds: plan.allocations.map((a) => a.creditTxnId),
+      });
+    }
+    return {
+      allocated: plan.allocations.reduce((s, a) => s + a.amountSantim, 0),
+      leftoverSantim: plan.leftoverSantim,
+      closed,
+      alreadyApplied: false,
+    };
+  });
 }
 
 export async function deleteTransaction(id: string): Promise<void> {
@@ -919,6 +1025,7 @@ export async function exportBackup(): Promise<BackupV4> {
     fulfillments,
     approvedMappings,
     sharedInputs,
+    settlementAllocations,
     meta,
   ] = await Promise.all([
     d.agents.toArray(),
@@ -933,6 +1040,7 @@ export async function exportBackup(): Promise<BackupV4> {
     d.fulfillments.toArray(),
     d.approvedMappings.toArray(),
     d.sharedInputs.toArray(),
+    d.settlementAllocations.toArray(),
     d.meta.toArray(),
   ]);
 
@@ -960,6 +1068,9 @@ export async function exportBackup(): Promise<BackupV4> {
     sharedInputs: await Promise.all(
       sharedInputs.filter((s) => s.status === "pending").map(serializeSharedInput),
     ),
+    // Allocations are financial history: restoring must reproduce the same
+    // outstanding receivables, not recompute them.
+    settlementAllocations,
   };
   return { ...body, counts: countsOf(body) };
 }
@@ -1015,6 +1126,7 @@ export async function importBackup(b: BackupV4, opts: ImportOptions = {}): Promi
       d.fulfillments,
       d.approvedMappings,
       d.sharedInputs,
+      d.settlementAllocations,
       d.meta,
     ],
     async () => {
@@ -1031,6 +1143,7 @@ export async function importBackup(b: BackupV4, opts: ImportOptions = {}): Promi
         d.fulfillments.clear(),
         d.approvedMappings.clear(),
         d.sharedInputs.clear(),
+        d.settlementAllocations.clear(),
       ]);
       // Replace portable settings only; credentials on this device survive.
       const existingMeta = await d.meta.toArray();
@@ -1050,6 +1163,7 @@ export async function importBackup(b: BackupV4, opts: ImportOptions = {}): Promi
       await d.fulfillments.bulkAdd(backup.fulfillments);
       await d.approvedMappings.bulkAdd(backup.approvedMappings);
       await d.sharedInputs.bulkAdd(sharedInputs);
+      await d.settlementAllocations.bulkAdd(backup.settlementAllocations ?? []);
       await d.meta.bulkPut(
         backup.settings
           .filter((s) => !isCredentialMetaKey(s.key))
@@ -1076,6 +1190,7 @@ export async function clearAll(): Promise<void> {
       d.fulfillments,
       d.approvedMappings,
       d.sharedInputs,
+      d.settlementAllocations,
       d.meta,
     ],
     async () => {
@@ -1092,6 +1207,7 @@ export async function clearAll(): Promise<void> {
         d.fulfillments.clear(),
         d.approvedMappings.clear(),
         d.sharedInputs.clear(),
+        d.settlementAllocations.clear(),
         // keep meta so PIN stays; caller decides
       ]);
     },

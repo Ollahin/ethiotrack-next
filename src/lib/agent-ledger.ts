@@ -9,7 +9,8 @@
 
 import { airtimeDirectionOf, airtimeMovementKind, isAirtimeTransaction } from "./airtime-movement";
 import { isInRange, type DateRange } from "./distributor-ledger";
-import type { Transaction } from "./types";
+import { allocatedAgainst } from "./settlement";
+import type { SettlementAllocation, Transaction } from "./types";
 
 export interface AgentLedger {
   /** Every transaction linked to the agent in range. */
@@ -62,8 +63,17 @@ export function agentTransactions(
   return txns.filter((t) => t.partyId === agentId && (!range || isInRange(t, range)));
 }
 
-/** Totals for one agent over an optional date range. */
-export function agentLedger(txns: Transaction[], agentId: string, range?: DateRange): AgentLedger {
+/**
+ * Totals for one agent over an optional date range. When settlement
+ * allocations are supplied, a credit counts only for the part that has not
+ * been paid, so partial payments are visible instead of all-or-nothing.
+ */
+export function agentLedger(
+  txns: Transaction[],
+  agentId: string,
+  range?: DateRange,
+  allocations: SettlementAllocation[] = [],
+): AgentLedger {
   const rows = agentTransactions(txns, agentId, range);
   if (rows.length === 0) return { ...EMPTY };
   const led: AgentLedger = { ...EMPTY, count: rows.length };
@@ -86,8 +96,11 @@ export function agentLedger(txns: Transaction[], agentId: string, range?: DateRa
       continue;
     }
     if (!t.isSettled) {
-      rawOpenCredit += t.amountSantim;
-      led.unsettledCount += 1;
+      const open = Math.max(0, t.amountSantim - allocatedAgainst(t.id, allocations));
+      if (open > 0) {
+        rawOpenCredit += open;
+        led.unsettledCount += 1;
+      }
     }
   }
   // A receivable can never be negative. Surplus reversal is a review signal.

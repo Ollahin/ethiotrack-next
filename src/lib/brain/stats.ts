@@ -1,6 +1,7 @@
 import { airtimeMovementKind, isAirtimeTransaction } from "../airtime-movement";
 import { agentLedger } from "../agent-ledger";
-import type { Agent, Transaction } from "../types";
+import { outstandingOf } from "../settlement";
+import type { Agent, SettlementAllocation, Transaction } from "../types";
 
 export interface AgentStats {
   agentId: string;
@@ -51,10 +52,15 @@ function stddev(xs: number[]): number | null {
   return Math.sqrt(xs.reduce((s, x) => s + (x - m) * (x - m), 0) / (xs.length - 1));
 }
 
-export function computeAgentStats(agent: Agent, txns: Transaction[]): AgentStats {
+export function computeAgentStats(
+  agent: Agent,
+  txns: Transaction[],
+  allocations: SettlementAllocation[] = [],
+): AgentStats {
   const mine = txns.filter((t) => t.partyId === agent.id);
-  // Reversal-aware totals come from the same ledger Agent History renders.
-  const led = agentLedger(txns, agent.id);
+  // Reversal-aware, allocation-aware totals come from the same ledger the
+  // Agent History screen renders.
+  const led = agentLedger(txns, agent.id, undefined, allocations);
   let last: string | null = null;
   const distributionAmounts: number[] = [];
   for (const t of mine) {
@@ -63,7 +69,10 @@ export function computeAgentStats(agent: Agent, txns: Transaction[]): AgentStats
     if (airtimeMovementKind(t) === "sent") distributionAmounts.push(t.amountSantim);
   }
   const payDays = paymentDaysFor(agent.id, txns);
-  const openCredits = mine.filter((t) => airtimeMovementKind(t) === "sent" && !t.isSettled);
+  const openCredits = mine.filter(
+    (t) =>
+      airtimeMovementKind(t) === "sent" && !t.isSettled && outstandingOf(t, allocations) > 0,
+  );
   const oldest = openCredits.map((t) => new Date(t.date).getTime()).sort((a, b) => a - b)[0];
   const oldestDays = oldest ? Math.round((Date.now() - oldest) / 86_400_000) : null;
   return {

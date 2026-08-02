@@ -49,7 +49,7 @@ import {
 import {
   addTransactionsBulk,
   forceInsertTransactions,
-  updateTransaction,
+  recordAgentSettlement,
   upsertAgent,
   upsertBank,
   upsertDistributor,
@@ -63,7 +63,6 @@ import {
 } from "@/lib/db";
 import { findMapping, normalizeLabel } from "@/lib/approved-mappings";
 import { matchDistributorForPayment } from "@/lib/purchase-fulfillment";
-import { openCreditsFor, planFifoSettlement } from "@/lib/brain/credits";
 import { formatEtb } from "@/lib/format";
 import type { Agent, AirtimeForm, Bank, Distributor, Transaction } from "@/lib/types";
 import { toast } from "sonner";
@@ -190,6 +189,8 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
   const [bankActions, setBankActions] = useState<Record<string, BankAction>>({});
   const [distActions, setDistActions] = useState<Record<string, DistributorAction>>({});
   const [purposes, setPurposes] = useState<Record<string, BusinessPurpose>>({});
+  /** Duplicate-risk acknowledgements for rows with no reference number. */
+  const [dupAck, setDupAck] = useState<Record<string, boolean>>({});
   /** "Remember this exact sender label" ticks, per candidate. */
   const [remember, setRemember] = useState<Record<string, boolean>>({});
   /** Rows whose optional time field has been revealed. */
@@ -197,7 +198,10 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
   const [pickDate, setPickDate] = useState("");
   const mappings = useApprovedMappings();
   const [skippedInfo, setSkippedInfo] = useState<
-    Array<{ input: Omit<Transaction, "id" | "createdAt">; reason: "reference" | "heuristic" }>
+    Array<{
+      input: Omit<Transaction, "id" | "createdAt">;
+      reason: "reference" | "heuristic" | "capture";
+    }>
   >([]);
 
   function matchBank(row: ParsedRow): Bank | null {
@@ -340,6 +344,10 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
       // pre-selected guess would be uncertain, and none is ever made.
       linkCertain: true,
       needsReview: Boolean(row.ok && row.needsReview),
+      // Without a reference number, duplicate detection can only guess from
+      // amount, party and time. The reviewer must accept that explicitly.
+      duplicateRisk: Boolean(row.ok && !row.reference?.trim()),
+      duplicateRiskAcknowledged: Boolean(dupAck[e.id]),
     };
   }
 
@@ -363,6 +371,8 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
       out.push(
         requiresAgent(purpose) ? "Exact agent not selected." : "Exact distributor not selected.",
       );
+    if (input.duplicateRisk && !input.duplicateRiskAcknowledged)
+      out.push("No reference number — confirm this is not a repeat of an earlier message.");
     if (input.needsReview) out.push("Parser flagged this message for a human check.");
     return out;
   }
@@ -373,7 +383,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
   const readiness = useMemo(
     () => summarizeReadinessStates(enriched.map((e) => readinessInput(e))),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [enriched, batch, distActions, partyActions, bankActions, purposes],
+    [enriched, batch, distActions, partyActions, bankActions, purposes, dupAck],
   );
 
   // The pending batch survives a refresh: nothing is saved, but every
@@ -409,6 +419,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     setDistActions({});
     setPurposes({});
     setRemember({});
+    setDupAck({});
     setShowTime({});
   }
 
@@ -516,6 +527,9 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
         date: when.iso,
         isPersonal: isPersonal || isPersonalPurpose(purpose),
         needsReview: row.needsReview,
+        // Stable identity of this reviewed candidate: a retried or replayed
+        // import of the same row can never write it twice.
+        captureKey: e.id,
         source: "paste_parse",
       });
       settlePlan.push(settlesAgentCredits(purpose) && partyType === "agent");
@@ -552,18 +566,14 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
       }
     }
 
-    // FIFO settle: only an explicit "Agent settlement" purpose clears credits.
+    // Settlement is one atomic, partial-aware allocation write per payment.
+    // Retrying an import never allocates the same payment twice.
     for (let i = 0; i < inputs.length; i++) {
       const inp = inputs[i];
       if (!settlePlan[i] || inp.type !== "in" || !inp.partyId) continue;
-      const open = openCreditsFor(inp.partyId, txns);
-      if (!open.length) continue;
-      const plan = planFifoSettlement(inp.amountSantim, open);
-      for (const cid of plan.settled) {
-        const c = txns.find((t) => t.id === cid);
-        if (c)
-          await updateTransaction({ ...c, isSettled: true, settledAt: new Date().toISOString() });
-      }
+      const txnId = res.insertedFor[i];
+      if (!txnId) continue;
+      await recordAgentSettlement(txnId, inp.partyId, inp.amountSantim);
     }
 
     const extras = [createdBanks && `${createdBanks} new bank${createdBanks > 1 ? "s" : ""}`]
@@ -1174,6 +1184,19 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                             </div>
                           )}
                         </div>
+                      )}
+                      {!row.reference?.trim() && (
+                        <label className="flex items-center gap-1 text-[11px] text-ink-soft">
+                          <input
+                            type="checkbox"
+                            className="h-3 w-3 accent-[hsl(var(--money-in))]"
+                            checked={Boolean(dupAck[e.id])}
+                            onChange={(ev) =>
+                              setDupAck((st) => ({ ...st, [e.id]: ev.target.checked }))
+                            }
+                          />
+                          No reference number — I confirm this is not a repeat
+                        </label>
                       )}
                       <div className="text-[11px] text-ink-soft whitespace-pre-wrap break-words">
                         {row.note}
