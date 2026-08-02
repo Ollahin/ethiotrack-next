@@ -197,7 +197,10 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
   const [pickDate, setPickDate] = useState("");
   const mappings = useApprovedMappings();
   const [skippedInfo, setSkippedInfo] = useState<
-    Array<{ input: Omit<Transaction, "id" | "createdAt">; reason: "reference" | "heuristic" }>
+    Array<{
+      input: Omit<Transaction, "id" | "createdAt">;
+      reason: "reference" | "heuristic" | "capture";
+    }>
   >([]);
 
   function matchBank(row: ParsedRow): Bank | null {
