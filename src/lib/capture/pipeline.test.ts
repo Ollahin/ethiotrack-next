@@ -26,7 +26,7 @@ const COOP_CREDIT =
 const DASHEN_DEBIT =
   "Dear Customer, your account 1****3311 was debited with ETB 1,500.00. Available Balance: ETB 4,000.00. Dashen Bank";
 const TELEBIRR_OUT =
-  "Dear customer, You have transferred ETB 525.00 to SAMPLE RECEIVER (2519*****12) on 12/07/2026 10:30. Your service fee is ETB 3.48, VAT on the fee is ETB 0.52. Your transaction number is BQ12345678. Your E-Money Account balance is ETB 1,000.00. Thank you for using telebirr. https://transactioninfo.ethiotelecom.et/receipt/BQ12345678";
+  "Dear customer, You have transferred ETB 525.00 to SAMPLE RECEIVER (2519*****12) on 12/07/2026 10:30. Your transaction number is BQ12345678. Your service fee is ETB 3.48, VAT on the fee is ETB 0.52. Your E-Money Account balance is ETB 1,000.00. Thank you for using telebirr. https://transactioninfo.ethiotelecom.et/receipt/BQ12345678";
 const TELEBIRR_IN =
   "Dear customer, You have received ETB 900.00 from SAMPLE PAYER (2519*****34) on 12/07/2026 09:15. Your transaction number is BQ87654321. Your E-Money Account balance is ETB 1,900.00. Thank you for using telebirr.";
 const TELEBIRR_AIRTIME =
