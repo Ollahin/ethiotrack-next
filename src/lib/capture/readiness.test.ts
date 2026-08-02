@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { rowReadiness, type ReadinessInput } from "./readiness";
+import {
+  evaluateRow,
+  importableCount,
+  rowBlocker,
+  rowReadiness,
+  type ReadinessInput,
+} from "./readiness";
 
 const ready: ReadinessInput = {
   sourceResolved: true,
@@ -13,11 +19,15 @@ const ready: ReadinessInput = {
 };
 
 describe("duplicate-risk gate", () => {
-  it("holds a reference-less row at NEEDS_ATTENTION until it is acknowledged", () => {
+  it("holds a colliding row at NEEDS_ATTENTION until it is confirmed", () => {
     expect(rowReadiness({ ...ready, duplicateRisk: true })).toBe("NEEDS_ATTENTION");
     expect(
       rowReadiness({ ...ready, duplicateRisk: true, duplicateRiskAcknowledged: true }),
     ).toBe("READY");
+  });
+
+  it("never asks about duplicates for an ordinary unique message", () => {
+    expect(evaluateRow(ready)).toEqual({ state: "READY", blocker: null, canImport: true });
   });
 
   it("never lets an acknowledgement override a missing date, account, purpose or link", () => {
