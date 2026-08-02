@@ -71,6 +71,11 @@ export interface ParsedOk {
   missingFields?: string[];
   /** Which named template matched — for debugging & UI badges. */
   template?: string;
+  /**
+   * Grammatical roles that established the money direction (from the capture
+   * direction engine). Empty when the templates alone decided it.
+   */
+  directionEvidence?: string[];
 }
 
 export interface ParsedFail {
