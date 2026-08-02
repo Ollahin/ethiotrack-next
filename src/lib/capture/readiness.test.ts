@@ -39,3 +39,19 @@ describe("duplicate-risk gate", () => {
     expect(rowReadiness({ ...ack, financialBlockers: 1 })).toBe("INVALID");
   });
 });
+
+describe("one readiness engine", () => {
+  it("reports one concise blocker per row", () => {
+    expect(rowBlocker({ ...ready, hasDate: false })).toBe("Choose date");
+    expect(rowBlocker({ ...ready, requiresLink: true, linkSatisfied: false })).toBe("Choose agent");
+    expect(rowBlocker({ ...ready, accountSelected: false })).toBe("Choose account");
+    expect(rowBlocker({ ...ready, purposeResolved: false })).toBe("Choose purpose");
+    expect(rowBlocker({ ...ready, financialBlockers: 1 })).toBe("Amounts do not add up");
+  });
+
+  it("counts exactly the rows the Import button will write", () => {
+    const rows: ReadinessInput[] = [ready, { ...ready, hasDate: false }, ready];
+    expect(importableCount(rows)).toBe(2);
+    expect(rows.filter((r) => evaluateRow(r).canImport)).toHaveLength(2);
+  });
+});
