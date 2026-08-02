@@ -173,23 +173,28 @@ export interface PasteImportProps {
 export function PasteImport({ initialText, embedded = false, onSaved }: PasteImportProps = {}) {
   const [text, setText] = useState(initialText ?? "");
   const [isPersonal, setPersonal] = useState(false);
-  const [rows, setRows] = useState<ParsedRow[] | null>(
-    initialText && initialText.trim() ? parseSourceRecords(initialText) : null,
+  /**
+   * The one canonical batch. Built once per capture; the review list below is
+   * a pure view of it. The textarea is never reparsed behind the operator.
+   */
+  const [batch, setBatch] = useState<CaptureBatch | null>(() =>
+    initialText && initialText.trim() ? buildBatch(initialText) : null,
   );
   const agents = useAgents();
   const banks = useBanks();
   const distributors = useDistributors();
   const txns = useTransactions();
-  const [partyActions, setPartyActions] = useState<Record<number, PartyAction>>({});
-  const [bankActions, setBankActions] = useState<Record<number, BankAction>>({});
-  const [distActions, setDistActions] = useState<Record<number, DistributorAction>>({});
-  /** User-supplied transaction date/time for messages that stated none. */
-  const [manualDates, setManualDates] = useState<Record<number, { date: string; time: string }>>(
-    {},
-  );
-  const [purposes, setPurposes] = useState<Record<number, BusinessPurpose>>({});
-  /** "Remember this exact sender label" ticks, per row. */
-  const [remember, setRemember] = useState<Record<number, boolean>>({});
+  /* Reviewer decisions are keyed by CANDIDATE ID, never by list position, so
+     importing one card can never shift another card's answers. */
+  const [partyActions, setPartyActions] = useState<Record<string, PartyAction>>({});
+  const [bankActions, setBankActions] = useState<Record<string, BankAction>>({});
+  const [distActions, setDistActions] = useState<Record<string, DistributorAction>>({});
+  const [purposes, setPurposes] = useState<Record<string, BusinessPurpose>>({});
+  /** "Remember this exact sender label" ticks, per candidate. */
+  const [remember, setRemember] = useState<Record<string, boolean>>({});
+  /** Rows whose optional time field has been revealed. */
+  const [showTime, setShowTime] = useState<Record<string, boolean>>({});
+  const [pickDate, setPickDate] = useState("");
   const mappings = useApprovedMappings();
   const [skippedInfo, setSkippedInfo] = useState<
     Array<{ input: Omit<Transaction, "id" | "createdAt">; reason: "reference" | "heuristic" }>
