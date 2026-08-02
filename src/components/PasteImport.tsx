@@ -330,6 +330,8 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     let createdBanks = 0;
     let blockedNotReady = 0;
     const inputs: Array<Omit<Transaction, "id" | "createdAt">> = [];
+    /** Parallel to `inputs`: which rows may clear open agent credits. */
+    const settlePlan: boolean[] = [];
 
     for (let i = 0; i < enriched.length; i++) {
       const e = enriched[i];
