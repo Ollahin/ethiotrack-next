@@ -527,6 +527,9 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
         date: when.iso,
         isPersonal: isPersonal || isPersonalPurpose(purpose),
         needsReview: row.needsReview,
+        // Stable identity of this reviewed candidate: a retried or replayed
+        // import of the same row can never write it twice.
+        captureKey: e.id,
         source: "paste_parse",
       });
       settlePlan.push(settlesAgentCredits(purpose) && partyType === "agent");
