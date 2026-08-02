@@ -974,47 +974,80 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                           <li>This row cannot be imported until the message is corrected.</li>
                         </ul>
                       )}
-                      {row.ok && !row.date && blockersFor(row).length === 0 && (
-                        <div className="text-[11px] rounded border border-airtime/40 bg-airtime/5 px-2 py-1 space-y-1">
-                          <div className="text-airtime font-semibold">
-                            Date: missing — manual entry required
-                          </div>
+                      {row.ok && blockersFor(row).length === 0 && (
+                        <div className="text-[11px] rounded border border-border bg-muted/40 px-2 py-1 space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <Label className="text-[11px] text-ink-soft">
-                              Transaction date
+                            <span className="text-ink-soft">Date:</span>
+                            <span className={when ? "font-semibold" : "text-money-out font-semibold"}>
+                              {when ? when.iso.slice(0, 10) : "not stated"}
+                            </span>
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-ink-soft">
+                              {DATE_PROVENANCE_LABEL[when?.provenance ?? "none"]}
+                            </span>
+                            {!hasGenuineDate(e.candidate) && (
                               <Input
                                 type="date"
-                                className="h-7 text-[11px] mt-0.5"
-                                value={manualDates[i]?.date ?? ""}
+                                aria-label="Row date"
+                                className="h-7 w-auto text-[11px]"
+                                value={override?.date ?? (when?.provenance === "batch" ? when.iso.slice(0, 10) : "")}
                                 onChange={(ev) =>
-                                  setManualDates((s) => ({
-                                    ...s,
-                                    [i]: { time: s[i]?.time ?? "", date: ev.target.value },
-                                  }))
+                                  setBatch((b) =>
+                                    b
+                                      ? setRowDate(
+                                          b,
+                                          e.id,
+                                          ev.target.value
+                                            ? { date: ev.target.value, time: override?.time }
+                                            : null,
+                                        )
+                                      : b,
+                                  )
                                 }
                               />
-                            </Label>
-                            <Label className="text-[11px] text-ink-soft">
-                              Time (optional)
-                              <Input
-                                type="time"
-                                className="h-7 text-[11px] mt-0.5"
-                                value={manualDates[i]?.time ?? ""}
-                                onChange={(ev) =>
-                                  setManualDates((s) => ({
-                                    ...s,
-                                    [i]: { date: s[i]?.date ?? "", time: ev.target.value },
-                                  }))
-                                }
-                              />
-                            </Label>
+                            )}
+                            {!hasGenuineDate(e.candidate) &&
+                              (showTime[e.id] ? (
+                                <Input
+                                  type="time"
+                                  aria-label="Row time"
+                                  className="h-7 w-auto text-[11px]"
+                                  value={override?.time ?? ""}
+                                  onChange={(ev) =>
+                                    setBatch((b) =>
+                                      b
+                                        ? setRowDate(b, e.id, {
+                                            date:
+                                              override?.date ??
+                                              (when ? when.iso.slice(0, 10) : ""),
+                                            time: ev.target.value,
+                                          })
+                                        : b,
+                                    )
+                                  }
+                                />
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="text-ink-soft underline"
+                                  onClick={() => setShowTime((s) => ({ ...s, [e.id]: true }))}
+                                >
+                                  Add time
+                                </button>
+                              ))}
                           </div>
-                          {!manualDates[i]?.date && (
+                          {!when && (
                             <div className="text-money-out">
-                              Import stays disabled for this row until a date is supplied.
+                              A date-only value is enough — time is never required.
                             </div>
                           )}
                         </div>
+                      )}
+                      {row.ok && state !== "READY" && blockersList(e).length > 0 && (
+                        <ul className="text-[11px] rounded border border-airtime/40 bg-airtime/5 px-2 py-1 text-airtime list-disc list-inside">
+                          {blockersList(e).map((b, k) => (
+                            <li key={k}>{b}</li>
+                          ))}
+                        </ul>
                       )}
                       {(suggestedBank || needsAgent || needsDistributor || airtime) && (
                         <div className="flex flex-wrap gap-2 pt-1">
