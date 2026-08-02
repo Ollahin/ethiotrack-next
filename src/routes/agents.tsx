@@ -49,6 +49,7 @@ export const Route = createFileRoute("/agents")({
 function AgentsPage() {
   const agents = useAgents();
   const txns = useTransactions();
+  const allocations = useSettlementAllocations();
   const [selected, setSelected] = useState<string | null>(null);
 
   const rows = useMemo(
@@ -56,7 +57,7 @@ function AgentsPage() {
       agents
         .map((a) => ({ agent: a, stats: computeAgentStats(a, txns, allocations) }))
         .sort((x, y) => y.stats.openCreditSantim - x.stats.openCreditSantim),
-    [agents, txns],
+    [agents, txns, allocations],
   );
 
   const totals = useMemo(() => {
