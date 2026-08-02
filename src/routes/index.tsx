@@ -9,6 +9,7 @@ import {
   useAgents,
   usePeriodClosing,
   usePeriodOpening,
+  useSettlementAllocations,
   useTransactions,
   getWeekStart,
   getWeekEnd,
@@ -43,6 +44,7 @@ function DashboardPage() {
   const closing = usePeriodClosing(weekStart);
   const txns = useTransactions();
   const agents = useAgents();
+  const allocations = useSettlementAllocations();
   const [manualOpen, setManualOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const userName = useUserName();
@@ -53,8 +55,8 @@ function DashboardPage() {
   const modalOpen = needsOpen || manualOpen;
 
   const openCredit = useMemo(() => {
-    return agents.reduce((sum, a) => sum + computeAgentStats(a, txns).openCreditSantim, 0);
-  }, [agents, txns]);
+    return agents.reduce((sum, a) => sum + computeAgentStats(a, txns, allocations).openCreditSantim, 0);
+  }, [agents, txns, allocations]);
 
   const cashVariance = closing ? closing.varianceSantim : null;
 
