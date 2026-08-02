@@ -49,7 +49,7 @@ import {
 import {
   addTransactionsBulk,
   forceInsertTransactions,
-  updateTransaction,
+  recordAgentSettlement,
   upsertAgent,
   upsertBank,
   upsertDistributor,
@@ -559,7 +559,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     for (let i = 0; i < inputs.length; i++) {
       const inp = inputs[i];
       if (!settlePlan[i] || inp.type !== "in" || !inp.partyId) continue;
-      const txnId = res.insertedFor?.[i];
+      const txnId = res.insertedFor[i];
       if (!txnId) continue;
       await recordAgentSettlement(txnId, inp.partyId, inp.amountSantim);
     }

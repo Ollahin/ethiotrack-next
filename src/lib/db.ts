@@ -565,6 +565,8 @@ export async function addTransactionsBulk(
   inserted: number;
   skipped: number;
   ids: string[];
+  /** Written id per input index; undefined where the input was skipped. */
+  insertedFor: Array<string | undefined>;
   skippedRows: Array<{
     index: number;
     input: Omit<Transaction, "id" | "createdAt">;
@@ -592,6 +594,7 @@ export async function addTransactionsBulk(
     reason: "reference" | "heuristic" | "capture";
   }> = [];
   let skipped = 0;
+  const insertedFor: Array<string | undefined> = new Array(inputs.length).fill(undefined);
   for (let i = 0; i < inputs.length; i++) {
     const input = inputs[i];
     if (input.captureKey && seenCaptures.has(input.captureKey)) {
@@ -615,6 +618,7 @@ export async function addTransactionsBulk(
         createdAt: new Date().toISOString(),
       };
       inserted.push(txn);
+      insertedFor[i] = txn.id;
       seenRefs.add(rk);
       const k = duplicateKey(input);
       seen.set(k, [...(seen.get(k) ?? []), new Date(input.date).getTime()]);
@@ -634,6 +638,7 @@ export async function addTransactionsBulk(
       createdAt: new Date().toISOString(),
     };
     inserted.push(txn);
+    insertedFor[i] = txn.id;
     seen.set(k, [...(seen.get(k) ?? []), ts]);
   }
   if (inserted.length) await db().transactions.bulkPut(inserted);
@@ -641,6 +646,7 @@ export async function addTransactionsBulk(
     inserted: inserted.length,
     skipped,
     ids: inserted.map((t) => t.id),
+    insertedFor,
     skippedRows,
   };
 }
