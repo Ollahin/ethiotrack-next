@@ -27,6 +27,13 @@ export interface ReadinessInput {
   linkCertain?: boolean;
   /** Parser flagged something for a human to look at. */
   needsReview?: boolean;
+  /**
+   * The source gave no reference number, so duplicate detection can only fall
+   * back on a heuristic. The reviewer must acknowledge that risk explicitly.
+   */
+  duplicateRisk?: boolean;
+  /** The reviewer acknowledged that duplicate risk. */
+  duplicateRiskAcknowledged?: boolean;
 }
 
 export function rowReadiness(i: ReadinessInput): ReadinessState {
@@ -36,6 +43,7 @@ export function rowReadiness(i: ReadinessInput): ReadinessState {
   if (!i.accountSelected) return "INCOMPLETE";
   if (!i.purposeResolved) return "INCOMPLETE";
   if (i.requiresLink && !i.linkSatisfied) return "INCOMPLETE";
+  if (i.duplicateRisk && !i.duplicateRiskAcknowledged) return "NEEDS_ATTENTION";
   if (i.needsReview) return "NEEDS_ATTENTION";
   if (i.requiresLink && i.linkCertain === false) return "NEEDS_ATTENTION";
   return "READY";
