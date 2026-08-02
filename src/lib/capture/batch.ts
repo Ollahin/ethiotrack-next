@@ -39,6 +39,15 @@ export interface DateChoice {
   time?: string;
 }
 
+/** Reviewer decisions, keyed by candidate id, persisted with the batch. */
+export interface BatchDecisions {
+  purposes?: Record<string, string>;
+  partyActions?: Record<string, string>;
+  bankActions?: Record<string, string>;
+  distActions?: Record<string, string>;
+  remember?: Record<string, boolean>;
+}
+
 export interface CaptureBatch {
   id: string;
   createdAt: string;
@@ -49,6 +58,8 @@ export interface CaptureBatch {
   batchDate?: DateChoice;
   /** Per-candidate manual overrides, keyed by candidate id. */
   overrides: Record<string, DateChoice>;
+  /** Everything the reviewer chose, so a refresh loses no work. */
+  decisions: BatchDecisions;
 }
 
 function batchId(): string {
@@ -79,6 +90,7 @@ export function buildBatch(
       metadataDateIso: opts.metadataDateIso,
     })),
     overrides: {},
+    decisions: {},
   };
 }
 
@@ -209,7 +221,7 @@ export function loadBatch(): CaptureBatch | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as CaptureBatch;
     if (!parsed?.candidates?.length) return null;
-    return { ...parsed, overrides: parsed.overrides ?? {} };
+    return { ...parsed, overrides: parsed.overrides ?? {}, decisions: parsed.decisions ?? {} };
   } catch {
     return null;
   }
