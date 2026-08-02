@@ -319,34 +319,28 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
   }
 
   async function importAll() {
-    const ok = enriched.filter((e, i) => isImportable(i, e.row));
+    const ok = enriched.filter((e, i) => isImportable(i, e));
     if (!ok.length) {
-      toast.error("Nothing importable — fix the flagged rows first");
+      toast.error("Nothing is READY — resolve source, date, account and purpose first");
       return;
     }
 
-    // Resolve per-row party + bank decisions BEFORE we build tx inputs, so
-    // newly-created agents/distributors/banks get real ids we can link to.
-    let createdBanks = 0,
-      createdAgents = 0,
-      createdDistributors = 0;
-    let blockedNoDate = 0;
-    let blockedInvalid = 0;
+    // Only the account a message moved through may be registered here; agents
+    // and distributors are never created from a capture.
+    let createdBanks = 0;
+    let blockedNotReady = 0;
     const inputs: Array<Omit<Transaction, "id" | "createdAt">> = [];
 
     for (let i = 0; i < enriched.length; i++) {
       const e = enriched[i];
       if (!e.row.ok) continue;
       const { row } = e;
-      if (blockersFor(row).length > 0) {
-        blockedInvalid++;
+      if (!isImportable(i, e)) {
+        blockedNotReady++;
         continue;
       }
-      const when = resolvedDate(i, row);
-      if (!when) {
-        blockedNoDate++;
-        continue;
-      }
+      const when = resolvedDate(i, row)!;
+      const purpose = purposeFor(i, row);
 
       // ----- Bank resolution
       let bankId = e.bank?.id;
@@ -363,23 +357,13 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
         createdBanks++;
       }
 
-      // ----- Party resolution
+      // ----- Party resolution (explicit links only)
       let partyId: string | undefined;
       let partyType: Transaction["partyType"] | undefined;
       const pAction = partyActionFor(i, e);
       if (pAction.kind === "link") {
         partyId = pAction.id;
         partyType = pAction.partyType;
-      } else if (pAction.kind === "new-agent" && row.party) {
-        const a = await upsertAgent({ name: row.party, phone: row.counterpartyPhone });
-        partyId = a.id;
-        partyType = "agent";
-        createdAgents++;
-      } else if (pAction.kind === "new-distributor" && row.party) {
-        const d = await upsertDistributor({ name: row.party });
-        partyId = d.id;
-        partyType = "distributor";
-        createdDistributors++;
       }
 
       // ----- Distributor resolution (airtime rows only)
