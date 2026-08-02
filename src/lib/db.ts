@@ -11,6 +11,7 @@ import type {
   PeriodClosing,
   PeriodOpening,
   SharedInput,
+  SettlementAllocation,
   StatementImport,
   Transaction,
 } from "./types";
@@ -86,6 +87,7 @@ class EthioTrackDB extends Dexie {
   fulfillments!: Table<FulfillmentEntry, string>;
   approvedMappings!: Table<ApprovedMapping, string>;
   sharedInputs!: Table<SharedInput, string>;
+  settlementAllocations!: Table<SettlementAllocation, string>;
   meta!: Table<{ key: string; value: unknown }, string>;
 
   constructor() {
