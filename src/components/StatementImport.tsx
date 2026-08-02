@@ -215,6 +215,7 @@ export function StatementImport({
       overrideReason: "",
       overrideConfirmed: false,
       editing: {},
+      remember: {},
     }));
     setJobs((js) => [...js, ...next]);
     // Each screenshot is processed independently: one failure never discards
