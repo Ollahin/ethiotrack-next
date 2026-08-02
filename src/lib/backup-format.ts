@@ -15,6 +15,7 @@ import type {
   FulfillmentEntry,
   PeriodClosing,
   PeriodOpening,
+  SettlementAllocation,
   StatementImport,
   Transaction,
   SharedInput,
