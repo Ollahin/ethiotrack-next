@@ -142,6 +142,17 @@ export function classifyCapturedText(text: string): CaptureClassification {
     .filter((c) => c.recognized > 0)
     .sort((a, b) => b.score - a.score || a.family.localeCompare(b.family));
 
+  // Conflicting issuer evidence is never broken by parser scores: the operator
+  // decides which family owns the text.
+  if (fp.conflicts.length > 0 && fp.evidence.length > 0 && recognised.length > 0) {
+    return {
+      family: "unknown",
+      ambiguous: true,
+      candidates: recognised,
+      evidence: fp.conflicts.join(" "),
+    };
+  }
+
   if (recognised.length === 0) {
     return {
       family: "unknown",
