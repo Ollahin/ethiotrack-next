@@ -189,6 +189,8 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
   const [bankActions, setBankActions] = useState<Record<string, BankAction>>({});
   const [distActions, setDistActions] = useState<Record<string, DistributorAction>>({});
   const [purposes, setPurposes] = useState<Record<string, BusinessPurpose>>({});
+  /** Duplicate-risk acknowledgements for rows with no reference number. */
+  const [dupAck, setDupAck] = useState<Record<string, boolean>>({});
   /** "Remember this exact sender label" ticks, per candidate. */
   const [remember, setRemember] = useState<Record<string, boolean>>({});
   /** Rows whose optional time field has been revealed. */
@@ -342,6 +344,10 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
       // pre-selected guess would be uncertain, and none is ever made.
       linkCertain: true,
       needsReview: Boolean(row.ok && row.needsReview),
+      // Without a reference number, duplicate detection can only guess from
+      // amount, party and time. The reviewer must accept that explicitly.
+      duplicateRisk: Boolean(row.ok && !row.reference?.trim()),
+      duplicateRiskAcknowledged: Boolean(dupAck[e.id]),
     };
   }
 
@@ -365,6 +371,8 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
       out.push(
         requiresAgent(purpose) ? "Exact agent not selected." : "Exact distributor not selected.",
       );
+    if (input.duplicateRisk && !input.duplicateRiskAcknowledged)
+      out.push("No reference number — confirm this is not a repeat of an earlier message.");
     if (input.needsReview) out.push("Parser flagged this message for a human check.");
     return out;
   }
@@ -375,7 +383,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
   const readiness = useMemo(
     () => summarizeReadinessStates(enriched.map((e) => readinessInput(e))),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [enriched, batch, distActions, partyActions, bankActions, purposes],
+    [enriched, batch, distActions, partyActions, bankActions, purposes, dupAck],
   );
 
   // The pending batch survives a refresh: nothing is saved, but every
@@ -411,6 +419,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     setDistActions({});
     setPurposes({});
     setRemember({});
+    setDupAck({});
     setShowTime({});
   }
 
@@ -1172,6 +1181,19 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                             </div>
                           )}
                         </div>
+                      )}
+                      {!row.reference?.trim() && (
+                        <label className="flex items-center gap-1 text-[11px] text-ink-soft">
+                          <input
+                            type="checkbox"
+                            className="h-3 w-3 accent-[hsl(var(--money-in))]"
+                            checked={Boolean(dupAck[e.id])}
+                            onChange={(ev) =>
+                              setDupAck((st) => ({ ...st, [e.id]: ev.target.checked }))
+                            }
+                          />
+                          No reference number — I confirm this is not a repeat
+                        </label>
                       )}
                       <div className="text-[11px] text-ink-soft whitespace-pre-wrap break-words">
                         {row.note}
