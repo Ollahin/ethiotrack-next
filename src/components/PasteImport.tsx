@@ -52,7 +52,9 @@ import { toast } from "sonner";
 
 // Entities are never created from a capture: the operator links an existing
 // agent or distributor, or the row stays unresolved.
-type PartyAction = { kind: "none" } | { kind: "link"; partyType: "agent" | "distributor"; id: string };
+type PartyAction =
+  | { kind: "none" }
+  | { kind: "link"; partyType: "agent" | "distributor"; id: string };
 
 type BankAction = { kind: "auto" } | { kind: "skip" };
 
@@ -277,7 +279,8 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
       linkSatisfied: needsAgent
         ? pAction.kind === "link" && pAction.partyType === "agent"
         : needsDistributor
-          ? dAction.kind === "link" || (pAction.kind === "link" && pAction.partyType === "distributor")
+          ? dAction.kind === "link" ||
+            (pAction.kind === "link" && pAction.partyType === "distributor")
           : true,
       linkCertain: needsDistributor && isBankTransferRow(row) ? Boolean(e.payee) : true,
       needsReview: Boolean(row.ok && row.needsReview),
@@ -421,9 +424,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
       }
     }
 
-    const extras = [
-      createdBanks && `${createdBanks} new bank${createdBanks > 1 ? "s" : ""}`,
-    ]
+    const extras = [createdBanks && `${createdBanks} new bank${createdBanks > 1 ? "s" : ""}`]
       .filter(Boolean)
       .join(", ");
     toast.success(
@@ -696,83 +697,84 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                           row.feeSantim !== undefined ||
                           row.vatSantim !== undefined ||
                           row.finalDebitSantim !== undefined) && (
-                        <div className="text-[11px] rounded border border-border bg-muted/40 px-2 py-1 space-y-0.5">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 tabular-nums">
-                            <span>
-                              <span className="text-ink-soft">Principal: </span>
-                              {formatEtb(row.principalSantim ?? row.amountSantim)}
-                            </span>
-                            <span>
-                              <span className="text-ink-soft">Final bank debit: </span>
-                              {(() => {
-                                const final = resolveFinalAmount({
-                                  statedFinalSantim: row.finalDebitSantim,
-                                  principalSantim: row.principalSantim ?? row.amountSantim,
-                                  feeSantim: row.feeSantim,
-                                  vatSantim: row.vatSantim,
-                                  otherChargesSantim: row.drChargeSantim,
-                                  hasCharges:
-                                    row.feeSantim !== undefined || row.vatSantim !== undefined,
-                                });
-                                return final !== undefined ? (
-                                  formatEtb(final)
+                          <div className="text-[11px] rounded border border-border bg-muted/40 px-2 py-1 space-y-0.5">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 tabular-nums">
+                              <span>
+                                <span className="text-ink-soft">Principal: </span>
+                                {formatEtb(row.principalSantim ?? row.amountSantim)}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">Final bank debit: </span>
+                                {(() => {
+                                  const final = resolveFinalAmount({
+                                    statedFinalSantim: row.finalDebitSantim,
+                                    principalSantim: row.principalSantim ?? row.amountSantim,
+                                    feeSantim: row.feeSantim,
+                                    vatSantim: row.vatSantim,
+                                    otherChargesSantim: row.drChargeSantim,
+                                    hasCharges:
+                                      row.feeSantim !== undefined || row.vatSantim !== undefined,
+                                  });
+                                  return final !== undefined ? (
+                                    formatEtb(final)
+                                  ) : (
+                                    <span className="text-money-out">not stated</span>
+                                  );
+                                })()}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">Service charge: </span>
+                                {row.feeSantim !== undefined ? (
+                                  formatEtb(row.feeSantim)
                                 ) : (
-                                  <span className="text-money-out">not stated</span>
-                                );
-                              })()}
-                            </span>
-                            <span>
-                              <span className="text-ink-soft">Service charge: </span>
-                              {row.feeSantim !== undefined ? (
-                                formatEtb(row.feeSantim)
-                              ) : (
-                                <span className="text-ink-soft">not stated</span>
-                              )}
-                            </span>
-                            <span>
-                              <span className="text-ink-soft">VAT: </span>
-                              {row.vatSantim !== undefined ? (
-                                formatEtb(row.vatSantim)
-                              ) : (
-                                <span className="text-ink-soft">not stated</span>
-                              )}
-                            </span>
-                            <span>
-                              <span className="text-ink-soft">DR charge: </span>
-                              {row.drChargeSantim !== undefined ? (
-                                formatEtb(row.drChargeSantim)
-                              ) : (
-                                <span className="text-ink-soft">not stated</span>
-                              )}
-                            </span>
-                            <span>
-                              <span className="text-ink-soft">Balance: </span>
-                              {row.balanceSantim !== undefined ? (
-                                formatEtb(row.balanceSantim)
-                              ) : (
-                                <span className="text-ink-soft">not stated</span>
-                              )}
-                            </span>
-                            <span>
-                              <span className="text-ink-soft">Source account tail: </span>
-                              {row.accountTail ?? "not stated"}
-                            </span>
-                            <span>
-                              <span className="text-ink-soft">Destination account tail: </span>
-                              {row.counterpartyAccountTail ?? "not stated"}
-                            </span>
-                            <span className="sm:col-span-2">
-                              <span className="text-ink-soft">Recipient: </span>
-                              {row.party}
-                            </span>
-                          </div>
-                          {row.missingFields && row.missingFields.length > 0 && (
-                            <div className="text-money-out">
-                              Not stated in the message (left empty): {row.missingFields.join(", ")}
+                                  <span className="text-ink-soft">not stated</span>
+                                )}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">VAT: </span>
+                                {row.vatSantim !== undefined ? (
+                                  formatEtb(row.vatSantim)
+                                ) : (
+                                  <span className="text-ink-soft">not stated</span>
+                                )}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">DR charge: </span>
+                                {row.drChargeSantim !== undefined ? (
+                                  formatEtb(row.drChargeSantim)
+                                ) : (
+                                  <span className="text-ink-soft">not stated</span>
+                                )}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">Balance: </span>
+                                {row.balanceSantim !== undefined ? (
+                                  formatEtb(row.balanceSantim)
+                                ) : (
+                                  <span className="text-ink-soft">not stated</span>
+                                )}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">Source account tail: </span>
+                                {row.accountTail ?? "not stated"}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">Destination account tail: </span>
+                                {row.counterpartyAccountTail ?? "not stated"}
+                              </span>
+                              <span className="sm:col-span-2">
+                                <span className="text-ink-soft">Recipient: </span>
+                                {row.party}
+                              </span>
                             </div>
-                          )}
-                        </div>
-                      )}
+                            {row.missingFields && row.missingFields.length > 0 && (
+                              <div className="text-money-out">
+                                Not stated in the message (left empty):{" "}
+                                {row.missingFields.join(", ")}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       {row.ok && blockersFor(row).length > 0 && (
                         <ul className="text-[11px] rounded border border-money-out/40 bg-money-out/5 px-2 py-1 text-money-out list-disc list-inside">
                           {blockersFor(row).map((issue, k) => (

@@ -6,7 +6,11 @@
 
 import { parseOne, type ParsedOk } from "../parser";
 import { parseFloatEvdSms } from "../float-evd-sms-parser";
-import { fingerprintSource, type CaptureSource, type SourceFingerprint } from "./source-fingerprint";
+import {
+  fingerprintSource,
+  type CaptureSource,
+  type SourceFingerprint,
+} from "./source-fingerprint";
 import { segmentSourceRecords, type SourceRecord } from "./segmentation";
 import { defaultPurpose, type BusinessPurpose, type MoneyDirection } from "./purpose";
 

@@ -54,7 +54,13 @@ export interface ReadinessSummary {
 }
 
 export function summarizeReadinessStates(rows: ReadinessInput[]): ReadinessSummary {
-  const s: ReadinessSummary = { total: rows.length, ready: 0, needsAttention: 0, incomplete: 0, invalid: 0 };
+  const s: ReadinessSummary = {
+    total: rows.length,
+    ready: 0,
+    needsAttention: 0,
+    incomplete: 0,
+    invalid: 0,
+  };
   for (const r of rows) {
     const state = rowReadiness(r);
     if (state === "READY") s.ready++;

@@ -68,7 +68,10 @@ const BANK_LANGUAGE: Marker[] = [
     rx: /\b(?:Your\s+)?Current\s+Balance\s+is\b|\bAvailable\s+Balance\b|\bLedger\s+Balance\b/i,
     label: "bank balance statement",
   },
-  { rx: /\bhas been (?:credited|debited)\b|\bwas (?:credited|debited)\b/i, label: "bank credit/debit wording" },
+  {
+    rx: /\bhas been (?:credited|debited)\b|\bwas (?:credited|debited)\b/i,
+    label: "bank credit/debit wording",
+  },
 ];
 
 const TELEBIRR_MARKERS: Marker[] = [
@@ -108,7 +111,8 @@ function hits(text: string, markers: Marker[]): string[] {
 }
 
 function bankChannel(text: string): { channel: string; label: string } | null {
-  for (const b of BANK_INSTITUTIONS) if (b.rx.test(text)) return { channel: b.channel, label: b.label };
+  for (const b of BANK_INSTITUTIONS)
+    if (b.rx.test(text)) return { channel: b.channel, label: b.label };
   return null;
 }
 
