@@ -55,7 +55,10 @@ function DashboardPage() {
   const modalOpen = needsOpen || manualOpen;
 
   const openCredit = useMemo(() => {
-    return agents.reduce((sum, a) => sum + computeAgentStats(a, txns, allocations).openCreditSantim, 0);
+    return agents.reduce(
+      (sum, a) => sum + computeAgentStats(a, txns, allocations).openCreditSantim,
+      0,
+    );
   }, [agents, txns, allocations]);
 
   const cashVariance = closing ? closing.varianceSantim : null;

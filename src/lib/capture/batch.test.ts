@@ -79,9 +79,7 @@ describe("large batches", () => {
     ).join("\n\n");
     const batch = buildBatch(text)!;
     expect(batch.candidates).toHaveLength(200);
-    expect(batch.candidates.map((c) => c.index)).toEqual(
-      Array.from({ length: 200 }, (_, i) => i),
-    );
+    expect(batch.candidates.map((c) => c.index)).toEqual(Array.from({ length: 200 }, (_, i) => i));
     expect(new Set(batch.candidates.map((c) => c.id)).size).toBe(200);
     // Importing the middle row leaves every sibling pending and unchanged.
     const after = removeCandidates(batch, [batch.candidates[100].id])!;
