@@ -567,28 +567,38 @@ export async function addTransactionsBulk(
   skippedRows: Array<{
     index: number;
     input: Omit<Transaction, "id" | "createdAt">;
-    reason: "reference" | "heuristic";
+    reason: "reference" | "heuristic" | "capture";
   }>;
 }> {
   const existing = await db().transactions.toArray();
   const seen = new Map<string, number[]>();
   const seenRefs = new Set<string>();
+  // Capture identity: the exact same reviewed row, saved twice (retry, refresh
+  // or a replayed share) must land once.
+  const seenCaptures = new Set<string>();
   for (const t of existing) {
     const k = duplicateKey(t);
     seen.set(k, [...(seen.get(k) ?? []), new Date(t.date).getTime()]);
     if (t.reference && t.reference.trim()) {
       seenRefs.add(referenceKey(t, t.reference));
     }
+    if (t.captureKey) seenCaptures.add(t.captureKey);
   }
   const inserted: Transaction[] = [];
   const skippedRows: Array<{
     index: number;
     input: Omit<Transaction, "id" | "createdAt">;
-    reason: "reference" | "heuristic";
+    reason: "reference" | "heuristic" | "capture";
   }> = [];
   let skipped = 0;
   for (let i = 0; i < inputs.length; i++) {
     const input = inputs[i];
+    if (input.captureKey && seenCaptures.has(input.captureKey)) {
+      skipped++;
+      skippedRows.push({ index: i, input, reason: "capture" });
+      continue;
+    }
+    if (input.captureKey) seenCaptures.add(input.captureKey);
     // Authoritative: same channel + same reference => duplicate, regardless of amount/party/time.
     if (input.reference && input.reference.trim()) {
       const rk = referenceKey(input, input.reference);
