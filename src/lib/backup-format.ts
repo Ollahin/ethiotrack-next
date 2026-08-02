@@ -102,6 +102,11 @@ export interface BackupV5 {
    * review, it never books a row.
    */
   sharedInputs: SerializedSharedInput[];
+  /**
+   * Explicit agent settlement allocations. They are financial records: a
+   * restore must reproduce the same outstanding balances exactly.
+   */
+  settlementAllocations?: SettlementAllocation[];
   counts: BackupCounts;
 }
 
@@ -326,6 +331,20 @@ const backupV5Schema = z.object({
   fulfillments: z.array(fulfillmentSchema),
   approvedMappings: z.array(approvedMappingSchema),
   sharedInputs: z.array(sharedInputSchema),
+  settlementAllocations: z
+    .array(
+      z
+        .object({
+          id: idString,
+          paymentTxnId: idString,
+          creditTxnId: idString,
+          agentId: idString,
+          amountSantim: santim,
+          createdAt: z.string(),
+        })
+        .passthrough(),
+    )
+    .optional(),
   counts: countsSchema,
 });
 
