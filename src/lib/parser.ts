@@ -251,11 +251,11 @@ function matchTemplates(raw: string): TemplateFields | null {
 
   // -------- Telebirr --------
   m = raw.match(
-    /You have transferred ETB\s*([\d,]+(?:\.\d+)?)\s+to\s+(.+?)\s*\(([\d*]+)\)\s+on\s+([^.]+)\.\s*Your transaction number is\s+([A-Z0-9]+)/i,
+    /You have transferred ETB\s*([\d,]+(?:\.\d+)?)\s+to\s+(.+?)\s*\(([\d*]+)\)\s+on\s+([^.]+)\.[\s\S]{0,240}?Your transaction number is\s+([A-Z0-9]+)/i,
   );
   if (m) {
     const feeM = raw.match(/service fee is ETB\s*([\d,]+(?:\.\d+)?)/i);
-    const vatM = raw.match(/VAT[^E]*ETB\s*([\d,]+(?:\.\d+)?)/i);
+    const vatM = raw.match(/VAT[^.]{0,60}?ETB\s*([\d,]+(?:\.\d+)?)/i);
     const balM = raw.match(/E-Money Account balance is ETB\s*([\d,]+(?:\.\d+)?)/i);
     return {
       channel: "Telebirr",

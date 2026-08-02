@@ -12,8 +12,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { parseMany, type ParsedOk, type ParsedRow } from "@/lib/parser";
-import { summarizeReadiness, type RowDecisionInput } from "@/lib/capture-disclosure";
+import { type ParsedOk, type ParsedRow } from "@/lib/parser";
+import { parseSourceRecords } from "@/lib/capture/parse-records";
+import { fingerprintSource } from "@/lib/capture/source-fingerprint";
+import { resolveFinalAmount } from "@/lib/capture/candidate";
+import {
+  PURPOSE_LABEL,
+  defaultPurpose,
+  purposeOptions,
+  requiresAgent,
+  requiresDistributor,
+  settlesAgentCredits,
+  isPersonal as isPersonalPurpose,
+  type BusinessPurpose,
+} from "@/lib/capture/purpose";
+import {
+  rowReadiness,
+  summarizeReadinessStates,
+  type ReadinessInput,
+} from "@/lib/capture/readiness";
 import {
   addTransactionsBulk,
   forceInsertTransactions,
@@ -33,10 +50,10 @@ import { formatEtb } from "@/lib/format";
 import type { AirtimeForm, Bank, Distributor, Transaction } from "@/lib/types";
 import { toast } from "sonner";
 
+// Entities are never created from a capture: the operator links an existing
+// agent or distributor, or the row stays unresolved.
 type PartyAction =
   | { kind: "none" }
-  | { kind: "new-agent" }
-  | { kind: "new-distributor" }
   | { kind: "link"; partyType: "agent" | "distributor"; id: string };
 
 type BankAction = { kind: "auto" } | { kind: "skip" };
@@ -127,7 +144,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
   const [text, setText] = useState(initialText ?? "");
   const [isPersonal, setPersonal] = useState(false);
   const [rows, setRows] = useState<ParsedRow[] | null>(
-    initialText && initialText.trim() ? parseMany(initialText) : null,
+    initialText && initialText.trim() ? parseSourceRecords(initialText) : null,
   );
   const agents = useAgents();
   const banks = useBanks();
@@ -140,6 +157,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
   const [manualDates, setManualDates] = useState<Record<number, { date: string; time: string }>>(
     {},
   );
+  const [purposes, setPurposes] = useState<Record<number, BusinessPurpose>>({});
   const [skippedInfo, setSkippedInfo] = useState<
     Array<{ input: Omit<Transaction, "id" | "createdAt">; reason: "reference" | "heuristic" }>
   >([]);
@@ -183,7 +201,6 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
         : { kind: "none" };
     }
     if (e.agent) return { kind: "link", partyType: "agent", id: e.agent.id };
-    if (e.row.ok && e.row.party && !isGenericParty(e.row.party)) return { kind: "new-agent" };
     return { kind: "none" };
   }
 
@@ -224,84 +241,112 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     return { iso: iso.toISOString(), dayOnly: !manual.time };
   }
 
-  /** Only rows that can actually be persisted are counted and imported. */
-  function isImportable(i: number, row: ParsedRow): boolean {
-    if (!row.ok) return false;
-    if (blockersFor(row).length > 0) return false;
-    return resolvedDate(i, row) !== null;
+  /** Money direction used to offer the right business purposes. */
+  function directionOf(row: ParsedRow): "in" | "out" | "unknown" {
+    if (!row.ok) return "unknown";
+    if (row.type === "in") return "in";
+    if (row.type === "out") return "out";
+    return "out";
   }
 
-  const importableCount = enriched.filter((e, i) => isImportable(i, e.row)).length;
+  function purposeFor(i: number, row: ParsedRow): BusinessPurpose {
+    return purposes[i] ?? defaultPurpose();
+  }
+
+  /** A bank/wallet leg must name the account it moved through. */
+  function requiresAccount(row: ParsedRow): boolean {
+    return row.ok && !isAirtimeRow(row.type);
+  }
+
+  /** Everything the state machine needs for one row. */
+  function readinessInput(i: number, e: (typeof enriched)[number]): ReadinessInput {
+    const { row } = e;
+    const purpose = purposeFor(i, row);
+    const fp = row.ok ? fingerprintSource(row.raw) : null;
+    const bAction = bankActionFor(i, e);
+    const pAction = partyActionFor(i, e);
+    const dAction = distActionFor(i, e);
+    const needsAgent = requiresAgent(purpose);
+    const needsDistributor = requiresDistributor(purpose) || isBankTransferRow(row);
+    return {
+      sourceResolved: Boolean(row.ok && (fp?.resolved || (row.channel && row.channel !== "Other"))),
+      familyResolved: row.ok,
+      financialBlockers: blockersFor(row).length,
+      hasDate: resolvedDate(i, row) !== null,
+      accountSelected: !requiresAccount(row) || Boolean(e.bank) || bAction.kind === "auto",
+      purposeResolved: purpose !== "unresolved",
+      requiresLink: needsAgent || needsDistributor,
+      linkSatisfied: needsAgent
+        ? pAction.kind === "link" && pAction.partyType === "agent"
+        : needsDistributor
+          ? dAction.kind === "link" ||
+            (pAction.kind === "link" && pAction.partyType === "distributor")
+          : true,
+      linkCertain: needsDistributor && isBankTransferRow(row) ? Boolean(e.payee) : true,
+      needsReview: Boolean(row.ok && row.needsReview),
+    };
+  }
+
+  /** Only READY rows are counted and imported. */
+  function isImportable(i: number, e: (typeof enriched)[number]): boolean {
+    return rowReadiness(readinessInput(i, e)) === "READY";
+  }
+
+  const importableCount = enriched.filter((e, i) => isImportable(i, e)).length;
 
   /** Batch readiness, shown before anything can be saved. */
   const readiness = useMemo(
-    () =>
-      summarizeReadiness(
-        enriched.map((e, i): RowDecisionInput => {
-          const transfer = isBankTransferRow(e.row);
-          return {
-            parsedOk: e.row.ok,
-            blockers: blockersFor(e.row).length,
-            hasDate: resolvedDate(i, e.row) !== null,
-            requiresCounterparty: transfer,
-            counterpartyLinked: transfer ? distActionFor(i, e).kind === "link" : true,
-            counterpartyCertain: transfer ? Boolean(e.payee) : true,
-            needsReview: Boolean(e.row.ok && e.row.needsReview),
-          };
-        }),
-      ),
+    () => summarizeReadinessStates(enriched.map((e, i) => readinessInput(i, e))),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [enriched, manualDates, distActions],
+    [enriched, manualDates, distActions, partyActions, bankActions, purposes],
   );
 
   useEffect(() => {
     if (initialText === undefined) return;
     setText(initialText);
-    setRows(initialText.trim() ? parseMany(initialText) : null);
+    setRows(initialText.trim() ? parseSourceRecords(initialText) : null);
     setPartyActions({});
     setBankActions({});
     setDistActions({});
     setManualDates({});
+    setPurposes({});
   }, [initialText]);
 
   function detect() {
     if (!text.trim()) return;
-    setRows(parseMany(text));
+    setRows(parseSourceRecords(text));
     setPartyActions({});
     setBankActions({});
     setDistActions({});
     setManualDates({});
+    setPurposes({});
   }
 
   async function importAll() {
-    const ok = enriched.filter((e, i) => isImportable(i, e.row));
+    const ok = enriched.filter((e, i) => isImportable(i, e));
     if (!ok.length) {
-      toast.error("Nothing importable — fix the flagged rows first");
+      toast.error("Nothing is READY — resolve source, date, account and purpose first");
       return;
     }
 
-    // Resolve per-row party + bank decisions BEFORE we build tx inputs, so
-    // newly-created agents/distributors/banks get real ids we can link to.
-    let createdBanks = 0,
-      createdAgents = 0,
-      createdDistributors = 0;
-    let blockedNoDate = 0;
-    let blockedInvalid = 0;
+    // Only the account a message moved through may be registered here; agents
+    // and distributors are never created from a capture.
+    let createdBanks = 0;
+    let blockedNotReady = 0;
     const inputs: Array<Omit<Transaction, "id" | "createdAt">> = [];
+    /** Parallel to `inputs`: which rows may clear open agent credits. */
+    const settlePlan: boolean[] = [];
 
     for (let i = 0; i < enriched.length; i++) {
       const e = enriched[i];
       if (!e.row.ok) continue;
       const { row } = e;
-      if (blockersFor(row).length > 0) {
-        blockedInvalid++;
+      if (!isImportable(i, e)) {
+        blockedNotReady++;
         continue;
       }
-      const when = resolvedDate(i, row);
-      if (!when) {
-        blockedNoDate++;
-        continue;
-      }
+      const when = resolvedDate(i, row)!;
+      const purpose = purposeFor(i, row);
 
       // ----- Bank resolution
       let bankId = e.bank?.id;
@@ -318,23 +363,13 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
         createdBanks++;
       }
 
-      // ----- Party resolution
+      // ----- Party resolution (explicit links only)
       let partyId: string | undefined;
       let partyType: Transaction["partyType"] | undefined;
       const pAction = partyActionFor(i, e);
       if (pAction.kind === "link") {
         partyId = pAction.id;
         partyType = pAction.partyType;
-      } else if (pAction.kind === "new-agent" && row.party) {
-        const a = await upsertAgent({ name: row.party, phone: row.counterpartyPhone });
-        partyId = a.id;
-        partyType = "agent";
-        createdAgents++;
-      } else if (pAction.kind === "new-distributor" && row.party) {
-        const d = await upsertDistributor({ name: row.party });
-        partyId = d.id;
-        partyType = "distributor";
-        createdDistributors++;
       }
 
       // ----- Distributor resolution (airtime rows only)
@@ -365,19 +400,20 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
         reference: row.reference,
         note: row.note ?? row.raw,
         date: when.iso,
-        isPersonal,
+        isPersonal: isPersonal || isPersonalPurpose(purpose),
         needsReview: row.needsReview,
         source: "paste_parse",
       });
+      settlePlan.push(settlesAgentCredits(purpose) && partyType === "agent");
     }
 
     const res = await addTransactionsBulk(inputs);
     setSkippedInfo(res.skippedRows.map((s) => ({ input: s.input, reason: s.reason })));
 
-    // FIFO settle: for each new 'in' payment linked to an agent, settle oldest credits.
+    // FIFO settle: only an explicit "Agent settlement" purpose clears credits.
     for (let i = 0; i < inputs.length; i++) {
       const inp = inputs[i];
-      if (inp.type !== "in" || !inp.partyId) continue;
+      if (!settlePlan[i] || inp.type !== "in" || !inp.partyId) continue;
       const open = openCreditsFor(inp.partyId, txns);
       if (!open.length) continue;
       const plan = planFifoSettlement(inp.amountSantim, open);
@@ -388,12 +424,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
       }
     }
 
-    const extras = [
-      createdBanks && `${createdBanks} new bank${createdBanks > 1 ? "s" : ""}`,
-      createdAgents && `${createdAgents} agent${createdAgents > 1 ? "s" : ""}`,
-      createdDistributors &&
-        `${createdDistributors} distributor${createdDistributors > 1 ? "s" : ""}`,
-    ]
+    const extras = [createdBanks && `${createdBanks} new bank${createdBanks > 1 ? "s" : ""}`]
       .filter(Boolean)
       .join(", ");
     toast.success(
@@ -402,23 +433,18 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
         (extras ? ` · registered ${extras}` : ""),
     );
     if (res.inserted > 0) onSaved?.();
-    if (blockedNoDate > 0) {
+    if (blockedNotReady > 0) {
       toast.error(
-        `${blockedNoDate} row(s) not imported: no transaction date — enter one in review.`,
+        `${blockedNotReady} row(s) not imported: still missing a source, date, account, purpose or link.`,
       );
-    }
-    if (blockedInvalid > 0) {
-      toast.error(
-        `${blockedInvalid} row(s) not imported: the message failed financial validation.`,
-      );
-    }
-    if (blockedNoDate === 0 && blockedInvalid === 0) {
+    } else {
       setText("");
       setRows(null);
       setPartyActions({});
       setBankActions({});
       setDistActions({});
       setManualDates({});
+      setPurposes({});
     }
   }
 
@@ -434,7 +460,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     return a.kind;
   }
   function decodePartyAction(v: string): PartyAction {
-    if (v === "none" || v === "new-agent" || v === "new-distributor") return { kind: v };
+    if (v === "none") return { kind: "none" };
     const [, type, id] = v.split(":");
     return { kind: "link", partyType: type as "agent" | "distributor", id };
   }
@@ -487,6 +513,9 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
             <span className="rounded bg-money-out/10 text-money-out font-semibold px-2 py-0.5">
               {readiness.incomplete} incomplete
             </span>
+            <span className="rounded bg-money-out/20 text-money-out font-semibold px-2 py-0.5">
+              {readiness.invalid} invalid
+            </span>
           </div>
         )}
         {rows !== null && enriched.filter((e) => e.row.ok).length === 0 && (
@@ -506,6 +535,9 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
               const pAction = partyActionFor(i, e);
               const bAction = bankActionFor(i, e);
               const dAction = distActionFor(i, e);
+              const state = rowReadiness(readinessInput(i, e));
+              const purpose = purposeFor(i, row);
+              const fp = row.ok ? fingerprintSource(row.raw) : null;
               const suggestedBank =
                 row.ok && !bank && row.channel && row.channel !== "Other"
                   ? suggestBankName(row.channel, row.accountTail)
@@ -548,6 +580,60 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                             </span>
                           )}
                         </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1 text-[11px]">
+                        <span
+                          className={
+                            "rounded px-1.5 py-0.5 font-semibold " +
+                            (state === "READY"
+                              ? "bg-money-in/10 text-money-in"
+                              : state === "NEEDS_ATTENTION"
+                                ? "bg-airtime/15 text-airtime"
+                                : "bg-money-out/10 text-money-out")
+                          }
+                        >
+                          {state}
+                        </span>
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-ink-soft">
+                          source: {fp?.resolved ? fp.source : "unresolved"}
+                          {fp?.channel ? ` · ${fp.channel}` : ""}
+                        </span>
+                        {fp && fp.evidence.length > 0 && (
+                          <span className="text-ink-soft">{fp.evidence.join(" · ")}</span>
+                        )}
+                        {fp && fp.conflicts.length > 0 && (
+                          <span className="text-money-out">{fp.conflicts.join(" · ")}</span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                        <span className="text-ink-soft">Business purpose:</span>
+                        <Select
+                          value={purpose}
+                          onValueChange={(v) =>
+                            setPurposes((s) => ({ ...s, [i]: v as BusinessPurpose }))
+                          }
+                        >
+                          <SelectTrigger className="h-6 w-auto min-w-[11rem] text-[11px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {purposeOptions(directionOf(row)).map((p) => (
+                              <SelectItem key={p} value={p}>
+                                {PURPOSE_LABEL[p]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {purpose === "unresolved" && (
+                          <span className="text-money-out">
+                            An unresolved purpose can never be imported.
+                          </span>
+                        )}
+                        {requiresAgent(purpose) && (
+                          <span className="text-airtime">
+                            Pick the exact agent below — agents are never created here.
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs">
                         <span className="font-medium">{row.party}</span>
@@ -606,73 +692,89 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                           </span>
                         )}
                       </div>
-                      {row.ok && transfer && (
-                        <div className="text-[11px] rounded border border-border bg-muted/40 px-2 py-1 space-y-0.5">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 tabular-nums">
-                            <span>
-                              <span className="text-ink-soft">Principal: </span>
-                              {formatEtb(row.principalSantim ?? row.amountSantim)}
-                            </span>
-                            <span>
-                              <span className="text-ink-soft">Final bank debit: </span>
-                              {row.finalDebitSantim !== undefined ? (
-                                formatEtb(row.finalDebitSantim)
-                              ) : (
-                                <span className="text-money-out">not stated</span>
-                              )}
-                            </span>
-                            <span>
-                              <span className="text-ink-soft">Service charge: </span>
-                              {row.feeSantim !== undefined ? (
-                                formatEtb(row.feeSantim)
-                              ) : (
-                                <span className="text-ink-soft">not stated</span>
-                              )}
-                            </span>
-                            <span>
-                              <span className="text-ink-soft">VAT: </span>
-                              {row.vatSantim !== undefined ? (
-                                formatEtb(row.vatSantim)
-                              ) : (
-                                <span className="text-ink-soft">not stated</span>
-                              )}
-                            </span>
-                            <span>
-                              <span className="text-ink-soft">DR charge: </span>
-                              {row.drChargeSantim !== undefined ? (
-                                formatEtb(row.drChargeSantim)
-                              ) : (
-                                <span className="text-ink-soft">not stated</span>
-                              )}
-                            </span>
-                            <span>
-                              <span className="text-ink-soft">Balance: </span>
-                              {row.balanceSantim !== undefined ? (
-                                formatEtb(row.balanceSantim)
-                              ) : (
-                                <span className="text-ink-soft">not stated</span>
-                              )}
-                            </span>
-                            <span>
-                              <span className="text-ink-soft">Source account tail: </span>
-                              {row.accountTail ?? "not stated"}
-                            </span>
-                            <span>
-                              <span className="text-ink-soft">Destination account tail: </span>
-                              {row.counterpartyAccountTail ?? "not stated"}
-                            </span>
-                            <span className="sm:col-span-2">
-                              <span className="text-ink-soft">Recipient: </span>
-                              {row.party}
-                            </span>
-                          </div>
-                          {row.missingFields && row.missingFields.length > 0 && (
-                            <div className="text-money-out">
-                              Not stated in the message (left empty): {row.missingFields.join(", ")}
+                      {row.ok &&
+                        (transfer ||
+                          row.feeSantim !== undefined ||
+                          row.vatSantim !== undefined ||
+                          row.finalDebitSantim !== undefined) && (
+                          <div className="text-[11px] rounded border border-border bg-muted/40 px-2 py-1 space-y-0.5">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 tabular-nums">
+                              <span>
+                                <span className="text-ink-soft">Principal: </span>
+                                {formatEtb(row.principalSantim ?? row.amountSantim)}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">Final bank debit: </span>
+                                {(() => {
+                                  const final = resolveFinalAmount({
+                                    statedFinalSantim: row.finalDebitSantim,
+                                    principalSantim: row.principalSantim ?? row.amountSantim,
+                                    feeSantim: row.feeSantim,
+                                    vatSantim: row.vatSantim,
+                                    otherChargesSantim: row.drChargeSantim,
+                                    hasCharges:
+                                      row.feeSantim !== undefined || row.vatSantim !== undefined,
+                                  });
+                                  return final !== undefined ? (
+                                    formatEtb(final)
+                                  ) : (
+                                    <span className="text-money-out">not stated</span>
+                                  );
+                                })()}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">Service charge: </span>
+                                {row.feeSantim !== undefined ? (
+                                  formatEtb(row.feeSantim)
+                                ) : (
+                                  <span className="text-ink-soft">not stated</span>
+                                )}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">VAT: </span>
+                                {row.vatSantim !== undefined ? (
+                                  formatEtb(row.vatSantim)
+                                ) : (
+                                  <span className="text-ink-soft">not stated</span>
+                                )}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">DR charge: </span>
+                                {row.drChargeSantim !== undefined ? (
+                                  formatEtb(row.drChargeSantim)
+                                ) : (
+                                  <span className="text-ink-soft">not stated</span>
+                                )}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">Balance: </span>
+                                {row.balanceSantim !== undefined ? (
+                                  formatEtb(row.balanceSantim)
+                                ) : (
+                                  <span className="text-ink-soft">not stated</span>
+                                )}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">Source account tail: </span>
+                                {row.accountTail ?? "not stated"}
+                              </span>
+                              <span>
+                                <span className="text-ink-soft">Destination account tail: </span>
+                                {row.counterpartyAccountTail ?? "not stated"}
+                              </span>
+                              <span className="sm:col-span-2">
+                                <span className="text-ink-soft">Recipient: </span>
+                                {row.party}
+                              </span>
                             </div>
-                          )}
-                        </div>
-                      )}
+                            {row.missingFields && row.missingFields.length > 0 && (
+                              <div className="text-money-out">
+                                Not stated in the message (left empty):{" "}
+                                {row.missingFields.join(", ")}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       {row.ok && blockersFor(row).length > 0 && (
                         <ul className="text-[11px] rounded border border-money-out/40 bg-money-out/5 px-2 py-1 text-money-out list-disc list-inside">
                           {blockersFor(row).map((issue, k) => (
@@ -800,11 +902,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="new-agent">Add as new agent</SelectItem>
-                                  <SelectItem value="new-distributor">
-                                    Add as new distributor
-                                  </SelectItem>
-                                  <SelectItem value="none">Don't link (manual later)</SelectItem>
+                                  <SelectItem value="none">Unresolved — don't link</SelectItem>
                                   {agents.length > 0 && (
                                     <>
                                       {agents.map((a) => (

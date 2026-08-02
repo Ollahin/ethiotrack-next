@@ -8,6 +8,7 @@
 import { parseMany } from "./parser";
 import { parseFloatEvdSms } from "./float-evd-sms-parser";
 import { detectStatementTemplate } from "./distributor-parser";
+import { fingerprintSource } from "./capture/source-fingerprint";
 
 /** Capture families the app can actually persist through a reviewed pipeline. */
 export type CaptureFamily = "bank_message" | "airtime_sms" | "distributor_statement" | "unknown";
@@ -120,10 +121,37 @@ export function classifyCapturedText(text: string): CaptureClassification {
       evidence: "Nothing to read — the capture was empty.",
     };
   }
+  // Source first: who issued the text decides which parser owns it. Parser
+  // scores are only used when the issuer cannot be established.
+  const fp = fingerprintSource(text);
+  if (fp.resolved) {
+    const family: CaptureFamily =
+      fp.source === "float" || fp.source === "evd" ? "airtime_sms" : "bank_message";
+    const all = [airtimeCandidate(text), bankCandidate(text), statementCandidate(text)];
+    return {
+      family,
+      ambiguous: false,
+      candidates: all
+        .filter((c) => c.recognized > 0 || c.family === family)
+        .sort((a, b) => (a.family === family ? -1 : b.family === family ? 1 : 0)),
+      evidence: `${fp.source} source (${fp.confidence} confidence): ${fp.evidence.join(", ")}`,
+    };
+  }
   const all = [airtimeCandidate(text), bankCandidate(text), statementCandidate(text)];
   const recognised = all
     .filter((c) => c.recognized > 0)
     .sort((a, b) => b.score - a.score || a.family.localeCompare(b.family));
+
+  // Conflicting issuer evidence is never broken by parser scores: the operator
+  // decides which family owns the text.
+  if (fp.conflicts.length > 0 && fp.evidence.length > 0 && recognised.length > 0) {
+    return {
+      family: "unknown",
+      ambiguous: true,
+      candidates: recognised,
+      evidence: fp.conflicts.join(" "),
+    };
+  }
 
   if (recognised.length === 0) {
     return {
@@ -131,6 +159,7 @@ export function classifyCapturedText(text: string): CaptureClassification {
       ambiguous: false,
       candidates: [],
       evidence:
+        fp.conflicts[0] ??
         "No parser recognised this text. Nothing was guessed — pick a type by hand or enter it manually.",
     };
   }
