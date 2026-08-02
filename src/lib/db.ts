@@ -1019,6 +1019,7 @@ export async function exportBackup(): Promise<BackupV4> {
     fulfillments,
     approvedMappings,
     sharedInputs,
+    settlementAllocations,
     meta,
   ] = await Promise.all([
     d.agents.toArray(),
@@ -1033,6 +1034,7 @@ export async function exportBackup(): Promise<BackupV4> {
     d.fulfillments.toArray(),
     d.approvedMappings.toArray(),
     d.sharedInputs.toArray(),
+    d.settlementAllocations.toArray(),
     d.meta.toArray(),
   ]);
 
@@ -1060,6 +1062,9 @@ export async function exportBackup(): Promise<BackupV4> {
     sharedInputs: await Promise.all(
       sharedInputs.filter((s) => s.status === "pending").map(serializeSharedInput),
     ),
+    // Allocations are financial history: restoring must reproduce the same
+    // outstanding receivables, not recompute them.
+    settlementAllocations,
   };
   return { ...body, counts: countsOf(body) };
 }
@@ -1115,6 +1120,7 @@ export async function importBackup(b: BackupV4, opts: ImportOptions = {}): Promi
       d.fulfillments,
       d.approvedMappings,
       d.sharedInputs,
+      d.settlementAllocations,
       d.meta,
     ],
     async () => {
@@ -1131,6 +1137,7 @@ export async function importBackup(b: BackupV4, opts: ImportOptions = {}): Promi
         d.fulfillments.clear(),
         d.approvedMappings.clear(),
         d.sharedInputs.clear(),
+        d.settlementAllocations.clear(),
       ]);
       // Replace portable settings only; credentials on this device survive.
       const existingMeta = await d.meta.toArray();
@@ -1150,6 +1157,7 @@ export async function importBackup(b: BackupV4, opts: ImportOptions = {}): Promi
       await d.fulfillments.bulkAdd(backup.fulfillments);
       await d.approvedMappings.bulkAdd(backup.approvedMappings);
       await d.sharedInputs.bulkAdd(sharedInputs);
+      await d.settlementAllocations.bulkAdd(backup.settlementAllocations ?? []);
       await d.meta.bulkPut(
         backup.settings
           .filter((s) => !isCredentialMetaKey(s.key))
@@ -1176,6 +1184,7 @@ export async function clearAll(): Promise<void> {
       d.fulfillments,
       d.approvedMappings,
       d.sharedInputs,
+      d.settlementAllocations,
       d.meta,
     ],
     async () => {
@@ -1192,6 +1201,7 @@ export async function clearAll(): Promise<void> {
         d.fulfillments.clear(),
         d.approvedMappings.clear(),
         d.sharedInputs.clear(),
+        d.settlementAllocations.clear(),
         // keep meta so PIN stays; caller decides
       ]);
     },
