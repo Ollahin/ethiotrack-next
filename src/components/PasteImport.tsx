@@ -511,6 +511,9 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
             <span className="rounded bg-money-out/10 text-money-out font-semibold px-2 py-0.5">
               {readiness.incomplete} incomplete
             </span>
+            <span className="rounded bg-money-out/20 text-money-out font-semibold px-2 py-0.5">
+              {readiness.invalid} invalid
+            </span>
           </div>
         )}
         {rows !== null && enriched.filter((e) => e.row.ok).length === 0 && (
@@ -530,6 +533,9 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
               const pAction = partyActionFor(i, e);
               const bAction = bankActionFor(i, e);
               const dAction = distActionFor(i, e);
+              const state = rowReadiness(readinessInput(i, e));
+              const purpose = purposeFor(i, row);
+              const fp = row.ok ? fingerprintSource(row.raw) : null;
               const suggestedBank =
                 row.ok && !bank && row.channel && row.channel !== "Other"
                   ? suggestBankName(row.channel, row.accountTail)
