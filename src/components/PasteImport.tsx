@@ -244,10 +244,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [batch, agents, banks, distributors, mappings]);
 
-  function partyActionFor(
-    e: (typeof enriched)[number],
-    purpose: BusinessPurpose,
-  ): PartyAction {
+  function partyActionFor(e: (typeof enriched)[number], purpose: BusinessPurpose): PartyAction {
     const override = partyActions[e.id];
     if (override) return override;
     // The business purpose decides which entity may be linked at all.
@@ -656,7 +653,11 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
               batch — time is never required.
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" variant="secondary" onClick={() => applyDateToUndated(todayString())}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => applyDateToUndated(todayString())}
+              >
                 Today
               </Button>
               <Button
@@ -978,7 +979,9 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                         <div className="text-[11px] rounded border border-border bg-muted/40 px-2 py-1 space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-ink-soft">Date:</span>
-                            <span className={when ? "font-semibold" : "text-money-out font-semibold"}>
+                            <span
+                              className={when ? "font-semibold" : "text-money-out font-semibold"}
+                            >
                               {when ? when.iso.slice(0, 10) : "not stated"}
                             </span>
                             <span className="rounded bg-muted px-1.5 py-0.5 text-ink-soft">
@@ -989,7 +992,10 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                                 type="date"
                                 aria-label="Row date"
                                 className="h-7 w-auto text-[11px]"
-                                value={override?.date ?? (when?.provenance === "batch" ? when.iso.slice(0, 10) : "")}
+                                value={
+                                  override?.date ??
+                                  (when?.provenance === "batch" ? when.iso.slice(0, 10) : "")
+                                }
                                 onChange={(ev) =>
                                   setBatch((b) =>
                                     b
@@ -1017,8 +1023,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                                       b
                                         ? setRowDate(b, e.id, {
                                             date:
-                                              override?.date ??
-                                              (when ? when.iso.slice(0, 10) : ""),
+                                              override?.date ?? (when ? when.iso.slice(0, 10) : ""),
                                             time: ev.target.value,
                                           })
                                         : b,

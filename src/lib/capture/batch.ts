@@ -175,7 +175,7 @@ export function removeCandidates(batch: CaptureBatch, ids: string[]): CaptureBat
   const overrides: Record<string, DateChoice> = {};
   for (const c of candidates) if (batch.overrides[c.id]) overrides[c.id] = batch.overrides[c.id];
   const keep = new Set(candidates.map((c) => c.id));
-  const prune = <T,>(m: Record<string, T> | undefined): Record<string, T> | undefined => {
+  const prune = <T>(m: Record<string, T> | undefined): Record<string, T> | undefined => {
     if (!m) return undefined;
     const out: Record<string, T> = {};
     for (const k of Object.keys(m)) if (keep.has(k)) out[k] = m[k];

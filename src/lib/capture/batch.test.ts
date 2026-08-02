@@ -15,9 +15,7 @@ describe("canonical capture batch", () => {
   it("keeps one candidate per message, in source order, including unreadable ones", () => {
     const batch = buildBatch(`${UNDATED}\n\nnot a transaction at all`)!;
     expect(batch.candidates.length).toBeGreaterThanOrEqual(1);
-    expect(batch.candidates.map((c) => c.index)).toEqual(
-      batch.candidates.map((_, i) => i),
-    );
+    expect(batch.candidates.map((c) => c.index)).toEqual(batch.candidates.map((_, i) => i));
   });
 
   it("never invents a date and reports its provenance", () => {
@@ -38,9 +36,7 @@ describe("canonical capture batch", () => {
 
   it("lists undated candidates so one date can cover the whole batch", () => {
     const batch = buildBatch(`${UNDATED}\n\n${UNDATED}`)!;
-    expect(undatedCandidates(batch).length).toBe(
-      batch.candidates.filter((c) => c.row.ok).length,
-    );
+    expect(undatedCandidates(batch).length).toBe(batch.candidates.filter((c) => c.row.ok).length);
   });
 
   it("appends a second paste without disturbing existing candidate ids", () => {
@@ -65,6 +61,11 @@ describe("canonical capture batch", () => {
 
   it("returns null once every candidate has been imported", () => {
     const batch = buildBatch(UNDATED)!;
-    expect(removeCandidates(batch, batch.candidates.map((c) => c.id))).toBeNull();
+    expect(
+      removeCandidates(
+        batch,
+        batch.candidates.map((c) => c.id),
+      ),
+    ).toBeNull();
   });
 });
