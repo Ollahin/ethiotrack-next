@@ -824,11 +824,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="new-agent">Add as new agent</SelectItem>
-                                  <SelectItem value="new-distributor">
-                                    Add as new distributor
-                                  </SelectItem>
-                                  <SelectItem value="none">Don't link (manual later)</SelectItem>
+                                  <SelectItem value="none">Unresolved — don't link</SelectItem>
                                   {agents.length > 0 && (
                                     <>
                                       {agents.map((a) => (
