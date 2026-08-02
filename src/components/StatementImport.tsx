@@ -70,6 +70,8 @@ interface Job {
   overrideConfirmed: boolean;
   /** Row indexes whose confirmed link the reviewer chose to change by hand. */
   editing: Record<number, boolean>;
+  /** Row indexes where the reviewer agreed to remember the OCR name as an alias. */
+  remember: Record<number, boolean>;
 }
 
 /** Exact, case/whitespace-normalized agent match only — never fuzzy. */
@@ -348,6 +350,7 @@ export function StatementImport({
       if (!label) continue;
       const chosen = job.overrides[i];
       if (chosen) {
+        if (!job.remember[i]) continue;
         const agent = agents.find((a) => a.id === chosen);
         if (agent) {
           await approveMapping({
@@ -577,6 +580,20 @@ export function StatementImport({
                               </SelectContent>
                             </Select>
                           )
+                        )}
+                        {complete && !job.saved && job.overrides[i] && row.agentName?.trim() && (
+                          <label className="mt-1 flex items-center gap-1.5 text-[11px] text-ink-soft">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(job.remember[i])}
+                              onChange={(ev) =>
+                                patchJob(job.key, {
+                                  remember: { ...job.remember, [i]: ev.target.checked },
+                                })
+                              }
+                            />
+                            Remember “{row.agentName.trim()}” as this agent for future screenshots
+                          </label>
                         )}
                       </div>
                     </li>
