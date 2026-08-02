@@ -579,6 +579,60 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                           )}
                         </span>
                       </div>
+                      <div className="flex flex-wrap items-center gap-1 text-[11px]">
+                        <span
+                          className={
+                            "rounded px-1.5 py-0.5 font-semibold " +
+                            (state === "READY"
+                              ? "bg-money-in/10 text-money-in"
+                              : state === "NEEDS_ATTENTION"
+                                ? "bg-airtime/15 text-airtime"
+                                : "bg-money-out/10 text-money-out")
+                          }
+                        >
+                          {state}
+                        </span>
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-ink-soft">
+                          source: {fp?.resolved ? fp.source : "unresolved"}
+                          {fp?.channel ? ` · ${fp.channel}` : ""}
+                        </span>
+                        {fp && fp.evidence.length > 0 && (
+                          <span className="text-ink-soft">{fp.evidence.join(" · ")}</span>
+                        )}
+                        {fp && fp.conflicts.length > 0 && (
+                          <span className="text-money-out">{fp.conflicts.join(" · ")}</span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                        <span className="text-ink-soft">Business purpose:</span>
+                        <Select
+                          value={purpose}
+                          onValueChange={(v) =>
+                            setPurposes((s) => ({ ...s, [i]: v as BusinessPurpose }))
+                          }
+                        >
+                          <SelectTrigger className="h-6 w-auto min-w-[11rem] text-[11px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {purposeOptions(directionOf(row)).map((p) => (
+                              <SelectItem key={p} value={p}>
+                                {PURPOSE_LABEL[p]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {purpose === "unresolved" && (
+                          <span className="text-money-out">
+                            An unresolved purpose can never be imported.
+                          </span>
+                        )}
+                        {requiresAgent(purpose) && (
+                          <span className="text-airtime">
+                            Pick the exact agent below — agents are never created here.
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs">
                         <span className="font-medium">{row.party}</span>
                         {row.counterpartyPhone && (
@@ -636,7 +690,11 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                           </span>
                         )}
                       </div>
-                      {row.ok && transfer && (
+                      {row.ok &&
+                        (transfer ||
+                          row.feeSantim !== undefined ||
+                          row.vatSantim !== undefined ||
+                          row.finalDebitSantim !== undefined) && (
                         <div className="text-[11px] rounded border border-border bg-muted/40 px-2 py-1 space-y-0.5">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 tabular-nums">
                             <span>
