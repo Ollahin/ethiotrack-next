@@ -801,7 +801,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                         <Select
                           value={purpose}
                           onValueChange={(v) =>
-                            setPurposes((s) => ({ ...s, [i]: v as BusinessPurpose }))
+                            setPurposes((s) => ({ ...s, [e.id]: v as BusinessPurpose }))
                           }
                         >
                           <SelectTrigger className="h-6 w-auto min-w-[11rem] text-[11px]">
@@ -1059,7 +1059,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                                 onValueChange={(v) =>
                                   setBankActions((s) => ({
                                     ...s,
-                                    [i]: { kind: v as BankAction["kind"] },
+                                    [e.id]: { kind: v as BankAction["kind"] },
                                   }))
                                 }
                               >
@@ -1085,7 +1085,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                                 onValueChange={(v) =>
                                   setDistActions((s) => ({
                                     ...s,
-                                    [i]:
+                                    [e.id]:
                                       v === "none"
                                         ? { kind: "none" }
                                         : { kind: "link", id: v.slice("link:".length) },
@@ -1125,7 +1125,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                                     : "none"
                                 }
                                 onValueChange={(v) =>
-                                  setPartyActions((st) => ({ ...st, [i]: decodePartyAction(v) }))
+                                  setPartyActions((st) => ({ ...st, [e.id]: decodePartyAction(v) }))
                                 }
                               >
                                 <SelectTrigger className="h-6 w-auto min-w-[11rem] text-[11px]">
@@ -1153,9 +1153,9 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                                     <input
                                       type="checkbox"
                                       className="h-3 w-3 accent-[hsl(var(--money-in))]"
-                                      checked={Boolean(remember[i])}
+                                      checked={Boolean(remember[e.id])}
                                       onChange={(ev) =>
-                                        setRemember((st) => ({ ...st, [i]: ev.target.checked }))
+                                        setRemember((st) => ({ ...st, [e.id]: ev.target.checked }))
                                       }
                                     />
                                     Remember this exact sender label
