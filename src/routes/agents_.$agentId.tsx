@@ -103,6 +103,7 @@ function AgentHistoryPage() {
   const agents = useAgents();
   const distributors = useDistributors();
   const txns = useTransactions();
+  const allocations = useSettlementAllocations();
   const [weekStart, setWeekStart] = useState(() => getWeekStart());
   const [allRecent, setAllRecent] = useState(false);
   const thisWeekStart = getWeekStart();
@@ -112,9 +113,9 @@ function AgentHistoryPage() {
   const range = allRecent ? undefined : weekRangeOf(weekStart);
 
   const ledger = useMemo(
-    () => agentLedger(txns, agentId, range),
+    () => agentLedger(txns, agentId, range, allocations),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [txns, agentId, allRecent, weekStart],
+    [txns, agentId, allRecent, weekStart, allocations],
   );
   const rows = useMemo(
     () =>
