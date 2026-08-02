@@ -13,7 +13,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { type ParsedOk, type ParsedRow } from "@/lib/parser";
-import { parseSourceRecords } from "@/lib/capture/parse-records";
+import {
+  DATE_PROVENANCE_LABEL,
+  appendToBatch,
+  buildBatch,
+  hasGenuineDate,
+  loadBatch,
+  removeCandidates,
+  resolveCandidateDate,
+  saveBatch,
+  setRowDate,
+  todayString,
+  undatedCandidates,
+  yesterdayString,
+  type BatchCandidate,
+  type CaptureBatch,
+} from "@/lib/capture/batch";
 import { fingerprintSource } from "@/lib/capture/source-fingerprint";
 import { resolveFinalAmount } from "@/lib/capture/candidate";
 import {
