@@ -63,7 +63,6 @@ import {
 } from "@/lib/db";
 import { findMapping, normalizeLabel } from "@/lib/approved-mappings";
 import { matchDistributorForPayment } from "@/lib/purchase-fulfillment";
-import { openCreditsFor, planFifoSettlement } from "@/lib/brain/credits";
 import { formatEtb } from "@/lib/format";
 import type { Agent, AirtimeForm, Bank, Distributor, Transaction } from "@/lib/types";
 import { toast } from "sonner";
@@ -555,18 +554,14 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
       }
     }
 
-    // FIFO settle: only an explicit "Agent settlement" purpose clears credits.
+    // Settlement is one atomic, partial-aware allocation write per payment.
+    // Retrying an import never allocates the same payment twice.
     for (let i = 0; i < inputs.length; i++) {
       const inp = inputs[i];
       if (!settlePlan[i] || inp.type !== "in" || !inp.partyId) continue;
-      const open = openCreditsFor(inp.partyId, txns);
-      if (!open.length) continue;
-      const plan = planFifoSettlement(inp.amountSantim, open);
-      for (const cid of plan.settled) {
-        const c = txns.find((t) => t.id === cid);
-        if (c)
-          await updateTransaction({ ...c, isSettled: true, settledAt: new Date().toISOString() });
-      }
+      const txnId = res.insertedFor?.[i];
+      if (!txnId) continue;
+      await recordAgentSettlement(txnId, inp.partyId, inp.amountSantim);
     }
 
     const extras = [createdBanks && `${createdBanks} new bank${createdBanks > 1 ? "s" : ""}`]
