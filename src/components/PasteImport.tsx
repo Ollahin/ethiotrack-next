@@ -394,19 +394,20 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
         reference: row.reference,
         note: row.note ?? row.raw,
         date: when.iso,
-        isPersonal,
+        isPersonal: isPersonal || isPersonalPurpose(purpose),
         needsReview: row.needsReview,
         source: "paste_parse",
       });
+      settlePlan.push(settlesAgentCredits(purpose) && partyType === "agent");
     }
 
     const res = await addTransactionsBulk(inputs);
     setSkippedInfo(res.skippedRows.map((s) => ({ input: s.input, reason: s.reason })));
 
-    // FIFO settle: for each new 'in' payment linked to an agent, settle oldest credits.
+    // FIFO settle: only an explicit "Agent settlement" purpose clears credits.
     for (let i = 0; i < inputs.length; i++) {
       const inp = inputs[i];
-      if (inp.type !== "in" || !inp.partyId) continue;
+      if (!settlePlan[i] || inp.type !== "in" || !inp.partyId) continue;
       const open = openCreditsFor(inp.partyId, txns);
       if (!open.length) continue;
       const plan = planFifoSettlement(inp.amountSantim, open);
@@ -419,9 +420,6 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
 
     const extras = [
       createdBanks && `${createdBanks} new bank${createdBanks > 1 ? "s" : ""}`,
-      createdAgents && `${createdAgents} agent${createdAgents > 1 ? "s" : ""}`,
-      createdDistributors &&
-        `${createdDistributors} distributor${createdDistributors > 1 ? "s" : ""}`,
     ]
       .filter(Boolean)
       .join(", ");
@@ -431,23 +429,18 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
         (extras ? ` · registered ${extras}` : ""),
     );
     if (res.inserted > 0) onSaved?.();
-    if (blockedNoDate > 0) {
+    if (blockedNotReady > 0) {
       toast.error(
-        `${blockedNoDate} row(s) not imported: no transaction date — enter one in review.`,
+        `${blockedNotReady} row(s) not imported: still missing a source, date, account, purpose or link.`,
       );
-    }
-    if (blockedInvalid > 0) {
-      toast.error(
-        `${blockedInvalid} row(s) not imported: the message failed financial validation.`,
-      );
-    }
-    if (blockedNoDate === 0 && blockedInvalid === 0) {
+    } else {
       setText("");
       setRows(null);
       setPartyActions({});
       setBankActions({});
       setDistActions({});
       setManualDates({});
+      setPurposes({});
     }
   }
 
@@ -463,7 +456,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     return a.kind;
   }
   function decodePartyAction(v: string): PartyAction {
-    if (v === "none" || v === "new-agent" || v === "new-distributor") return { kind: v };
+    if (v === "none") return { kind: "none" };
     const [, type, id] = v.split(":");
     return { kind: "link", partyType: type as "agent" | "distributor", id };
   }
