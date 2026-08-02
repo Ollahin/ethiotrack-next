@@ -200,6 +200,25 @@ class EthioTrackDB extends Dexie {
       sharedInputs: "id, receivedAt, status",
       meta: "key",
     });
+    // v7: additive only — explicit, partial-aware agent settlement allocations
+    // plus a capture identity index so a retried import can never double-write.
+    this.version(7).stores({
+      agents: "id, name, phone",
+      distributors: "id, name",
+      banks: "id, name, channel",
+      dailyOpenings: "id, date",
+      dailyClosings: "id, date, openingId",
+      periodOpenings: "id, weekStart",
+      periodClosings: "id, weekStart, openingId",
+      transactions:
+        "id, date, type, partyId, channel, isSettled, isPersonal, statementImportId, captureKey",
+      statementImports: "id, distributorId, importedAt",
+      fulfillments: "id, intentTxnId, recordedAt",
+      approvedMappings: "id, targetType, normalizedLabel, targetId",
+      sharedInputs: "id, receivedAt, status",
+      settlementAllocations: "id, paymentTxnId, creditTxnId, agentId",
+      meta: "key",
+    });
   }
 }
 
