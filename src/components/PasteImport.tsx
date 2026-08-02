@@ -638,12 +638,54 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
           <Button onClick={detect} variant="secondary">
             Re-read message
           </Button>
+          {batch && text.trim().length > 0 && (
+            <Button onClick={addToBatch} variant="ghost" size="sm">
+              Add to batch
+            </Button>
+          )}
           {enriched.length > 0 && (
             <Button onClick={importAll} className="ml-auto" disabled={importableCount === 0}>
               Import {importableCount}
             </Button>
           )}
         </div>
+        {batch && undatedCandidates(batch).length > 0 && (
+          <div className="rounded-md border border-airtime/40 bg-airtime/5 p-2 text-[11px] space-y-1">
+            <div className="text-airtime font-semibold">
+              {undatedCandidates(batch).length} message(s) stated no date. Pick one date for the
+              batch — time is never required.
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="secondary" onClick={() => applyDateToUndated(todayString())}>
+                Today
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => applyDateToUndated(yesterdayString())}
+              >
+                Yesterday
+              </Button>
+              <Input
+                type="date"
+                className="h-7 w-auto text-[11px]"
+                value={pickDate}
+                onChange={(ev) => setPickDate(ev.target.value)}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!pickDate}
+                onClick={() => applyDateToUndated(pickDate)}
+              >
+                Apply date to all undated rows
+              </Button>
+              {batch.batchDate?.date && (
+                <span className="text-ink-soft">batch date · {batch.batchDate.date}</span>
+              )}
+            </div>
+          </div>
+        )}
         {enriched.length > 0 && (
           <div className="flex flex-wrap gap-2 text-[11px]">
             <span className="rounded bg-muted text-ink-soft font-semibold px-2 py-0.5">
@@ -663,7 +705,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
             </span>
           </div>
         )}
-        {rows !== null && enriched.filter((e) => e.row.ok).length === 0 && (
+        {batch !== null && enriched.filter((e) => e.row.ok).length === 0 && (
           <div className="rounded-md border border-money-out/40 bg-money-out/5 p-2 text-xs space-y-1">
             <div className="font-semibold text-money-out">Nothing recognised in this message.</div>
             <div className="text-ink-soft">
@@ -677,11 +719,13 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
           <ul className="text-sm divide-y divide-border rounded-md border border-border overflow-hidden">
             {enriched.map((e, i) => {
               const { row, agent, bank, distributor, payee } = e;
-              const purpose = purposeFor(i, row);
-              const pAction = partyActionFor(i, e, purpose);
-              const bAction = bankActionFor(i, e);
-              const dAction = distActionFor(i, e, purpose);
-              const state = rowReadiness(readinessInput(i, e));
+              const purpose = purposeFor(e);
+              const pAction = partyActionFor(e, purpose);
+              const bAction = bankActionFor(e);
+              const dAction = distActionFor(e, purpose);
+              const state = rowReadiness(readinessInput(e));
+              const when = resolvedDate(e);
+              const override = batch?.overrides[e.id];
               const needsAgent = requiresAgent(purpose);
               const needsDistributor = requiresDistributor(purpose);
               const fp = row.ok ? fingerprintSource(row.raw) : null;
