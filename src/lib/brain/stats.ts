@@ -70,8 +70,7 @@ export function computeAgentStats(
   }
   const payDays = paymentDaysFor(agent.id, txns);
   const openCredits = mine.filter(
-    (t) =>
-      airtimeMovementKind(t) === "sent" && !t.isSettled && outstandingOf(t, allocations) > 0,
+    (t) => airtimeMovementKind(t) === "sent" && !t.isSettled && outstandingOf(t, allocations) > 0,
   );
   const oldest = openCredits.map((t) => new Date(t.date).getTime()).sort((a, b) => a - b)[0];
   const oldestDays = oldest ? Math.round((Date.now() - oldest) / 86_400_000) : null;

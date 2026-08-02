@@ -3,7 +3,8 @@ import { ingestSmsDrafts, sortInboxRows, splitSmsMessages } from "./inbox-ingest
 
 const many = Array.from(
   { length: 200 },
-  (_, i) => `Dear Customer, ETB ${i + 1}.00 has been debited from your account 1000${i}. Ref FT${i}.`,
+  (_, i) =>
+    `Dear Customer, ETB ${i + 1}.00 has been debited from your account 1000${i}. Ref FT${i}.`,
 ).join("\n\n");
 
 describe("ingestSmsDrafts", () => {

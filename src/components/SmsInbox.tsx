@@ -245,11 +245,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
         accountSelected: airtime || !row.ok || Boolean(bank),
         purposeResolved: purpose !== "unresolved",
         requiresLink: needsAgent || needsDistributor,
-        linkSatisfied: needsAgent
-          ? Boolean(agent)
-          : needsDistributor
-            ? Boolean(distributor)
-            : true,
+        linkSatisfied: needsAgent ? Boolean(agent) : needsDistributor ? Boolean(distributor) : true,
         linkCertain: true,
         needsReview: Boolean(row.ok && row.needsReview),
         // Only an actual identity collision asks the operator anything.
@@ -398,9 +394,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
           id="select-all"
           checked={allSelected}
           onCheckedChange={(v) =>
-            setSelected(
-              v ? Object.fromEntries(reviews.map((r) => [r.item.id, true])) : {},
-            )
+            setSelected(v ? Object.fromEntries(reviews.map((r) => [r.item.id, true])) : {})
           }
         />
         <label htmlFor="select-all" className="text-ink-soft">
@@ -422,7 +416,12 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
             value={batchDay}
             onChange={(e) => setBatchDay(e.target.value)}
           />
-          <Button size="sm" variant="outline" disabled={!batchDay} onClick={() => applyDay(batchDay)}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!batchDay}
+            onClick={() => applyDay(batchDay)}
+          >
             Apply date
           </Button>
           <Button size="sm" onClick={() => void importReady()} disabled={busy || readyCount === 0}>
@@ -521,8 +520,7 @@ function InboxSmsRow({
         {row.ok ? (
           <span
             className={
-              "font-bold tabular-nums " +
-              (row.type === "in" ? "text-money-in" : "text-money-out")
+              "font-bold tabular-nums " + (row.type === "in" ? "text-money-in" : "text-money-out")
             }
           >
             {row.type === "in" ? "+" : "−"} {formatEtb(row.amountSantim)}

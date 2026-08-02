@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { agentLedger } from "./agent-ledger";
-import {
-  agentCredits,
-  agentOutstanding,
-  outstandingOf,
-  planAllocations,
-} from "./settlement";
+import { agentCredits, agentOutstanding, outstandingOf, planAllocations } from "./settlement";
 import type { SettlementAllocation, Transaction } from "./types";
 
 function credit(id: string, amountSantim: number, date: string): Transaction {
@@ -24,7 +19,11 @@ function credit(id: string, amountSantim: number, date: string): Transaction {
   } as Transaction;
 }
 
-function alloc(creditTxnId: string, amountSantim: number, paymentTxnId = "p1"): SettlementAllocation {
+function alloc(
+  creditTxnId: string,
+  amountSantim: number,
+  paymentTxnId = "p1",
+): SettlementAllocation {
   return {
     id: `${paymentTxnId}-${creditTxnId}`,
     paymentTxnId,
@@ -43,9 +42,12 @@ describe("planAllocations", () => {
       { creditTxnId: "c1", amountSantim: 15_000_00, closes: false },
     ]);
     expect(plan.leftoverSantim).toBe(0);
-    expect(outstandingOf(credits[0], plan.allocations.map((a) => alloc(a.creditTxnId, a.amountSantim)))).toBe(
-      35_000_00,
-    );
+    expect(
+      outstandingOf(
+        credits[0],
+        plan.allocations.map((a) => alloc(a.creditTxnId, a.amountSantim)),
+      ),
+    ).toBe(35_000_00);
   });
 
   it("walks credits oldest first and closes only the ones fully covered", () => {
@@ -76,7 +78,10 @@ describe("planAllocations", () => {
   });
 
   it("only counts airtime sent to the agent as a credit", () => {
-    const received = { ...credit("r", 9_000_00, "2026-02-01T00:00:00.000Z"), airtimeDirection: "received" as const };
+    const received = {
+      ...credit("r", 9_000_00, "2026-02-01T00:00:00.000Z"),
+      airtimeDirection: "received" as const,
+    };
     expect(agentCredits("alexo", [received])).toEqual([]);
   });
 });

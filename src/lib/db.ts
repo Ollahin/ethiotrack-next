@@ -686,7 +686,12 @@ export async function recordAgentSettlement(
     const credits = agentCredits(agentId, all);
     const plan = planAllocations(paymentSantim, credits, allocs);
     if (plan.allocations.length === 0) {
-      return { allocated: 0, leftoverSantim: plan.leftoverSantim, closed: 0, alreadyApplied: false };
+      return {
+        allocated: 0,
+        leftoverSantim: plan.leftoverSantim,
+        closed: 0,
+        alreadyApplied: false,
+      };
     }
     const now = new Date().toISOString();
     const rows: SettlementAllocation[] = plan.allocations.map((a) => ({

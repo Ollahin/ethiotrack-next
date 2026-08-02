@@ -21,9 +21,9 @@ const ready: ReadinessInput = {
 describe("duplicate-risk gate", () => {
   it("holds a colliding row at NEEDS_ATTENTION until it is confirmed", () => {
     expect(rowReadiness({ ...ready, duplicateRisk: true })).toBe("NEEDS_ATTENTION");
-    expect(
-      rowReadiness({ ...ready, duplicateRisk: true, duplicateRiskAcknowledged: true }),
-    ).toBe("READY");
+    expect(rowReadiness({ ...ready, duplicateRisk: true, duplicateRiskAcknowledged: true })).toBe(
+      "READY",
+    );
   });
 
   it("never asks about duplicates for an ordinary unique message", () => {
