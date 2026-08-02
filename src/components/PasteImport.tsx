@@ -39,15 +39,18 @@ import {
   upsertBank,
   upsertDistributor,
   useAgents,
+  useApprovedMappings,
+  approveMapping,
+  recordMappingUse,
   useBanks,
   useDistributors,
   useTransactions,
 } from "@/lib/db";
-import { matchAgent } from "@/lib/brain/fuzzy";
+import { findMapping, normalizeLabel } from "@/lib/approved-mappings";
 import { matchDistributorForPayment } from "@/lib/purchase-fulfillment";
 import { openCreditsFor, planFifoSettlement } from "@/lib/brain/credits";
 import { formatEtb } from "@/lib/format";
-import type { AirtimeForm, Bank, Distributor, Transaction } from "@/lib/types";
+import type { Agent, AirtimeForm, Bank, Distributor, Transaction } from "@/lib/types";
 import { toast } from "sonner";
 
 // Entities are never created from a capture: the operator links an existing
@@ -125,6 +128,40 @@ function isGenericParty(name: string | undefined): boolean {
   return GENERIC_PARTY_RX.test(name);
 }
 
+/**
+ * Exact agent match only: identical name or identical alias after case and
+ * whitespace normalization. Never fuzzy — a near-miss stays unresolved so the
+ * operator picks the agent by hand.
+ */
+function exactAgentMatch(label: string | undefined, agents: Agent[]): Agent | null {
+  if (!label) return null;
+  const key = normalizeLabel(label);
+  if (!key) return null;
+  return agents.find((a) => normalizeLabel(a.name) === key) ?? null;
+}
+
+/** Unprocessed capture text survives a refresh until it is imported. */
+const PENDING_TEXT_KEY = "ethiotrack.capture.pending-batch";
+
+function readPendingText(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.localStorage.getItem(PENDING_TEXT_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writePendingText(value: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (value.trim()) window.localStorage.setItem(PENDING_TEXT_KEY, value);
+    else window.localStorage.removeItem(PENDING_TEXT_KEY);
+  } catch {
+    /* storage unavailable — the batch simply won't survive a refresh */
+  }
+}
+
 function suggestBankName(channel: string, accountTail?: string): string {
   if (accountTail) return `${channel} ···${accountTail}`;
   const wallets = ["Telebirr", "M-Pesa", "CoopPay", "eBirr"];
@@ -158,6 +195,9 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     {},
   );
   const [purposes, setPurposes] = useState<Record<number, BusinessPurpose>>({});
+  /** "Remember this exact sender label" ticks, per row. */
+  const [remember, setRemember] = useState<Record<number, boolean>>({});
+  const mappings = useApprovedMappings();
   const [skippedInfo, setSkippedInfo] = useState<
     Array<{ input: Omit<Transaction, "id" | "createdAt">; reason: "reference" | "heuristic" }>
   >([]);
@@ -182,25 +222,34 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
 
   const enriched = useMemo(() => {
     return (rows ?? []).map((r) => {
-      const match = r.ok && r.party ? matchAgent(r.party, agents) : null;
+      // Exact identity only — a mapping the operator approved earlier, or an
+      // identical agent name. Nothing fuzzy ever pre-selects an entity.
+      const label = r.ok ? r.party : undefined;
+      const mapping = findMapping(label, "bank_message", "agent", mappings);
+      const mapped = mapping ? (agents.find((a) => a.id === mapping.targetId) ?? null) : null;
+      const match = mapped ?? exactAgentMatch(label, agents);
       const bank = matchBank(r);
       const distributor = matchDistributor(r, distributors);
       const payee = matchTransferDistributor(r, distributors);
-      return { row: r, agent: match, bank, distributor, payee };
+      return { row: r, agent: match, agentMapping: mapping, bank, distributor, payee };
     });
-  }, [rows, agents, banks, distributors]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, agents, banks, distributors, mappings]);
 
-  function partyActionFor(i: number, e: (typeof enriched)[number]): PartyAction {
+  function partyActionFor(
+    i: number,
+    e: (typeof enriched)[number],
+    purpose: BusinessPurpose,
+  ): PartyAction {
     const override = partyActions[i];
     if (override) return override;
-    // A bank transfer to a distributor is never turned into a new agent, and
-    // is only linked when the payee matched strictly.
-    if (isBankTransferRow(e.row)) {
-      return e.payee
-        ? { kind: "link", partyType: "distributor", id: e.payee.id }
-        : { kind: "none" };
+    // The business purpose decides which entity may be linked at all.
+    if (requiresAgent(purpose) && e.agent) {
+      return { kind: "link", partyType: "agent", id: e.agent.id };
     }
-    if (e.agent) return { kind: "link", partyType: "agent", id: e.agent.id };
+    if (requiresDistributor(purpose) && e.payee) {
+      return { kind: "link", partyType: "distributor", id: e.payee.id };
+    }
     return { kind: "none" };
   }
 
@@ -214,12 +263,16 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     return { kind: "skip" };
   }
 
-  function distActionFor(i: number, e: (typeof enriched)[number]): DistributorAction {
+  function distActionFor(
+    i: number,
+    e: (typeof enriched)[number],
+    purpose: BusinessPurpose,
+  ): DistributorAction {
     const override = distActions[i];
     if (override) return override;
-    if (isBankTransferRow(e.row))
-      return e.payee ? { kind: "link", id: e.payee.id } : { kind: "none" };
-    if (e.distributor) return { kind: "link", id: e.distributor.id };
+    if (requiresDistributor(purpose) && e.payee) return { kind: "link", id: e.payee.id };
+    if (e.row.ok && isAirtimeRow(e.row.type) && e.distributor)
+      return { kind: "link", id: e.distributor.id };
     return { kind: "none" };
   }
 
@@ -246,6 +299,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     if (!row.ok) return "unknown";
     if (row.type === "in") return "in";
     if (row.type === "out") return "out";
+    // Airtime rows move stock out of the operator's float/EVD balance.
     return "out";
   }
 
@@ -264,10 +318,10 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     const purpose = purposeFor(i, row);
     const fp = row.ok ? fingerprintSource(row.raw) : null;
     const bAction = bankActionFor(i, e);
-    const pAction = partyActionFor(i, e);
-    const dAction = distActionFor(i, e);
+    const pAction = partyActionFor(i, e, purpose);
+    const dAction = distActionFor(i, e, purpose);
     const needsAgent = requiresAgent(purpose);
-    const needsDistributor = requiresDistributor(purpose) || isBankTransferRow(row);
+    const needsDistributor = requiresDistributor(purpose);
     return {
       sourceResolved: Boolean(row.ok && (fp?.resolved || (row.channel && row.channel !== "Other"))),
       familyResolved: row.ok,
@@ -282,7 +336,9 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
           ? dAction.kind === "link" ||
             (pAction.kind === "link" && pAction.partyType === "distributor")
           : true,
-      linkCertain: needsDistributor && isBankTransferRow(row) ? Boolean(e.payee) : true,
+      // An explicit operator selection is certain by definition; only a
+      // pre-selected guess would be uncertain, and none is ever made.
+      linkCertain: true,
       needsReview: Boolean(row.ok && row.needsReview),
     };
   }
@@ -301,6 +357,22 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     [enriched, manualDates, distActions, partyActions, bankActions, purposes],
   );
 
+  // An unprocessed batch survives a refresh: nothing is saved, but the text
+  // and its parsed rows come back exactly as they were.
+  useEffect(() => {
+    if (initialText !== undefined) return;
+    const pending = readPendingText();
+    if (!pending.trim()) return;
+    setText(pending);
+    setRows(parseSourceRecords(pending));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (initialText !== undefined) return;
+    writePendingText(text);
+  }, [text, initialText]);
+
   useEffect(() => {
     if (initialText === undefined) return;
     setText(initialText);
@@ -310,6 +382,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     setDistActions({});
     setManualDates({});
     setPurposes({});
+    setRemember({});
   }, [initialText]);
 
   function detect() {
@@ -320,6 +393,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     setDistActions({});
     setManualDates({});
     setPurposes({});
+    setRemember({});
   }
 
   async function importAll() {
@@ -366,7 +440,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
       // ----- Party resolution (explicit links only)
       let partyId: string | undefined;
       let partyType: Transaction["partyType"] | undefined;
-      const pAction = partyActionFor(i, e);
+      const pAction = partyActionFor(i, e, purpose);
       if (pAction.kind === "link") {
         partyId = pAction.id;
         partyType = pAction.partyType;
@@ -374,9 +448,14 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
 
       // ----- Distributor resolution (airtime rows only)
       let distributorId: string | undefined;
-      if (isAirtimeRow(row.type) || isBankTransferRow(row)) {
-        const dAction = distActionFor(i, e);
+      if (isAirtimeRow(row.type) || requiresDistributor(purpose)) {
+        const dAction = distActionFor(i, e, purpose);
         if (dAction.kind === "link") distributorId = dAction.id;
+        // A distributor payment links the distributor as the counterparty too.
+        if (requiresDistributor(purpose) && distributorId && !partyId) {
+          partyId = distributorId;
+          partyType = "distributor";
+        }
         // If the party itself was linked as a distributor, prefer that link
         // so the two sides can never disagree.
         if (partyType === "distributor" && partyId) distributorId = partyId;
@@ -410,6 +489,33 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     const res = await addTransactionsBulk(inputs);
     setSkippedInfo(res.skippedRows.map((s) => ({ input: s.input, reason: s.reason })));
 
+    // Persist only the links the operator explicitly asked to remember, and
+    // count reuse of the ones an earlier approval pre-selected.
+    for (let i = 0; i < enriched.length; i++) {
+      const e = enriched[i];
+      if (!e.row.ok || !isImportable(i, e)) continue;
+      const purpose = purposeFor(i, e.row);
+      const pAction = partyActionFor(i, e, purpose);
+      if (pAction.kind !== "link" || pAction.partyType !== "agent") continue;
+      const label = e.row.party?.trim();
+      if (!label) continue;
+      if (e.agentMapping && e.agentMapping.targetId === pAction.id) {
+        await recordMappingUse(e.agentMapping.id);
+        continue;
+      }
+      if (!remember[i]) continue;
+      const agent = agents.find((a) => a.id === pAction.id);
+      if (agent) {
+        await approveMapping({
+          label,
+          sourceFamily: "bank_message",
+          targetType: "agent",
+          targetId: agent.id,
+          targetName: agent.name,
+        });
+      }
+    }
+
     // FIFO settle: only an explicit "Agent settlement" purpose clears credits.
     for (let i = 0; i < inputs.length; i++) {
       const inp = inputs[i];
@@ -439,12 +545,14 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
       );
     } else {
       setText("");
+      writePendingText("");
       setRows(null);
       setPartyActions({});
       setBankActions({});
       setDistActions({});
       setManualDates({});
       setPurposes({});
+      setRemember({});
     }
   }
 
@@ -504,6 +612,9 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
         </div>
         {enriched.length > 0 && (
           <div className="flex flex-wrap gap-2 text-[11px]">
+            <span className="rounded bg-muted text-ink-soft font-semibold px-2 py-0.5">
+              {readiness.total} parsed
+            </span>
             <span className="rounded bg-money-in/10 text-money-in font-semibold px-2 py-0.5">
               {readiness.ready} ready
             </span>
@@ -532,21 +643,23 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
           <ul className="text-sm divide-y divide-border rounded-md border border-border overflow-hidden">
             {enriched.map((e, i) => {
               const { row, agent, bank, distributor, payee } = e;
-              const pAction = partyActionFor(i, e);
-              const bAction = bankActionFor(i, e);
-              const dAction = distActionFor(i, e);
-              const state = rowReadiness(readinessInput(i, e));
               const purpose = purposeFor(i, row);
+              const pAction = partyActionFor(i, e, purpose);
+              const bAction = bankActionFor(i, e);
+              const dAction = distActionFor(i, e, purpose);
+              const state = rowReadiness(readinessInput(i, e));
+              const needsAgent = requiresAgent(purpose);
+              const needsDistributor = requiresDistributor(purpose);
               const fp = row.ok ? fingerprintSource(row.raw) : null;
               const suggestedBank =
                 row.ok && !bank && row.channel && row.channel !== "Other"
                   ? suggestBankName(row.channel, row.accountTail)
                   : null;
               const transfer = isBankTransferRow(row);
-              const partyIsReal = row.ok && row.party && !isGenericParty(row.party) && !transfer;
+              const partyIsReal = row.ok && row.party && !isGenericParty(row.party);
               const airtime = row.ok && isAirtimeRow(row.type);
               const airtimeForm = airtime ? airtimeFormOf(row.type) : undefined;
-              const distributorChoices = transfer
+              const distributorChoices = needsDistributor
                 ? distributors
                 : airtime
                   ? distributors.filter(
@@ -825,7 +938,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                           )}
                         </div>
                       )}
-                      {(suggestedBank || partyIsReal || airtime || transfer) && (
+                      {(suggestedBank || needsAgent || needsDistributor || airtime) && (
                         <div className="flex flex-wrap gap-2 pt-1">
                           {suggestedBank && (
                             <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
@@ -849,10 +962,10 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                               </Select>
                             </div>
                           )}
-                          {(airtime || transfer) && (
+                          {(airtime || needsDistributor) && (
                             <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
                               <span className="text-ink-soft">
-                                {transfer
+                                {needsDistributor
                                   ? "Paid to distributor →"
                                   : `${airtimeForm === "float" ? "Float" : "EVD"} from →`}
                               </span>
@@ -889,43 +1002,59 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                               </Select>
                             </div>
                           )}
-                          {partyIsReal && (
-                            <div className="flex items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
-                              <span className="text-ink-soft">“{row.party}” →</span>
+                          {needsAgent && (
+                            <div className="flex flex-wrap items-center gap-1.5 text-[11px] bg-muted/50 border border-border rounded px-2 py-1">
+                              <span className="text-ink-soft">
+                                {partyIsReal ? `“${row.party}” →` : "Agent →"}
+                              </span>
                               <Select
-                                value={encodePartyAction(pAction)}
+                                value={
+                                  pAction.kind === "link" && pAction.partyType === "agent"
+                                    ? `link:agent:${pAction.id}`
+                                    : "none"
+                                }
                                 onValueChange={(v) =>
-                                  setPartyActions((s) => ({ ...s, [i]: decodePartyAction(v) }))
+                                  setPartyActions((st) => ({ ...st, [i]: decodePartyAction(v) }))
                                 }
                               >
-                                <SelectTrigger className="h-6 w-auto min-w-[10rem] text-[11px]">
-                                  <SelectValue />
+                                <SelectTrigger className="h-6 w-auto min-w-[11rem] text-[11px]">
+                                  <SelectValue placeholder="Pick the exact agent…" />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="none">Unresolved — don't link</SelectItem>
-                                  {agents.length > 0 && (
-                                    <>
-                                      {agents.map((a) => (
-                                        <SelectItem key={`a-${a.id}`} value={`link:agent:${a.id}`}>
-                                          Link → agent · {a.name}
-                                        </SelectItem>
-                                      ))}
-                                    </>
-                                  )}
-                                  {distributors.length > 0 && (
-                                    <>
-                                      {distributors.map((d) => (
-                                        <SelectItem
-                                          key={`d-${d.id}`}
-                                          value={`link:distributor:${d.id}`}
-                                        >
-                                          Link → distributor · {d.name}
-                                        </SelectItem>
-                                      ))}
-                                    </>
+                                  {agents.map((a) => (
+                                    <SelectItem key={`a-${a.id}`} value={`link:agent:${a.id}`}>
+                                      {a.name}
+                                    </SelectItem>
+                                  ))}
+                                  {agents.length === 0 && (
+                                    <SelectItem value="none" disabled>
+                                      No agents yet — add one on the Agents page
+                                    </SelectItem>
                                   )}
                                 </SelectContent>
                               </Select>
+                              {partyIsReal &&
+                                pAction.kind === "link" &&
+                                pAction.partyType === "agent" &&
+                                e.agentMapping?.targetId !== pAction.id && (
+                                  <label className="flex items-center gap-1 text-ink-soft">
+                                    <input
+                                      type="checkbox"
+                                      className="h-3 w-3 accent-[hsl(var(--money-in))]"
+                                      checked={Boolean(remember[i])}
+                                      onChange={(ev) =>
+                                        setRemember((st) => ({ ...st, [i]: ev.target.checked }))
+                                      }
+                                    />
+                                    Remember this exact sender label
+                                  </label>
+                                )}
+                              {e.agentMapping && (
+                                <span className="text-money-in">
+                                  remembered → {e.agentMapping.targetName}
+                                </span>
+                              )}
                             </div>
                           )}
                         </div>

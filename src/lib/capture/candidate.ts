@@ -13,6 +13,8 @@ import {
 } from "./source-fingerprint";
 import { segmentSourceRecords, type SourceRecord } from "./segmentation";
 import { defaultPurpose, type BusinessPurpose, type MoneyDirection } from "./purpose";
+import { resolveDirection, type DirectionVerdict } from "./direction";
+import { applyDirection } from "./apply-direction";
 
 export type TransactionFamily =
   | "bank_credit"
@@ -109,6 +111,7 @@ function fromParsed(
   record: SourceRecord,
   fp: SourceFingerprint,
   parsed: ParsedOk,
+  verdict: DirectionVerdict,
 ): CaptureCandidate {
   const direction: MoneyDirection =
     parsed.type === "in" ? "in" : parsed.type === "out" ? "out" : "in";
@@ -132,6 +135,7 @@ function fromParsed(
 
   const missing = [...(parsed.missingFields ?? [])];
   if (finalAmount === undefined) missing.push("final debit/credit");
+  const directionConflict = verdict.conflicts.length > 0 && verdict.evidence.length > 0;
 
   return {
     index: record.index,
@@ -158,9 +162,9 @@ function fromParsed(
     raw: record.raw,
     attachments: record.attachments,
     missingFields: missing,
-    conflictingFields: [],
+    conflictingFields: directionConflict ? verdict.conflicts : [],
     blockingIssues: parsed.blockingIssues ?? [],
-    needsReview: Boolean(parsed.needsReview) || !fp.resolved,
+    needsReview: Boolean(parsed.needsReview) || !fp.resolved || directionConflict,
     purpose: defaultPurpose(),
     template: parsed.template,
   };
@@ -233,8 +237,9 @@ export function buildCandidate(record: SourceRecord): CaptureCandidate {
     const airtime = fromAirtimeSms(record, fp);
     if (airtime) return airtime;
   }
-  const parsed = parseOne(record.raw);
-  if (parsed.ok) return fromParsed(record, fp, parsed);
+  const verdict = resolveDirection(record.raw);
+  const parsed = applyDirection(parseOne(record.raw), record.raw);
+  if (parsed.ok) return fromParsed(record, fp, parsed, verdict);
   return unresolvedCandidate(record, fp);
 }
 
