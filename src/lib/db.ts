@@ -16,6 +16,7 @@ import type {
   Transaction,
 } from "./types";
 import { makeId } from "./ids";
+import { agentCredits, planAllocations } from "./settlement";
 import {
   applyApproval,
   markUsed,
