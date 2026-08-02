@@ -1,7 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ArrowLeft, ChevronLeft, ChevronRight, UserRound } from "lucide-react";
-import { getWeekStart, useAgents, useDistributors, useTransactions } from "@/lib/db";
+import {
+  getWeekStart,
+  useAgents,
+  useDistributors,
+  useSettlementAllocations,
+  useTransactions,
+} from "@/lib/db";
 import { agentLedger, agentTransactions } from "@/lib/agent-ledger";
 import { shiftWeekStart, weekEndOf, weekRangeOf } from "@/lib/distributor-ledger";
 import { formatEtb, formatTxnDate } from "@/lib/format";

@@ -1,7 +1,7 @@
 import { airtimeMovementKind, isAirtimeTransaction } from "../airtime-movement";
 import { agentLedger } from "../agent-ledger";
 import { outstandingOf } from "../settlement";
-import type { Agent, Transaction } from "../types";
+import type { Agent, SettlementAllocation, Transaction } from "../types";
 
 export interface AgentStats {
   agentId: string;

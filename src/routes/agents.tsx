@@ -19,6 +19,7 @@ import {
   updateTransaction,
   upsertAgent,
   useAgents,
+  useSettlementAllocations,
   useTransactions,
 } from "@/lib/db";
 import { computeAgentStats } from "@/lib/brain/stats";
@@ -53,7 +54,7 @@ function AgentsPage() {
   const rows = useMemo(
     () =>
       agents
-        .map((a) => ({ agent: a, stats: computeAgentStats(a, txns) }))
+        .map((a) => ({ agent: a, stats: computeAgentStats(a, txns, allocations) }))
         .sort((x, y) => y.stats.openCreditSantim - x.stats.openCreditSantim),
     [agents, txns],
   );
@@ -288,7 +289,8 @@ function AgentDetail({
   const mine = txns
     .filter((t) => t.partyId === agent.id)
     .sort((a, b) => (a.date < b.date ? 1 : -1));
-  const stats = computeAgentStats(agent, txns);
+  const allocations = useSettlementAllocations();
+  const stats = computeAgentStats(agent, txns, allocations);
   const [settleAmt, setSettleAmt] = useState("");
 
   async function settle() {
