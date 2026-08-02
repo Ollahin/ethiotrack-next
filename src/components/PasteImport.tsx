@@ -15,6 +15,7 @@ import {
 import { type ParsedOk, type ParsedRow } from "@/lib/parser";
 import { parseSourceRecords } from "@/lib/capture/parse-records";
 import { fingerprintSource } from "@/lib/capture/source-fingerprint";
+import { resolveFinalAmount } from "@/lib/capture/candidate";
 import {
   PURPOSE_LABEL,
   defaultPurpose,
