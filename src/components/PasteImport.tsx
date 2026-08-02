@@ -238,34 +238,63 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     return { iso: iso.toISOString(), dayOnly: !manual.time };
   }
 
-  /** Only rows that can actually be persisted are counted and imported. */
-  function isImportable(i: number, row: ParsedRow): boolean {
-    if (!row.ok) return false;
-    if (blockersFor(row).length > 0) return false;
-    return resolvedDate(i, row) !== null;
+  /** Money direction used to offer the right business purposes. */
+  function directionOf(row: ParsedRow): "in" | "out" | "unknown" {
+    if (!row.ok) return "unknown";
+    if (row.type === "in") return "in";
+    if (row.type === "out") return "out";
+    return "out";
   }
 
-  const importableCount = enriched.filter((e, i) => isImportable(i, e.row)).length;
+  function purposeFor(i: number, row: ParsedRow): BusinessPurpose {
+    return purposes[i] ?? defaultPurpose();
+  }
+
+  /** A bank/wallet leg must name the account it moved through. */
+  function requiresAccount(row: ParsedRow): boolean {
+    return row.ok && !isAirtimeRow(row.type);
+  }
+
+  /** Everything the state machine needs for one row. */
+  function readinessInput(i: number, e: (typeof enriched)[number]): ReadinessInput {
+    const { row } = e;
+    const purpose = purposeFor(i, row);
+    const fp = row.ok ? fingerprintSource(row.raw) : null;
+    const bAction = bankActionFor(i, e);
+    const pAction = partyActionFor(i, e);
+    const dAction = distActionFor(i, e);
+    const needsAgent = requiresAgent(purpose);
+    const needsDistributor = requiresDistributor(purpose) || isBankTransferRow(row);
+    return {
+      sourceResolved: Boolean(row.ok && (fp?.resolved || (row.channel && row.channel !== "Other"))),
+      familyResolved: row.ok,
+      financialBlockers: blockersFor(row).length,
+      hasDate: resolvedDate(i, row) !== null,
+      accountSelected: !requiresAccount(row) || Boolean(e.bank) || bAction.kind === "auto",
+      purposeResolved: purpose !== "unresolved",
+      requiresLink: needsAgent || needsDistributor,
+      linkSatisfied: needsAgent
+        ? pAction.kind === "link" && pAction.partyType === "agent"
+        : needsDistributor
+          ? dAction.kind === "link" || (pAction.kind === "link" && pAction.partyType === "distributor")
+          : true,
+      linkCertain: needsDistributor && isBankTransferRow(row) ? Boolean(e.payee) : true,
+      needsReview: Boolean(row.ok && row.needsReview),
+    };
+  }
+
+  /** Only READY rows are counted and imported. */
+  function isImportable(i: number, e: (typeof enriched)[number]): boolean {
+    return rowReadiness(readinessInput(i, e)) === "READY";
+  }
+
+  const importableCount = enriched.filter((e, i) => isImportable(i, e)).length;
 
   /** Batch readiness, shown before anything can be saved. */
   const readiness = useMemo(
-    () =>
-      summarizeReadiness(
-        enriched.map((e, i): RowDecisionInput => {
-          const transfer = isBankTransferRow(e.row);
-          return {
-            parsedOk: e.row.ok,
-            blockers: blockersFor(e.row).length,
-            hasDate: resolvedDate(i, e.row) !== null,
-            requiresCounterparty: transfer,
-            counterpartyLinked: transfer ? distActionFor(i, e).kind === "link" : true,
-            counterpartyCertain: transfer ? Boolean(e.payee) : true,
-            needsReview: Boolean(e.row.ok && e.row.needsReview),
-          };
-        }),
-      ),
+    () => summarizeReadinessStates(enriched.map((e, i) => readinessInput(i, e))),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [enriched, manualDates, distActions],
+    [enriched, manualDates, distActions, partyActions, bankActions, purposes],
   );
 
   useEffect(() => {
