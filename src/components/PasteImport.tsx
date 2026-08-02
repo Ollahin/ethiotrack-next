@@ -13,7 +13,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { type ParsedOk, type ParsedRow } from "@/lib/parser";
-import { parseSourceRecords } from "@/lib/capture/parse-records";
+import {
+  DATE_PROVENANCE_LABEL,
+  appendToBatch,
+  buildBatch,
+  hasGenuineDate,
+  loadBatch,
+  removeCandidates,
+  resolveCandidateDate,
+  saveBatch,
+  setRowDate,
+  todayString,
+  undatedCandidates,
+  yesterdayString,
+  type BatchCandidate,
+  type CaptureBatch,
+} from "@/lib/capture/batch";
 import { fingerprintSource } from "@/lib/capture/source-fingerprint";
 import { resolveFinalAmount } from "@/lib/capture/candidate";
 import {
@@ -140,28 +155,6 @@ function exactAgentMatch(label: string | undefined, agents: Agent[]): Agent | nu
   return agents.find((a) => normalizeLabel(a.name) === key) ?? null;
 }
 
-/** Unprocessed capture text survives a refresh until it is imported. */
-const PENDING_TEXT_KEY = "ethiotrack.capture.pending-batch";
-
-function readPendingText(): string {
-  if (typeof window === "undefined") return "";
-  try {
-    return window.localStorage.getItem(PENDING_TEXT_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function writePendingText(value: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    if (value.trim()) window.localStorage.setItem(PENDING_TEXT_KEY, value);
-    else window.localStorage.removeItem(PENDING_TEXT_KEY);
-  } catch {
-    /* storage unavailable — the batch simply won't survive a refresh */
-  }
-}
-
 function suggestBankName(channel: string, accountTail?: string): string {
   if (accountTail) return `${channel} ···${accountTail}`;
   const wallets = ["Telebirr", "M-Pesa", "CoopPay", "eBirr"];
@@ -180,23 +173,28 @@ export interface PasteImportProps {
 export function PasteImport({ initialText, embedded = false, onSaved }: PasteImportProps = {}) {
   const [text, setText] = useState(initialText ?? "");
   const [isPersonal, setPersonal] = useState(false);
-  const [rows, setRows] = useState<ParsedRow[] | null>(
-    initialText && initialText.trim() ? parseSourceRecords(initialText) : null,
+  /**
+   * The one canonical batch. Built once per capture; the review list below is
+   * a pure view of it. The textarea is never reparsed behind the operator.
+   */
+  const [batch, setBatch] = useState<CaptureBatch | null>(() =>
+    initialText && initialText.trim() ? buildBatch(initialText) : null,
   );
   const agents = useAgents();
   const banks = useBanks();
   const distributors = useDistributors();
   const txns = useTransactions();
-  const [partyActions, setPartyActions] = useState<Record<number, PartyAction>>({});
-  const [bankActions, setBankActions] = useState<Record<number, BankAction>>({});
-  const [distActions, setDistActions] = useState<Record<number, DistributorAction>>({});
-  /** User-supplied transaction date/time for messages that stated none. */
-  const [manualDates, setManualDates] = useState<Record<number, { date: string; time: string }>>(
-    {},
-  );
-  const [purposes, setPurposes] = useState<Record<number, BusinessPurpose>>({});
-  /** "Remember this exact sender label" ticks, per row. */
-  const [remember, setRemember] = useState<Record<number, boolean>>({});
+  /* Reviewer decisions are keyed by CANDIDATE ID, never by list position, so
+     importing one card can never shift another card's answers. */
+  const [partyActions, setPartyActions] = useState<Record<string, PartyAction>>({});
+  const [bankActions, setBankActions] = useState<Record<string, BankAction>>({});
+  const [distActions, setDistActions] = useState<Record<string, DistributorAction>>({});
+  const [purposes, setPurposes] = useState<Record<string, BusinessPurpose>>({});
+  /** "Remember this exact sender label" ticks, per candidate. */
+  const [remember, setRemember] = useState<Record<string, boolean>>({});
+  /** Rows whose optional time field has been revealed. */
+  const [showTime, setShowTime] = useState<Record<string, boolean>>({});
+  const [pickDate, setPickDate] = useState("");
   const mappings = useApprovedMappings();
   const [skippedInfo, setSkippedInfo] = useState<
     Array<{ input: Omit<Transaction, "id" | "createdAt">; reason: "reference" | "heuristic" }>
@@ -221,7 +219,8 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
   }
 
   const enriched = useMemo(() => {
-    return (rows ?? []).map((r) => {
+    return (batch?.candidates ?? []).map((c) => {
+      const r = c.row;
       // Exact identity only — a mapping the operator approved earlier, or an
       // identical agent name. Nothing fuzzy ever pre-selects an entity.
       const label = r.ok ? r.party : undefined;
@@ -231,17 +230,22 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
       const bank = matchBank(r);
       const distributor = matchDistributor(r, distributors);
       const payee = matchTransferDistributor(r, distributors);
-      return { row: r, agent: match, agentMapping: mapping, bank, distributor, payee };
+      return {
+        id: c.id,
+        candidate: c as BatchCandidate,
+        row: r,
+        agent: match,
+        agentMapping: mapping,
+        bank,
+        distributor,
+        payee,
+      };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, agents, banks, distributors, mappings]);
+  }, [batch, agents, banks, distributors, mappings]);
 
-  function partyActionFor(
-    i: number,
-    e: (typeof enriched)[number],
-    purpose: BusinessPurpose,
-  ): PartyAction {
-    const override = partyActions[i];
+  function partyActionFor(e: (typeof enriched)[number], purpose: BusinessPurpose): PartyAction {
+    const override = partyActions[e.id];
     if (override) return override;
     // The business purpose decides which entity may be linked at all.
     if (requiresAgent(purpose) && e.agent) {
@@ -253,8 +257,8 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     return { kind: "none" };
   }
 
-  function bankActionFor(i: number, e: (typeof enriched)[number]): BankAction {
-    const override = bankActions[i];
+  function bankActionFor(e: (typeof enriched)[number]): BankAction {
+    const override = bankActions[e.id];
     if (override) return override;
     // Already linked to an existing bank — nothing to do.
     if (e.bank) return { kind: "skip" };
@@ -264,11 +268,10 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
   }
 
   function distActionFor(
-    i: number,
     e: (typeof enriched)[number],
     purpose: BusinessPurpose,
   ): DistributorAction {
-    const override = distActions[i];
+    const override = distActions[e.id];
     if (override) return override;
     if (requiresDistributor(purpose) && e.payee) return { kind: "link", id: e.payee.id };
     if (e.row.ok && isAirtimeRow(e.row.type) && e.distributor)
@@ -282,16 +285,13 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
   }
 
   /**
-   * The transaction date: the one the message stated, or the one the user
-   * typed in review. Never the current clock.
+   * The transaction date, in strict provenance order: the message, genuine
+   * sharing metadata, the reviewer's batch date, then a per-row correction.
+   * Never the current clock, the share time or a screenshot time.
    */
-  function resolvedDate(i: number, row: ParsedRow): { iso: string; dayOnly: boolean } | null {
-    if (row.ok && row.date) return { iso: row.date, dayOnly: row.dateIsDayOnly ?? false };
-    const manual = manualDates[i];
-    if (!manual?.date) return null;
-    const iso = new Date(`${manual.date}T${manual.time || "00:00"}:00Z`);
-    if (isNaN(iso.getTime())) return null;
-    return { iso: iso.toISOString(), dayOnly: !manual.time };
+  function resolvedDate(e: (typeof enriched)[number]) {
+    if (!batch) return null;
+    return resolveCandidateDate(batch, e.candidate);
   }
 
   /** Money direction used to offer the right business purposes. */
@@ -303,8 +303,8 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     return "out";
   }
 
-  function purposeFor(i: number, row: ParsedRow): BusinessPurpose {
-    return purposes[i] ?? defaultPurpose();
+  function purposeFor(e: (typeof enriched)[number]): BusinessPurpose {
+    return purposes[e.id] ?? defaultPurpose();
   }
 
   /** A bank/wallet leg must name the account it moved through. */
@@ -313,20 +313,20 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
   }
 
   /** Everything the state machine needs for one row. */
-  function readinessInput(i: number, e: (typeof enriched)[number]): ReadinessInput {
+  function readinessInput(e: (typeof enriched)[number]): ReadinessInput {
     const { row } = e;
-    const purpose = purposeFor(i, row);
+    const purpose = purposeFor(e);
     const fp = row.ok ? fingerprintSource(row.raw) : null;
-    const bAction = bankActionFor(i, e);
-    const pAction = partyActionFor(i, e, purpose);
-    const dAction = distActionFor(i, e, purpose);
+    const bAction = bankActionFor(e);
+    const pAction = partyActionFor(e, purpose);
+    const dAction = distActionFor(e, purpose);
     const needsAgent = requiresAgent(purpose);
     const needsDistributor = requiresDistributor(purpose);
     return {
       sourceResolved: Boolean(row.ok && (fp?.resolved || (row.channel && row.channel !== "Other"))),
       familyResolved: row.ok,
       financialBlockers: blockersFor(row).length,
-      hasDate: resolvedDate(i, row) !== null,
+      hasDate: resolvedDate(e) !== null,
       accountSelected: !requiresAccount(row) || Boolean(e.bank) || bAction.kind === "auto",
       purposeResolved: purpose !== "unresolved",
       requiresLink: needsAgent || needsDistributor,
@@ -344,60 +344,93 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
   }
 
   /** Only READY rows are counted and imported. */
-  function isImportable(i: number, e: (typeof enriched)[number]): boolean {
-    return rowReadiness(readinessInput(i, e)) === "READY";
+  function isImportable(e: (typeof enriched)[number]): boolean {
+    return rowReadiness(readinessInput(e)) === "READY";
   }
 
-  const importableCount = enriched.filter((e, i) => isImportable(i, e)).length;
+  /** The exact reasons a card is not READY, shown on the card itself. */
+  function blockersList(e: (typeof enriched)[number]): string[] {
+    const out: string[] = [];
+    const purpose = purposeFor(e);
+    const input = readinessInput(e);
+    if (!e.row.ok) return ["This text could not be read as a transaction."];
+    if (input.financialBlockers > 0) out.push(...blockersFor(e.row));
+    if (!input.sourceResolved) out.push("Source bank/wallet not established.");
+    if (!input.hasDate) out.push("Date missing — pick a batch date or set one here.");
+    if (!input.accountSelected) out.push("Bank/wallet account not selected.");
+    if (!input.purposeResolved) out.push("Business purpose still unresolved.");
+    if (input.requiresLink && !input.linkSatisfied)
+      out.push(
+        requiresAgent(purpose) ? "Exact agent not selected." : "Exact distributor not selected.",
+      );
+    if (input.needsReview) out.push("Parser flagged this message for a human check.");
+    return out;
+  }
+
+  const importableCount = enriched.filter((e) => isImportable(e)).length;
 
   /** Batch readiness, shown before anything can be saved. */
   const readiness = useMemo(
-    () => summarizeReadinessStates(enriched.map((e, i) => readinessInput(i, e))),
+    () => summarizeReadinessStates(enriched.map((e) => readinessInput(e))),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [enriched, manualDates, distActions, partyActions, bankActions, purposes],
+    [enriched, batch, distActions, partyActions, bankActions, purposes],
   );
 
-  // An unprocessed batch survives a refresh: nothing is saved, but the text
-  // and its parsed rows come back exactly as they were.
+  // The pending batch survives a refresh: nothing is saved, but every
+  // candidate, its raw span and the dates chosen for it come back unchanged.
   useEffect(() => {
     if (initialText !== undefined) return;
-    const pending = readPendingText();
-    if (!pending.trim()) return;
-    setText(pending);
-    setRows(parseSourceRecords(pending));
+    const pending = loadBatch();
+    if (!pending) return;
+    setBatch(pending);
+    setText(pending.text);
+    setPurposes((pending.decisions.purposes ?? {}) as Record<string, BusinessPurpose>);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (initialText !== undefined) return;
-    writePendingText(text);
-  }, [text, initialText]);
+    if (!batch) {
+      saveBatch(null);
+      return;
+    }
+    saveBatch({ ...batch, decisions: { ...batch.decisions, purposes } });
+  }, [batch, purposes]);
 
   useEffect(() => {
     if (initialText === undefined) return;
     setText(initialText);
-    setRows(initialText.trim() ? parseSourceRecords(initialText) : null);
+    setBatch(initialText.trim() ? buildBatch(initialText) : null);
+    resetDecisions();
+  }, [initialText]);
+
+  function resetDecisions() {
     setPartyActions({});
     setBankActions({});
     setDistActions({});
-    setManualDates({});
     setPurposes({});
     setRemember({});
-  }, [initialText]);
+    setShowTime({});
+  }
 
   function detect() {
     if (!text.trim()) return;
-    setRows(parseSourceRecords(text));
-    setPartyActions({});
-    setBankActions({});
-    setDistActions({});
-    setManualDates({});
-    setPurposes({});
-    setRemember({});
+    setBatch(buildBatch(text));
+    resetDecisions();
+  }
+
+  /** Add another capture to the same pending batch, keeping source order. */
+  function addToBatch() {
+    if (!text.trim()) return;
+    setBatch((b) => (b ? appendToBatch(b, text) : buildBatch(text)));
+  }
+
+  /** One tap sets the date of every currently undated candidate. */
+  function applyDateToUndated(date: string) {
+    setBatch((b) => (b ? { ...b, batchDate: date ? { date } : undefined } : b));
   }
 
   async function importAll() {
-    const ok = enriched.filter((e, i) => isImportable(i, e));
+    const ok = enriched.filter((e) => isImportable(e));
     if (!ok.length) {
       toast.error("Nothing is READY — resolve source, date, account and purpose first");
       return;
@@ -410,21 +443,23 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     const inputs: Array<Omit<Transaction, "id" | "createdAt">> = [];
     /** Parallel to `inputs`: which rows may clear open agent credits. */
     const settlePlan: boolean[] = [];
+    /** Candidate ids that were actually handed to the writer. */
+    const importedIds: string[] = [];
 
     for (let i = 0; i < enriched.length; i++) {
       const e = enriched[i];
       if (!e.row.ok) continue;
       const { row } = e;
-      if (!isImportable(i, e)) {
+      if (!isImportable(e)) {
         blockedNotReady++;
         continue;
       }
-      const when = resolvedDate(i, row)!;
-      const purpose = purposeFor(i, row);
+      const when = resolvedDate(e)!;
+      const purpose = purposeFor(e);
 
       // ----- Bank resolution
       let bankId = e.bank?.id;
-      const bAction = bankActionFor(i, e);
+      const bAction = bankActionFor(e);
       if (!bankId && bAction.kind === "auto" && row.channel) {
         const name = suggestBankName(row.channel, row.accountTail);
         const bank = await upsertBank({
@@ -440,7 +475,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
       // ----- Party resolution (explicit links only)
       let partyId: string | undefined;
       let partyType: Transaction["partyType"] | undefined;
-      const pAction = partyActionFor(i, e, purpose);
+      const pAction = partyActionFor(e, purpose);
       if (pAction.kind === "link") {
         partyId = pAction.id;
         partyType = pAction.partyType;
@@ -449,7 +484,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
       // ----- Distributor resolution (airtime rows only)
       let distributorId: string | undefined;
       if (isAirtimeRow(row.type) || requiresDistributor(purpose)) {
-        const dAction = distActionFor(i, e, purpose);
+        const dAction = distActionFor(e, purpose);
         if (dAction.kind === "link") distributorId = dAction.id;
         // A distributor payment links the distributor as the counterparty too.
         if (requiresDistributor(purpose) && distributorId && !partyId) {
@@ -484,6 +519,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
         source: "paste_parse",
       });
       settlePlan.push(settlesAgentCredits(purpose) && partyType === "agent");
+      importedIds.push(e.id);
     }
 
     const res = await addTransactionsBulk(inputs);
@@ -493,9 +529,9 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     // count reuse of the ones an earlier approval pre-selected.
     for (let i = 0; i < enriched.length; i++) {
       const e = enriched[i];
-      if (!e.row.ok || !isImportable(i, e)) continue;
-      const purpose = purposeFor(i, e.row);
-      const pAction = partyActionFor(i, e, purpose);
+      if (!e.row.ok || !isImportable(e)) continue;
+      const purpose = purposeFor(e);
+      const pAction = partyActionFor(e, purpose);
       if (pAction.kind !== "link" || pAction.partyType !== "agent") continue;
       const label = e.row.party?.trim();
       if (!label) continue;
@@ -503,7 +539,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
         await recordMappingUse(e.agentMapping.id);
         continue;
       }
-      if (!remember[i]) continue;
+      if (!remember[e.id]) continue;
       const agent = agents.find((a) => a.id === pAction.id);
       if (agent) {
         await approveMapping({
@@ -539,20 +575,15 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
         (extras ? ` · registered ${extras}` : ""),
     );
     if (res.inserted > 0) onSaved?.();
+    // Only the candidates that were actually written leave the batch. Every
+    // unresolved or failed candidate stays pending, with its own decisions.
+    setBatch((b) => (b ? removeCandidates(b, importedIds) : b));
     if (blockedNotReady > 0) {
       toast.error(
-        `${blockedNotReady} row(s) not imported: still missing a source, date, account, purpose or link.`,
+        `${blockedNotReady} row(s) stay pending: still missing a source, date, account, purpose or link.`,
       );
     } else {
       setText("");
-      writePendingText("");
-      setRows(null);
-      setPartyActions({});
-      setBankActions({});
-      setDistActions({});
-      setManualDates({});
-      setPurposes({});
-      setRemember({});
     }
   }
 
@@ -604,12 +635,58 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
           <Button onClick={detect} variant="secondary">
             Re-read message
           </Button>
+          {batch && text.trim().length > 0 && (
+            <Button onClick={addToBatch} variant="ghost" size="sm">
+              Add to batch
+            </Button>
+          )}
           {enriched.length > 0 && (
             <Button onClick={importAll} className="ml-auto" disabled={importableCount === 0}>
               Import {importableCount}
             </Button>
           )}
         </div>
+        {batch && undatedCandidates(batch).length > 0 && (
+          <div className="rounded-md border border-airtime/40 bg-airtime/5 p-2 text-[11px] space-y-1">
+            <div className="text-airtime font-semibold">
+              {undatedCandidates(batch).length} message(s) stated no date. Pick one date for the
+              batch — time is never required.
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => applyDateToUndated(todayString())}
+              >
+                Today
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => applyDateToUndated(yesterdayString())}
+              >
+                Yesterday
+              </Button>
+              <Input
+                type="date"
+                className="h-7 w-auto text-[11px]"
+                value={pickDate}
+                onChange={(ev) => setPickDate(ev.target.value)}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!pickDate}
+                onClick={() => applyDateToUndated(pickDate)}
+              >
+                Apply date to all undated rows
+              </Button>
+              {batch.batchDate?.date && (
+                <span className="text-ink-soft">batch date · {batch.batchDate.date}</span>
+              )}
+            </div>
+          </div>
+        )}
         {enriched.length > 0 && (
           <div className="flex flex-wrap gap-2 text-[11px]">
             <span className="rounded bg-muted text-ink-soft font-semibold px-2 py-0.5">
@@ -629,7 +706,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
             </span>
           </div>
         )}
-        {rows !== null && enriched.filter((e) => e.row.ok).length === 0 && (
+        {batch !== null && enriched.filter((e) => e.row.ok).length === 0 && (
           <div className="rounded-md border border-money-out/40 bg-money-out/5 p-2 text-xs space-y-1">
             <div className="font-semibold text-money-out">Nothing recognised in this message.</div>
             <div className="text-ink-soft">
@@ -643,11 +720,13 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
           <ul className="text-sm divide-y divide-border rounded-md border border-border overflow-hidden">
             {enriched.map((e, i) => {
               const { row, agent, bank, distributor, payee } = e;
-              const purpose = purposeFor(i, row);
-              const pAction = partyActionFor(i, e, purpose);
-              const bAction = bankActionFor(i, e);
-              const dAction = distActionFor(i, e, purpose);
-              const state = rowReadiness(readinessInput(i, e));
+              const purpose = purposeFor(e);
+              const pAction = partyActionFor(e, purpose);
+              const bAction = bankActionFor(e);
+              const dAction = distActionFor(e, purpose);
+              const state = rowReadiness(readinessInput(e));
+              const when = resolvedDate(e);
+              const override = batch?.overrides[e.id];
               const needsAgent = requiresAgent(purpose);
               const needsDistributor = requiresDistributor(purpose);
               const fp = row.ok ? fingerprintSource(row.raw) : null;
@@ -723,7 +802,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                         <Select
                           value={purpose}
                           onValueChange={(v) =>
-                            setPurposes((s) => ({ ...s, [i]: v as BusinessPurpose }))
+                            setPurposes((s) => ({ ...s, [e.id]: v as BusinessPurpose }))
                           }
                         >
                           <SelectTrigger className="h-6 w-auto min-w-[11rem] text-[11px]">
@@ -896,47 +975,84 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                           <li>This row cannot be imported until the message is corrected.</li>
                         </ul>
                       )}
-                      {row.ok && !row.date && blockersFor(row).length === 0 && (
-                        <div className="text-[11px] rounded border border-airtime/40 bg-airtime/5 px-2 py-1 space-y-1">
-                          <div className="text-airtime font-semibold">
-                            Date: missing — manual entry required
-                          </div>
+                      {row.ok && blockersFor(row).length === 0 && (
+                        <div className="text-[11px] rounded border border-border bg-muted/40 px-2 py-1 space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <Label className="text-[11px] text-ink-soft">
-                              Transaction date
+                            <span className="text-ink-soft">Date:</span>
+                            <span
+                              className={when ? "font-semibold" : "text-money-out font-semibold"}
+                            >
+                              {when ? when.iso.slice(0, 10) : "not stated"}
+                            </span>
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-ink-soft">
+                              {DATE_PROVENANCE_LABEL[when?.provenance ?? "none"]}
+                            </span>
+                            {!hasGenuineDate(e.candidate) && (
                               <Input
                                 type="date"
-                                className="h-7 text-[11px] mt-0.5"
-                                value={manualDates[i]?.date ?? ""}
+                                aria-label="Row date"
+                                className="h-7 w-auto text-[11px]"
+                                value={
+                                  override?.date ??
+                                  (when?.provenance === "batch" ? when.iso.slice(0, 10) : "")
+                                }
                                 onChange={(ev) =>
-                                  setManualDates((s) => ({
-                                    ...s,
-                                    [i]: { time: s[i]?.time ?? "", date: ev.target.value },
-                                  }))
+                                  setBatch((b) =>
+                                    b
+                                      ? setRowDate(
+                                          b,
+                                          e.id,
+                                          ev.target.value
+                                            ? { date: ev.target.value, time: override?.time }
+                                            : null,
+                                        )
+                                      : b,
+                                  )
                                 }
                               />
-                            </Label>
-                            <Label className="text-[11px] text-ink-soft">
-                              Time (optional)
-                              <Input
-                                type="time"
-                                className="h-7 text-[11px] mt-0.5"
-                                value={manualDates[i]?.time ?? ""}
-                                onChange={(ev) =>
-                                  setManualDates((s) => ({
-                                    ...s,
-                                    [i]: { date: s[i]?.date ?? "", time: ev.target.value },
-                                  }))
-                                }
-                              />
-                            </Label>
+                            )}
+                            {!hasGenuineDate(e.candidate) &&
+                              (showTime[e.id] ? (
+                                <Input
+                                  type="time"
+                                  aria-label="Row time"
+                                  className="h-7 w-auto text-[11px]"
+                                  value={override?.time ?? ""}
+                                  onChange={(ev) =>
+                                    setBatch((b) =>
+                                      b
+                                        ? setRowDate(b, e.id, {
+                                            date:
+                                              override?.date ?? (when ? when.iso.slice(0, 10) : ""),
+                                            time: ev.target.value,
+                                          })
+                                        : b,
+                                    )
+                                  }
+                                />
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="text-ink-soft underline"
+                                  onClick={() => setShowTime((s) => ({ ...s, [e.id]: true }))}
+                                >
+                                  Add time
+                                </button>
+                              ))}
                           </div>
-                          {!manualDates[i]?.date && (
+                          {!when && (
                             <div className="text-money-out">
-                              Import stays disabled for this row until a date is supplied.
+                              A date-only value is enough — time is never required.
                             </div>
                           )}
                         </div>
+                      )}
+                      {row.ok && state !== "READY" && blockersList(e).length > 0 && (
+                        <ul className="text-[11px] rounded border border-airtime/40 bg-airtime/5 px-2 py-1 text-airtime list-disc list-inside">
+                          {blockersList(e).map((b, k) => (
+                            <li key={k}>{b}</li>
+                          ))}
+                        </ul>
                       )}
                       {(suggestedBank || needsAgent || needsDistributor || airtime) && (
                         <div className="flex flex-wrap gap-2 pt-1">
@@ -948,7 +1064,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                                 onValueChange={(v) =>
                                   setBankActions((s) => ({
                                     ...s,
-                                    [i]: { kind: v as BankAction["kind"] },
+                                    [e.id]: { kind: v as BankAction["kind"] },
                                   }))
                                 }
                               >
@@ -974,7 +1090,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                                 onValueChange={(v) =>
                                   setDistActions((s) => ({
                                     ...s,
-                                    [i]:
+                                    [e.id]:
                                       v === "none"
                                         ? { kind: "none" }
                                         : { kind: "link", id: v.slice("link:".length) },
@@ -1014,7 +1130,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                                     : "none"
                                 }
                                 onValueChange={(v) =>
-                                  setPartyActions((st) => ({ ...st, [i]: decodePartyAction(v) }))
+                                  setPartyActions((st) => ({ ...st, [e.id]: decodePartyAction(v) }))
                                 }
                               >
                                 <SelectTrigger className="h-6 w-auto min-w-[11rem] text-[11px]">
@@ -1042,9 +1158,9 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                                     <input
                                       type="checkbox"
                                       className="h-3 w-3 accent-[hsl(var(--money-in))]"
-                                      checked={Boolean(remember[i])}
+                                      checked={Boolean(remember[e.id])}
                                       onChange={(ev) =>
-                                        setRemember((st) => ({ ...st, [i]: ev.target.checked }))
+                                        setRemember((st) => ({ ...st, [e.id]: ev.target.checked }))
                                       }
                                     />
                                     Remember this exact sender label

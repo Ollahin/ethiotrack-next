@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -33,15 +33,25 @@ export function SmartCapture({ initialText, onSaved }: SmartCaptureProps = {}) {
   const [handed, setHanded] = useState<{ text: string; family: CaptureFamily } | null>(null);
   const [override, setOverride] = useState<CaptureFamily | null>(null);
   const [clipboardError, setClipboardError] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
 
   const classification = useMemo(() => classifyCapturedText(text), [text]);
   const chosen: CaptureFamily = override ?? classification.family;
   const canReview = text.trim().length > 0 && chosen !== "unknown";
 
-  function review() {
-    if (!canReview) return;
-    setHanded({ text, family: chosen });
-  }
+  /**
+   * Review opens by itself. As soon as exactly one defensible family owns the
+   * text, the batch is handed to that family's review list — no extra click.
+   * An ambiguous capture waits for the operator to pick a type, and that
+   * choice opens review immediately too.
+   */
+  useEffect(() => {
+    if (!text.trim() || chosen === "unknown" || chosen === "distributor_statement") {
+      setHanded(null);
+      return;
+    }
+    setHanded((h) => (h && h.text === text && h.family === chosen ? h : { text, family: chosen }));
+  }, [text, chosen]);
 
   async function pasteFromClipboard() {
     setClipboardError(null);
@@ -79,7 +89,6 @@ export function SmartCapture({ initialText, onSaved }: SmartCaptureProps = {}) {
         onChange={(e) => {
           setText(e.target.value);
           setOverride(null);
-          setHanded(null);
         }}
       />
 
@@ -130,7 +139,7 @@ export function SmartCapture({ initialText, onSaved }: SmartCaptureProps = {}) {
               value={chosen === "unknown" ? "" : chosen}
               onValueChange={(v) => {
                 setOverride(v as CaptureFamily);
-                setHanded(null);
+                setCollapsed(false);
               }}
             >
               <SelectTrigger className="h-7 w-auto min-w-[12rem] text-[11px]">
@@ -157,23 +166,21 @@ export function SmartCapture({ initialText, onSaved }: SmartCaptureProps = {}) {
             </div>
           )}
 
-          <div>
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={!canReview || chosen === "distributor_statement"}
-              onClick={review}
-            >
-              Review {text.trim() ? "this capture" : ""}
-            </Button>
-          </div>
+          {canReview && chosen !== "distributor_statement" && (
+            <div className="flex items-center gap-2">
+              <span className="text-money-in font-semibold">Review opened automatically.</span>
+              <Button size="sm" variant="ghost" onClick={() => setCollapsed((c) => !c)}>
+                {collapsed ? "Show review" : "Hide review"}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
-      {handed?.family === "bank_message" && (
+      {!collapsed && handed?.family === "bank_message" && (
         <PasteImport embedded initialText={handed.text} onSaved={onSaved} />
       )}
-      {handed?.family === "airtime_sms" && (
+      {!collapsed && handed?.family === "airtime_sms" && (
         <div className="space-y-2">
           <div className="font-semibold text-sm">Float / EVD messages</div>
           <SmsFloatEvdImport initialText={handed.text} onSaved={onSaved} />
