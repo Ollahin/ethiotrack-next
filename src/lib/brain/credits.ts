@@ -1,3 +1,6 @@
+// DEPRECATED for settlement writes. Real settlement is partial-aware and lives
+// in ../settlement.ts (planning) + db.recordAgentSettlement (atomic write).
+// These helpers remain only for read-only listings of open credit rows.
 import { airtimeMovementKind } from "../airtime-movement";
 import type { Transaction } from "../types";
 
