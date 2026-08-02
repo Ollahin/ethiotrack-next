@@ -1,11 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { SmartCapture } from "@/components/SmartCapture";
+import { SmsInbox } from "@/components/SmsInbox";
 import { StatementImport } from "@/components/StatementImport";
-import { addSharedInput, deleteSharedInput, setSharedInputStatus, useSharedInputs } from "@/lib/db";
+import {
+  addSharedInput,
+  addSmsInboxRows,
+  deleteSharedInput,
+  setSharedInputStatus,
+  useSharedInputs,
+} from "@/lib/db";
 import { deleteHandoff, readHandoffs } from "@/lib/share-handoff";
-import { draftsFromHandoff, isFileInput, pendingCount, sharedInputToFile } from "@/lib/share-inbox";
+import { draftsFromHandoff, isFileInput, sharedInputToFile } from "@/lib/share-inbox";
+import { ingestSmsDrafts } from "@/lib/capture/inbox-ingest";
 import type { SharedInput } from "@/lib/types";
 import { formatTxnDate } from "@/lib/format";
 
@@ -42,7 +49,19 @@ function InboxPage() {
     const records = await readHandoffs();
     for (const record of records) {
       for (const draft of draftsFromHandoff(record)) {
-        await addSharedInput(draft);
+        // Shared text takes the identical path as a paste: one inbox row per
+        // message, before anything is parsed.
+        if (draft.kind === "text" && draft.text) {
+          await addSmsInboxRows(
+            ingestSmsDrafts(draft.text, {
+              captureId: draft.id,
+              receivedAt: draft.receivedAt,
+              origin: "share",
+            }),
+          );
+        } else {
+          await addSharedInput(draft);
+        }
       }
       await deleteHandoff(record.id);
     }
@@ -56,14 +75,20 @@ function InboxPage() {
   // A share that reached the server instead of the worker still lands here.
   useEffect(() => {
     if (!fallbackText) return;
-    void addSharedInput({
-      id: `fallback:${fallbackText.slice(0, 40)}`,
-      kind: "text",
-      text: fallbackText,
-    });
+    void addSmsInboxRows(
+      ingestSmsDrafts(fallbackText, {
+        captureId: `fallback:${fallbackText.slice(0, 40)}`,
+        origin: "share",
+      }),
+    );
   }, [fallbackText]);
 
-  const pending = useMemo(() => items.filter((i) => i.status === "pending"), [items]);
+  // Text lives in the SMS inbox below; only shared files still need their own
+  // open/review row here.
+  const pendingFiles = useMemo(
+    () => items.filter((i) => i.status === "pending" && i.kind !== "text"),
+    [items],
+  );
   const reviewed = useMemo(() => items.filter((i) => i.status !== "pending"), [items]);
   const open = items.find((i) => i.id === openId) ?? null;
   // The stored bytes are reused as-is; the operator never re-uploads a share.
@@ -90,19 +115,12 @@ function InboxPage() {
       <div className="text-xs text-ink-soft">
         {draining
           ? "Checking for new shares…"
-          : `${pendingCount(items)} waiting · ${reviewed.length} handled`}
+          : `${pendingFiles.length} shared file(s) waiting · ${reviewed.length} handled`}
       </div>
 
-      {pending.length === 0 && !draining && (
-        <div className="rounded-md border border-border bg-muted/30 p-3 text-sm text-ink-soft">
-          Nothing waiting. Share an SMS or a screenshot to EthioTrack from your phone, or paste it
-          below.
-        </div>
-      )}
-
-      {pending.length > 0 && (
+      {pendingFiles.length > 0 && (
         <ul className="divide-y divide-border rounded-md border border-border overflow-hidden">
-          {pending.map((item) => (
+          {pendingFiles.map((item) => (
             <InboxRow
               key={item.id}
               item={item}
@@ -115,14 +133,6 @@ function InboxPage() {
         </ul>
       )}
 
-      {open?.kind === "text" && (
-        <SmartCapture
-          initialText={open.text ?? ""}
-          // Only an actual save clears the item: opening or parsing it leaves
-          // it waiting, so a reload or a lock resumes the same queue.
-          onSaved={() => void setSharedInputStatus(open.id, "reviewed")}
-        />
-      )}
       {open && open.kind !== "text" && isFileInput(open) && openFiles && (
         <div className="space-y-2">
           <div className="text-xs text-ink-soft">
@@ -135,7 +145,6 @@ function InboxPage() {
             hideDropzone
             onSaved={() => void setSharedInputStatus(open.id, "reviewed")}
           />
-          {open.text?.trim() && <SmartCapture initialText={open.text} />}
         </div>
       )}
       {open && open.kind !== "text" && !isFileInput(open) && (
@@ -145,7 +154,7 @@ function InboxPage() {
         </div>
       )}
 
-      {!open && <SmartCapture />}
+      <SmsInbox />
 
       {reviewed.length > 0 && (
         <details className="rounded-md border border-border">

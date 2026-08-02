@@ -288,6 +288,8 @@ const sharedInputSchema = z
     id: idString,
     receivedAt: z.string(),
     kind: z.enum(["text", "image", "pdf", "unsupported"]),
+    seq: z.number().int().nonnegative().optional(),
+    origin: z.enum(["paste", "clipboard", "share"]).optional(),
     title: z.string().optional(),
     text: z.string().optional(),
     fileName: z.string().optional(),

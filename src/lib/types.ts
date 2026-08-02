@@ -250,6 +250,13 @@ export interface SharedInput {
   id: string;
   receivedAt: string;
   kind: "text" | "image" | "pdf" | "unsupported";
+  /**
+   * Position of this message inside the capture it arrived in. One paste of
+   * 200 messages produces 200 rows, 0..199, and that order never changes.
+   */
+  seq?: number;
+  /** How the message reached the inbox. Evidence only. */
+  origin?: "paste" | "clipboard" | "share";
   /** Title supplied by the sharing app, when it sent one. */
   title?: string;
   /** Shared text (SMS body, message, URL note). */

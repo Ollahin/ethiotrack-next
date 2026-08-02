@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { SmartCapture } from "@/components/SmartCapture";
+import { SmsInbox } from "@/components/SmsInbox";
 import { StatementImport } from "@/components/StatementImport";
 import { TransactionForm } from "@/components/TransactionForm";
 
@@ -32,10 +32,8 @@ function CapturePage() {
           anything is saved.
         </p>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <SmartCapture />
-        <StatementImport />
-      </div>
+      <SmsInbox />
+      <StatementImport />
       <TransactionForm />
     </div>
   );

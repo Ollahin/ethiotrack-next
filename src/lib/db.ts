@@ -17,6 +17,7 @@ import type {
 } from "./types";
 import { makeId } from "./ids";
 import { agentCredits, planAllocations } from "./settlement";
+import type { InboxSmsDraft } from "./capture/inbox-ingest";
 import {
   applyApproval,
   markUsed,
@@ -968,6 +969,103 @@ export async function setSharedInputStatus(
 
 export async function deleteSharedInput(id: string): Promise<void> {
   await db().sharedInputs.delete(id);
+}
+
+/**
+ * The one ingestion path for pasted, clipboard and shared SMS. Each message
+ * becomes its own persisted inbox row BEFORE anything is parsed, so a paste of
+ * 200 messages is 200 ordered rows even if the app is closed straight after.
+ * Ids are derived from the capture, so replaying the same capture never
+ * duplicates a row.
+ */
+export async function addSmsInboxRows(drafts: InboxSmsDraft[]): Promise<number> {
+  if (!drafts.length) return 0;
+  const rows: SharedInput[] = drafts.map((d) => ({
+    id: d.id,
+    receivedAt: d.receivedAt,
+    seq: d.seq,
+    origin: d.origin,
+    kind: "text",
+    text: d.text,
+    status: "pending",
+  }));
+  await db().sharedInputs.bulkPut(rows);
+  return rows.length;
+}
+
+export interface InboxImportResult {
+  id: string | null;
+  duplicate: boolean;
+  allocated: number;
+  closed: number;
+  leftoverSantim: number;
+}
+
+/**
+ * Import ONE reviewed inbox row. Everything happens in a single Dexie
+ * transaction: the receipt is written with its agent link, the FIFO settlement
+ * allocations are created, the covered credits are closed and the inbox row is
+ * removed. If any step throws, none of it is kept.
+ */
+export async function importInboxSms(
+  input: Omit<Transaction, "id" | "createdAt">,
+  opts: { inboxId?: string; settleAgentId?: string } = {},
+): Promise<InboxImportResult> {
+  const d = db();
+  return d.transaction(
+    "rw",
+    [d.transactions, d.settlementAllocations, d.sharedInputs],
+    async () => {
+      const all = await d.transactions.toArray();
+      if (input.captureKey && all.some((t) => t.captureKey === input.captureKey)) {
+        // The exact same reviewed message is already in the ledger. The inbox
+        // row still goes, otherwise it would be offered again forever.
+        if (opts.inboxId) await d.sharedInputs.delete(opts.inboxId);
+        return { id: null, duplicate: true, allocated: 0, closed: 0, leftoverSantim: 0 };
+      }
+
+      const txn: Transaction = { ...input, id: makeId(), createdAt: new Date().toISOString() };
+      await d.transactions.put(txn);
+
+      let allocated = 0;
+      let closed = 0;
+      let leftoverSantim = 0;
+      if (opts.settleAgentId) {
+        const allocs = await d.settlementAllocations.toArray();
+        const credits = agentCredits(opts.settleAgentId, all);
+        const plan = planAllocations(txn.amountSantim, credits, allocs);
+        leftoverSantim = plan.leftoverSantim;
+        const now = new Date().toISOString();
+        if (plan.allocations.length > 0) {
+          await d.settlementAllocations.bulkPut(
+            plan.allocations.map((a) => ({
+              id: makeId(),
+              paymentTxnId: txn.id,
+              creditTxnId: a.creditTxnId,
+              agentId: opts.settleAgentId!,
+              amountSantim: a.amountSantim,
+              createdAt: now,
+            })),
+          );
+          for (const a of plan.allocations) {
+            allocated += a.amountSantim;
+            if (!a.closes) continue;
+            const credit = credits.find((c) => c.id === a.creditTxnId);
+            if (!credit) continue;
+            await d.transactions.put({ ...credit, isSettled: true, settledAt: now });
+            closed++;
+          }
+          await d.transactions.put({
+            ...txn,
+            settlesTxnIds: plan.allocations.map((a) => a.creditTxnId),
+          });
+        }
+      }
+
+      if (opts.inboxId) await d.sharedInputs.delete(opts.inboxId);
+      return { id: txn.id, duplicate: false, allocated, closed, leftoverSantim };
+    },
+  );
 }
 
 async function serializeStatementImport(s: StatementImport): Promise<SerializedStatementImport> {

@@ -28,11 +28,11 @@ export interface ReadinessInput {
   /** Parser flagged something for a human to look at. */
   needsReview?: boolean;
   /**
-   * The source gave no reference number, so duplicate detection can only fall
-   * back on a heuristic. The reviewer must acknowledge that risk explicitly.
+   * A genuine identity collision was detected with a row that already exists.
+   * This is never set merely because a message carried no reference number.
    */
   duplicateRisk?: boolean;
-  /** The reviewer acknowledged that duplicate risk. */
+  /** The reviewer confirmed the collision is not actually a repeat. */
   duplicateRiskAcknowledged?: boolean;
 }
 
@@ -85,3 +85,38 @@ export const READINESS_LABEL: Record<ReadinessState, string> = {
   INCOMPLETE: "incomplete",
   INVALID: "invalid",
 };
+
+/**
+ * The single concise blocker shown on a row. One engine decides the status,
+ * the sentence and whether the row may be imported, so the badge, the message
+ * and the Import count can never disagree.
+ */
+export function rowBlocker(i: ReadinessInput): string | null {
+  if (i.financialBlockers > 0) return "Amounts do not add up";
+  if (!i.familyResolved) return "Could not read this message";
+  if (!i.sourceResolved) return "Choose source";
+  if (!i.hasDate) return "Choose date";
+  if (!i.accountSelected) return "Choose account";
+  if (!i.purposeResolved) return "Choose purpose";
+  if (i.requiresLink && !i.linkSatisfied) return "Choose agent";
+  if (i.duplicateRisk && !i.duplicateRiskAcknowledged) return "Confirm possible duplicate";
+  if (i.needsReview) return "Check this message";
+  if (i.requiresLink && i.linkCertain === false) return "Confirm the link";
+  return null;
+}
+
+export interface RowEvaluation {
+  state: ReadinessState;
+  blocker: string | null;
+  canImport: boolean;
+}
+
+export function evaluateRow(i: ReadinessInput): RowEvaluation {
+  const state = rowReadiness(i);
+  return { state, blocker: rowBlocker(i), canImport: state === "READY" };
+}
+
+/** How many rows the Import button will actually write. */
+export function importableCount(rows: ReadinessInput[]): number {
+  return rows.reduce((n, r) => n + (rowReadiness(r) === "READY" ? 1 : 0), 0);
+}
