@@ -703,11 +703,22 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
                             </span>
                             <span>
                               <span className="text-ink-soft">Final bank debit: </span>
-                              {row.finalDebitSantim !== undefined ? (
-                                formatEtb(row.finalDebitSantim)
-                              ) : (
-                                <span className="text-money-out">not stated</span>
-                              )}
+                              {(() => {
+                                const final = resolveFinalAmount({
+                                  statedFinalSantim: row.finalDebitSantim,
+                                  principalSantim: row.principalSantim ?? row.amountSantim,
+                                  feeSantim: row.feeSantim,
+                                  vatSantim: row.vatSantim,
+                                  otherChargesSantim: row.drChargeSantim,
+                                  hasCharges:
+                                    row.feeSantim !== undefined || row.vatSantim !== undefined,
+                                });
+                                return final !== undefined ? (
+                                  formatEtb(final)
+                                ) : (
+                                  <span className="text-money-out">not stated</span>
+                                );
+                              })()}
                             </span>
                             <span>
                               <span className="text-ink-soft">Service charge: </span>
