@@ -12,15 +12,16 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  addTransaction,
   deleteAgent,
   deleteTransaction,
+  recordAgentSettlement,
   updateTransaction,
   upsertAgent,
   useAgents,
   useTransactions,
 } from "@/lib/db";
 import { computeAgentStats } from "@/lib/brain/stats";
-import { openCreditsFor, planFifoSettlement } from "@/lib/brain/credits";
 import { formatEtb, parseEtbToSantim, formatTxnDate } from "@/lib/format";
 import type { Agent, Transaction } from "@/lib/types";
 import { Trash2, UserPlus, Plus } from "lucide-react";
@@ -293,14 +294,25 @@ function AgentDetail({
   async function settle() {
     const santim = parseEtbToSantim(settleAmt);
     if (!santim) return toast.error("Enter amount");
-    const open = openCreditsFor(agent.id, txns);
-    const plan = planFifoSettlement(santim, open);
-    for (const cid of plan.settled) {
-      const c = txns.find((t) => t.id === cid);
-      if (c)
-        await updateTransaction({ ...c, isSettled: true, settledAt: new Date().toISOString() });
-    }
-    toast.success(`Settled ${plan.settled.length} credit(s)`);
+    // The payment is recorded first, then allocated FIFO in one atomic write,
+    // so a part payment reduces the oldest credit instead of doing nothing.
+    const payment = await addTransaction({
+      type: "in",
+      amountSantim: santim,
+      partyId: agent.id,
+      partyType: "agent",
+      partyName: agent.name,
+      channel: "Cash",
+      note: "Agent settlement",
+      date: new Date().toISOString(),
+      source: "manual",
+    });
+    const res = await recordAgentSettlement(payment.id, agent.id, santim);
+    toast.success(
+      `Settled ${formatEtb(res.allocated)}` +
+        (res.closed ? ` · ${res.closed} credit(s) cleared` : "") +
+        (res.leftoverSantim ? ` · ${formatEtb(res.leftoverSantim)} unallocated` : ""),
+    );
     setSettleAmt("");
   }
 
