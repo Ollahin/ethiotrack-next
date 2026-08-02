@@ -433,7 +433,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
   }
 
   async function importAll() {
-    const ok = enriched.filter((e, i) => isImportable(i, e));
+    const ok = enriched.filter((e) => isImportable(e));
     if (!ok.length) {
       toast.error("Nothing is READY — resolve source, date, account and purpose first");
       return;
@@ -446,21 +446,23 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     const inputs: Array<Omit<Transaction, "id" | "createdAt">> = [];
     /** Parallel to `inputs`: which rows may clear open agent credits. */
     const settlePlan: boolean[] = [];
+    /** Candidate ids that were actually handed to the writer. */
+    const importedIds: string[] = [];
 
     for (let i = 0; i < enriched.length; i++) {
       const e = enriched[i];
       if (!e.row.ok) continue;
       const { row } = e;
-      if (!isImportable(i, e)) {
+      if (!isImportable(e)) {
         blockedNotReady++;
         continue;
       }
-      const when = resolvedDate(i, row)!;
-      const purpose = purposeFor(i, row);
+      const when = resolvedDate(e)!;
+      const purpose = purposeFor(e);
 
       // ----- Bank resolution
       let bankId = e.bank?.id;
-      const bAction = bankActionFor(i, e);
+      const bAction = bankActionFor(e);
       if (!bankId && bAction.kind === "auto" && row.channel) {
         const name = suggestBankName(row.channel, row.accountTail);
         const bank = await upsertBank({
@@ -476,7 +478,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
       // ----- Party resolution (explicit links only)
       let partyId: string | undefined;
       let partyType: Transaction["partyType"] | undefined;
-      const pAction = partyActionFor(i, e, purpose);
+      const pAction = partyActionFor(e, purpose);
       if (pAction.kind === "link") {
         partyId = pAction.id;
         partyType = pAction.partyType;
@@ -485,7 +487,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
       // ----- Distributor resolution (airtime rows only)
       let distributorId: string | undefined;
       if (isAirtimeRow(row.type) || requiresDistributor(purpose)) {
-        const dAction = distActionFor(i, e, purpose);
+        const dAction = distActionFor(e, purpose);
         if (dAction.kind === "link") distributorId = dAction.id;
         // A distributor payment links the distributor as the counterparty too.
         if (requiresDistributor(purpose) && distributorId && !partyId) {
@@ -520,6 +522,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
         source: "paste_parse",
       });
       settlePlan.push(settlesAgentCredits(purpose) && partyType === "agent");
+      importedIds.push(e.id);
     }
 
     const res = await addTransactionsBulk(inputs);
@@ -529,9 +532,9 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
     // count reuse of the ones an earlier approval pre-selected.
     for (let i = 0; i < enriched.length; i++) {
       const e = enriched[i];
-      if (!e.row.ok || !isImportable(i, e)) continue;
-      const purpose = purposeFor(i, e.row);
-      const pAction = partyActionFor(i, e, purpose);
+      if (!e.row.ok || !isImportable(e)) continue;
+      const purpose = purposeFor(e);
+      const pAction = partyActionFor(e, purpose);
       if (pAction.kind !== "link" || pAction.partyType !== "agent") continue;
       const label = e.row.party?.trim();
       if (!label) continue;
@@ -539,7 +542,7 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
         await recordMappingUse(e.agentMapping.id);
         continue;
       }
-      if (!remember[i]) continue;
+      if (!remember[e.id]) continue;
       const agent = agents.find((a) => a.id === pAction.id);
       if (agent) {
         await approveMapping({
@@ -575,20 +578,15 @@ export function PasteImport({ initialText, embedded = false, onSaved }: PasteImp
         (extras ? ` · registered ${extras}` : ""),
     );
     if (res.inserted > 0) onSaved?.();
+    // Only the candidates that were actually written leave the batch. Every
+    // unresolved or failed candidate stays pending, with its own decisions.
+    setBatch((b) => (b ? removeCandidates(b, importedIds) : b));
     if (blockedNotReady > 0) {
       toast.error(
-        `${blockedNotReady} row(s) not imported: still missing a source, date, account, purpose or link.`,
+        `${blockedNotReady} row(s) stay pending: still missing a source, date, account, purpose or link.`,
       );
     } else {
       setText("");
-      writePendingText("");
-      setRows(null);
-      setPartyActions({});
-      setBankActions({});
-      setDistActions({});
-      setManualDates({});
-      setPurposes({});
-      setRemember({});
     }
   }
 
