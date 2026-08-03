@@ -687,6 +687,70 @@ export async function allocationsFor(agentId: string): Promise<SettlementAllocat
   return db().settlementAllocations.where("agentId").equals(agentId).toArray();
 }
 
+export interface SettlementResult {
+  allocated: number;
+  leftoverSantim: number;
+  closed: number;
+  alreadyApplied: boolean;
+}
+
+/**
+ * THE agent-settlement domain command. Every caller — the manual settlement
+ * screen and the SMS inbox import alike — goes through this one body, inside
+ * whatever Dexie transaction the caller already opened, so a receipt, its
+ * allocations, the closed credits and the inbox row always commit together.
+ */
+async function settleAgentPaymentWithin(
+  d: EthioDb,
+  paymentTxnId: string,
+  agentId: string,
+  paymentSantim: number,
+): Promise<SettlementResult> {
+  const prior = await d.settlementAllocations.where("paymentTxnId").equals(paymentTxnId).count();
+  if (prior > 0) return { allocated: 0, leftoverSantim: 0, closed: 0, alreadyApplied: true };
+
+  const all = await d.transactions.toArray();
+  const allocs = await d.settlementAllocations.toArray();
+  const credits = agentCredits(agentId, all);
+  const plan = planAllocations(paymentSantim, credits, allocs);
+  if (plan.allocations.length === 0) {
+    return { allocated: 0, leftoverSantim: plan.leftoverSantim, closed: 0, alreadyApplied: false };
+  }
+  const now = new Date().toISOString();
+  const rows: SettlementAllocation[] = plan.allocations.map((a) => ({
+    id: makeId(),
+    paymentTxnId,
+    creditTxnId: a.creditTxnId,
+    agentId,
+    amountSantim: a.amountSantim,
+    createdAt: now,
+  }));
+  await d.settlementAllocations.bulkPut(rows);
+
+  // A credit is only marked settled once it is fully covered.
+  let closed = 0;
+  for (const a of plan.allocations) {
+    if (!a.closes) continue;
+    const credit = credits.find((c) => c.id === a.creditTxnId);
+    if (!credit) continue;
+    await d.transactions.put({ ...credit, isSettled: true, settledAt: now });
+    closed++;
+  }
+  const payment = await d.transactions.get(paymentTxnId);
+  if (payment) {
+    await d.transactions.put({
+      ...payment,
+      settlesTxnIds: plan.allocations.map((a) => a.creditTxnId),
+    });
+  }
+  return {
+    allocated: plan.allocations.reduce((s, a) => s + a.amountSantim, 0),
+    leftoverSantim: plan.leftoverSantim,
+    closed,
+    alreadyApplied: false,
+  };
+}
+
 /**
  * Apply one agent payment against that agent's open credits, FIFO and
  * partial-aware, in a single atomic write. Re-running it for the same payment
@@ -696,58 +760,11 @@ export async function recordAgentSettlement(
   paymentTxnId: string,
   agentId: string,
   paymentSantim: number,
-): Promise<{ allocated: number; leftoverSantim: number; closed: number; alreadyApplied: boolean }> {
+): Promise<SettlementResult> {
   const d = db();
-  return d.transaction("rw", [d.transactions, d.settlementAllocations], async () => {
-    const prior = await d.settlementAllocations.where("paymentTxnId").equals(paymentTxnId).count();
-    if (prior > 0) return { allocated: 0, leftoverSantim: 0, closed: 0, alreadyApplied: true };
-
-    const all = await d.transactions.toArray();
-    const allocs = await d.settlementAllocations.toArray();
-    const credits = agentCredits(agentId, all);
-    const plan = planAllocations(paymentSantim, credits, allocs);
-    if (plan.allocations.length === 0) {
-      return {
-        allocated: 0,
-        leftoverSantim: plan.leftoverSantim,
-        closed: 0,
-        alreadyApplied: false,
-      };
-    }
-    const now = new Date().toISOString();
-    const rows: SettlementAllocation[] = plan.allocations.map((a) => ({
-      id: makeId(),
-      paymentTxnId,
-      creditTxnId: a.creditTxnId,
-      agentId,
-      amountSantim: a.amountSantim,
-      createdAt: now,
-    }));
-    await d.settlementAllocations.bulkPut(rows);
-
-    // A credit is only marked settled once it is fully covered.
-    let closed = 0;
-    for (const a of plan.allocations) {
-      if (!a.closes) continue;
-      const credit = credits.find((c) => c.id === a.creditTxnId);
-      if (!credit) continue;
-      await d.transactions.put({ ...credit, isSettled: true, settledAt: now });
-      closed++;
-    }
-    const payment = all.find((t) => t.id === paymentTxnId);
-    if (payment) {
-      await d.transactions.put({
-        ...payment,
-        settlesTxnIds: plan.allocations.map((a) => a.creditTxnId),
-      });
-    }
-    return {
-      allocated: plan.allocations.reduce((s, a) => s + a.amountSantim, 0),
-      leftoverSantim: plan.leftoverSantim,
-      closed,
-      alreadyApplied: false,
-    };
-  });
+  return d.transaction("rw", [d.transactions, d.settlementAllocations], () =>
+    settleAgentPaymentWithin(d, paymentTxnId, agentId, paymentSantim),
+  );
 }
 
 export async function deleteTransaction(id: string): Promise<void> {
