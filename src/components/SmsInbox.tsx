@@ -302,20 +302,19 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
   async function applyDay(day: string) {
     if (!day) return;
     const scope = reviews.filter((r) => selected[r.item.id] || selectedIds.length === 0);
-    const targets = scope.filter((r) => !r.date.hasGenuineDate);
-    const skipped = scope.length - targets.length;
-    if (!targets.length) {
+    const plan = planBulkDate(
+      scope.map((r) => ({ id: r.item.id, hasGenuineDate: r.date.hasGenuineDate })),
+    );
+    const skipped = plan.skipped.length;
+    if (!plan.apply.length) {
       setNote(
         `No dates changed — ${skipped} message(s) already carry their own date, which is kept.`,
       );
       return;
     }
-    await setInboxDecisions(
-      targets.map((t) => t.item.id),
-      { day },
-    );
+    await setInboxDecisions(plan.apply, { day });
     setNote(
-      `${formatDayShort(day)} applied to ${targets.length} undated message(s)` +
+      `${formatDayShort(day)} applied to ${plan.apply.length} undated message(s)` +
         (skipped ? `; ${skipped} kept their own date.` : "."),
     );
   }
