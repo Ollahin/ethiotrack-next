@@ -640,14 +640,65 @@ function InboxSmsRow({
             </Select>
           )}
 
-          {!review.dateFromMessage && (
+          {!date.hasGenuineDate && (
             <Input
               type="date"
               className="h-8 w-auto text-xs"
+              value={date.effectiveDate ?? ""}
               onChange={(e) => onDate(e.target.value)}
             />
           )}
+
+          {date.hasGenuineDate && !correcting && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 text-xs"
+              onClick={() => setCorrecting(true)}
+            >
+              Correct source date
+            </Button>
+          )}
+
+          {date.hasGenuineDate && correcting && (
+            <span className="flex items-center gap-1">
+              <Input
+                type="date"
+                className="h-8 w-auto text-xs"
+                value={date.reviewerDateOverride ?? date.sourceDate ?? ""}
+                onChange={(e) => onCorrectDate(e.target.value)}
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 text-xs"
+                onClick={() => {
+                  onCorrectDate("");
+                  onConfirmCorrection(false);
+                  setCorrecting(false);
+                }}
+              >
+                Keep {formatDayShort(date.sourceDate)}
+              </Button>
+            </span>
+          )}
         </div>
+      )}
+
+      {date.conflict && (
+        <label className="flex items-center gap-2 text-xs text-airtime">
+          <Checkbox checked={false} onCheckedChange={(v) => onConfirmCorrection(Boolean(v))} />
+          Date conflict: SMS says {formatDayShort(date.sourceDate)}; correction says{" "}
+          {formatDayShort(date.reviewerDateOverride)}. Tick to use the correction.
+        </label>
+      )}
+
+      {review.input.recipientMismatch && (
+        <label className="flex items-center gap-2 text-xs text-airtime">
+          <Checkbox checked={false} onCheckedChange={(v) => onConfirmRecipient(Boolean(v))} />
+          {evaluation.blockers.find((b) => b.code === "recipient_mismatch")?.message} Tick to
+          confirm the link.
+        </label>
       )}
 
       {review.duplicate && (
