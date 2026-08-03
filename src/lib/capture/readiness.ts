@@ -123,33 +123,67 @@ export const READINESS_LABEL: Record<ReadinessState, string> = {
 };
 
 /**
- * The single concise blocker shown on a row. One engine decides the status,
- * the sentence and whether the row may be imported, so the badge, the message
- * and the Import count can never disagree.
+ * Every reason this row is held, most important first. One engine decides the
+ * status, the sentences and whether the row may be imported, so the badge, the
+ * message and the Import count can never disagree.
  */
+export function rowBlockers(i: ReadinessInput): Blocker[] {
+  const out: Blocker[] = [];
+  const add = (code: BlockerCode, message: string) => out.push({ code, message });
+
+  if (i.financialBlockers > 0) add("invalid_amounts", "Amounts do not add up");
+  if (!i.familyResolved) add("unreadable_message", "Could not read this message");
+  if (!i.sourceResolved && i.familyResolved) add("choose_source", "Choose source");
+  if (!i.hasDate) add("choose_date", "Choose date");
+  if (i.dateConflict) {
+    const said = i.sourceDay ? `SMS says ${i.sourceDay}` : "the SMS date";
+    const corr = i.correctedDay ? `correction says ${i.correctedDay}` : "a correction disagrees";
+    add("date_conflict", `Date conflict: ${said}; ${corr}.`);
+  }
+  if (!i.accountSelected) add("choose_account", "Choose account");
+  if (!i.purposeResolved) add("choose_purpose", "Choose purpose");
+  if (i.requiresLink && !i.linkSatisfied) {
+    if (i.linkKind === "distributor") add("choose_distributor", "Choose distributor");
+    else add("choose_agent", "Choose agent");
+  }
+  if (i.duplicateRisk && !i.duplicateRiskAcknowledged)
+    add("duplicate_collision", "Already saved: confirm this is not the same message");
+  if (i.recipientMismatch) {
+    const said = i.messageParty ? `message says ${i.messageParty}` : "the message names someone else";
+    const linked = i.linkedParty ? `linked to ${i.linkedParty}` : "the linked party differs";
+    add("recipient_mismatch", `Recipient mismatch: ${said}; ${linked}.`);
+  }
+  if (i.requiresLink && i.linkCertain === false && !i.recipientMismatch)
+    add("recipient_mismatch", "Confirm the link — it was not an exact match");
+  // A generic "check this message" is only ever shown when nothing precise is
+  // known; a precise reason always wins.
+  if (i.needsReview && out.length === 0) add("needs_review", "Check this message");
+  return out;
+}
+
+/** The single most important reason, as a sentence. */
 export function rowBlocker(i: ReadinessInput): string | null {
-  if (i.financialBlockers > 0) return "Amounts do not add up";
-  if (!i.familyResolved) return "Could not read this message";
-  if (!i.sourceResolved) return "Choose source";
-  if (!i.hasDate) return "Choose date";
-  if (!i.accountSelected) return "Choose account";
-  if (!i.purposeResolved) return "Choose purpose";
-  if (i.requiresLink && !i.linkSatisfied) return "Choose agent";
-  if (i.duplicateRisk && !i.duplicateRiskAcknowledged) return "Confirm possible duplicate";
-  if (i.needsReview) return "Check this message";
-  if (i.requiresLink && i.linkCertain === false) return "Confirm the link";
-  return null;
+  return rowBlockers(i)[0]?.message ?? null;
 }
 
 export interface RowEvaluation {
   state: ReadinessState;
   blocker: string | null;
+  blockerCode: BlockerCode | null;
+  blockers: Blocker[];
   canImport: boolean;
 }
 
 export function evaluateRow(i: ReadinessInput): RowEvaluation {
   const state = rowReadiness(i);
-  return { state, blocker: rowBlocker(i), canImport: state === "READY" };
+  const blockers = rowBlockers(i);
+  return {
+    state,
+    blocker: blockers[0]?.message ?? null,
+    blockerCode: blockers[0]?.code ?? null,
+    blockers,
+    canImport: state === "READY",
+  };
 }
 
 /** How many rows the Import button will actually write. */
