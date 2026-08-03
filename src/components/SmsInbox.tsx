@@ -143,9 +143,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
     agent: Agent | null;
     distributor: Distributor | null;
     purpose: BusinessPurpose;
-    dateIso: string | null;
-    dateIsDayOnly: boolean;
-    dateFromMessage: boolean;
+    date: CanonicalDate;
     identity: string | null;
     duplicate: boolean;
     input: ReadinessInput;
@@ -211,17 +209,19 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
           distributorLinked: Boolean(distributor),
         });
 
-      // ---- date: the message first, then the operator's date
-      const picked = dec.day;
-      const dateFromMessage = Boolean(row.ok && row.date);
-      const dateIso = dateFromMessage
-        ? (row as { date?: string }).date!
-        : picked
-          ? isoFromDay(picked)
-          : null;
-      const dateIsDayOnly = dateFromMessage
-        ? Boolean(row.ok && row.dateIsDayOnly)
-        : Boolean(picked);
+      // ---- date: one canonical model, days handled as plain strings
+      const sourceIso = row.ok ? (row as { date?: string }).date : undefined;
+      const date = canonicalDate({
+        sourceDate: dayFromIso(sourceIso),
+        sourceTime: timeFromIso(sourceIso, row.ok ? row.dateIsDayOnly : true),
+        batchDate: dec.day,
+        reviewerDateOverride: dec.correctedDay,
+        reviewerTimeOverride: dec.time,
+        correctionConfirmed: dec.correctionConfirmed,
+      });
+      const dateIso = date.effectiveDate
+        ? storageIso(date.effectiveDate, date.effectiveTime)
+        : null;
 
       const identity = row.ok
         ? smsIdentity({
@@ -241,6 +241,12 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
       const fp = row.ok ? fingerprintSource(row.raw) : null;
       const needsAgent = requiresAgent(purpose);
       const needsDistributor = requiresDistributor(purpose);
+      // A linked agent whose name is not the name the message stated is
+      // surfaced by name, never as a vague "needs attention".
+      const partyKey = normalizeLabel(row.ok ? (row.party ?? "") : "");
+      const recipientMismatch = Boolean(
+        needsAgent && agent && partyKey && normalizeLabel(agent.name) !== partyKey,
+      );
       const input: ReadinessInput = {
         sourceResolved: Boolean(
           row.ok && (fp?.resolved || (row.channel && row.channel !== "Other")),
@@ -248,11 +254,20 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
         familyResolved: row.ok,
         financialBlockers: row.ok ? (row.blockingIssues?.length ?? 0) : 0,
         hasDate: dateIso !== null,
+        dateConflict: date.conflict,
+        sourceDay: date.sourceDate ? formatDayShort(date.sourceDate) : undefined,
+        correctedDay: date.reviewerDateOverride
+          ? formatDayShort(date.reviewerDateOverride)
+          : undefined,
         accountSelected: airtime || !row.ok || Boolean(bank),
         purposeResolved: purpose !== "unresolved",
         requiresLink: needsAgent || needsDistributor,
         linkSatisfied: needsAgent ? Boolean(agent) : needsDistributor ? Boolean(distributor) : true,
         linkCertain: true,
+        linkKind: needsDistributor && !needsAgent ? "distributor" : "agent",
+        recipientMismatch: recipientMismatch && !dec.recipientConfirmed,
+        messageParty: row.ok ? row.party : undefined,
+        linkedParty: agent?.name,
         needsReview: Boolean(row.ok && row.needsReview),
         // Only an actual identity collision asks the operator anything.
         duplicateRisk: duplicate,
@@ -266,9 +281,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
         agent,
         distributor,
         purpose,
-        dateIso,
-        dateIsDayOnly,
-        dateFromMessage,
+        date,
         identity,
         duplicate,
         input,
