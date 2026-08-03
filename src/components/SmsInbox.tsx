@@ -20,9 +20,19 @@ import { type ParsedRow } from "@/lib/parser";
 import { parseSourceRecords } from "@/lib/capture/parse-records";
 import { fingerprintSource } from "@/lib/capture/source-fingerprint";
 import { ingestSmsDrafts, sortInboxRows } from "@/lib/capture/inbox-ingest";
+import {
+  canonicalDate,
+  dayFromIso,
+  formatDayShort,
+  planBulkDate,
+  storageIso,
+  timeFromIso,
+  todayDay,
+  yesterdayDay,
+  type CanonicalDate,
+} from "@/lib/capture/date";
 import { autoBank, autoPurpose } from "@/lib/capture/defaults";
 import { existingIdentities, smsIdentity } from "@/lib/capture/identity";
-import { todayString, yesterdayString } from "@/lib/capture/batch";
 import {
   PURPOSE_LABEL,
   purposeOptions,
@@ -49,7 +59,7 @@ import {
 import { normalizeLabel } from "@/lib/approved-mappings";
 import { matchDistributorForPayment } from "@/lib/purchase-fulfillment";
 import { isAirtimeTransaction } from "@/lib/airtime-movement";
-import { formatEtb, formatTxnDate } from "@/lib/format";
+import { formatEtb } from "@/lib/format";
 import type { Agent, Bank, Distributor, SharedInput, Transaction } from "@/lib/types";
 
 const NONE = "__none__";
@@ -69,10 +79,6 @@ function exactAgent(label: string | undefined, agents: Agent[]): Agent | null {
   const key = normalizeLabel(label);
   if (!key) return null;
   return agents.find((a) => normalizeLabel(a.name) === key) ?? null;
-}
-
-function isoFromDay(day: string): string {
-  return `${day}T00:00:00.000Z`;
 }
 
 export interface SmsInboxProps {
@@ -138,9 +144,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
     agent: Agent | null;
     distributor: Distributor | null;
     purpose: BusinessPurpose;
-    dateIso: string | null;
-    dateIsDayOnly: boolean;
-    dateFromMessage: boolean;
+    date: CanonicalDate;
     identity: string | null;
     duplicate: boolean;
     input: ReadinessInput;
@@ -206,17 +210,19 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
           distributorLinked: Boolean(distributor),
         });
 
-      // ---- date: the message first, then the operator's date
-      const picked = dec.day;
-      const dateFromMessage = Boolean(row.ok && row.date);
-      const dateIso = dateFromMessage
-        ? (row as { date?: string }).date!
-        : picked
-          ? isoFromDay(picked)
-          : null;
-      const dateIsDayOnly = dateFromMessage
-        ? Boolean(row.ok && row.dateIsDayOnly)
-        : Boolean(picked);
+      // ---- date: one canonical model, days handled as plain strings
+      const sourceIso = row.ok ? (row as { date?: string }).date : undefined;
+      const date = canonicalDate({
+        sourceDate: dayFromIso(sourceIso),
+        sourceTime: timeFromIso(sourceIso, row.ok ? row.dateIsDayOnly : true),
+        batchDate: dec.day,
+        reviewerDateOverride: dec.correctedDay,
+        reviewerTimeOverride: dec.time,
+        correctionConfirmed: dec.correctionConfirmed,
+      });
+      const dateIso = date.effectiveDate
+        ? storageIso(date.effectiveDate, date.effectiveTime)
+        : null;
 
       const identity = row.ok
         ? smsIdentity({
@@ -236,6 +242,12 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
       const fp = row.ok ? fingerprintSource(row.raw) : null;
       const needsAgent = requiresAgent(purpose);
       const needsDistributor = requiresDistributor(purpose);
+      // A linked agent whose name is not the name the message stated is
+      // surfaced by name, never as a vague "needs attention".
+      const partyKey = normalizeLabel(row.ok ? (row.party ?? "") : "");
+      const recipientMismatch = Boolean(
+        needsAgent && agent && partyKey && normalizeLabel(agent.name) !== partyKey,
+      );
       const input: ReadinessInput = {
         sourceResolved: Boolean(
           row.ok && (fp?.resolved || (row.channel && row.channel !== "Other")),
@@ -243,11 +255,20 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
         familyResolved: row.ok,
         financialBlockers: row.ok ? (row.blockingIssues?.length ?? 0) : 0,
         hasDate: dateIso !== null,
+        dateConflict: date.conflict,
+        sourceDay: date.sourceDate ? formatDayShort(date.sourceDate) : undefined,
+        correctedDay: date.reviewerDateOverride
+          ? formatDayShort(date.reviewerDateOverride)
+          : undefined,
         accountSelected: airtime || !row.ok || Boolean(bank),
         purposeResolved: purpose !== "unresolved",
         requiresLink: needsAgent || needsDistributor,
         linkSatisfied: needsAgent ? Boolean(agent) : needsDistributor ? Boolean(distributor) : true,
         linkCertain: true,
+        linkKind: needsDistributor && !needsAgent ? "distributor" : "agent",
+        recipientMismatch: recipientMismatch && !dec.recipientConfirmed,
+        messageParty: row.ok ? row.party : undefined,
+        linkedParty: agent?.name,
         needsReview: Boolean(row.ok && row.needsReview),
         // Only an actual identity collision asks the operator anything.
         duplicateRisk: duplicate,
@@ -261,9 +282,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
         agent,
         distributor,
         purpose,
-        dateIso,
-        dateIsDayOnly,
-        dateFromMessage,
+        date,
         identity,
         duplicate,
         input,
@@ -275,21 +294,29 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
   const selectedIds = reviews.filter((r) => selected[r.item.id]).map((r) => r.item.id);
   const allSelected = reviews.length > 0 && selectedIds.length === reviews.length;
 
-  /** One tap dates every selected message that stated no date of its own. */
+  /**
+   * One tap dates every selected message that stated no date of its own. A
+   * genuine source date is never overwritten, and the operator is told exactly
+   * how many rows were changed and how many were left alone.
+   */
   async function applyDay(day: string) {
     if (!day) return;
-    const targets = reviews.filter(
-      (r) => (selected[r.item.id] || selectedIds.length === 0) && !r.dateFromMessage,
+    const scope = reviews.filter((r) => selected[r.item.id] || selectedIds.length === 0);
+    const plan = planBulkDate(
+      scope.map((r) => ({ id: r.item.id, hasGenuineDate: r.date.hasGenuineDate })),
     );
-    if (!targets.length) {
-      setNote("Every selected message already carries its own date.");
+    const skipped = plan.skipped.length;
+    if (!plan.apply.length) {
+      setNote(
+        `No dates changed — ${skipped} message(s) already carry their own date, which is kept.`,
+      );
       return;
     }
-    await setInboxDecisions(
-      targets.map((t) => t.item.id),
-      { day },
+    await setInboxDecisions(plan.apply, { day });
+    setNote(
+      `${formatDayShort(day)} applied to ${plan.apply.length} undated message(s)` +
+        (skipped ? `; ${skipped} kept their own date.` : "."),
     );
-    setNote(`Date applied to ${targets.length} message(s).`);
   }
 
   async function importReady() {
@@ -318,7 +345,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
           type: row.type,
           amountSantim: row.amountSantim,
           principalSantim: row.principalSantim,
-          dateIsDayOnly: r.dateIsDayOnly,
+          dateIsDayOnly: !r.date.effectiveTime,
           airtimeDirection: isAirtimeTransaction({ type: row.type }) ? "sent" : undefined,
           partyName: row.party ?? "Unknown",
           partyId,
@@ -328,7 +355,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
           distributorId,
           reference: row.reference,
           note: row.note ?? row.raw,
-          date: r.dateIso!,
+          date: storageIso(r.date.effectiveDate!, r.date.effectiveTime),
           isPersonal: isPersonalPurpose(r.purpose),
           needsReview: row.needsReview,
           captureKey: r.identity ?? r.item.id,
@@ -392,10 +419,10 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
           {reviews.length} waiting · {readyCount} ready
         </span>
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
-          <Button size="sm" variant="secondary" onClick={() => applyDay(todayString())}>
+          <Button size="sm" variant="secondary" onClick={() => applyDay(todayDay())}>
             Today
           </Button>
-          <Button size="sm" variant="secondary" onClick={() => applyDay(yesterdayString())}>
+          <Button size="sm" variant="secondary" onClick={() => applyDay(yesterdayDay())}>
             Yesterday
           </Button>
           <Input
@@ -441,6 +468,11 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
             onBank={(v) => void setInboxDecision(r.item.id, { bankId: v === NONE ? null : v })}
             onPurpose={(v) => void setInboxDecision(r.item.id, { purpose: v })}
             onDate={(v) => void setInboxDecision(r.item.id, { day: v })}
+            onCorrectDate={(v) => void setInboxDecision(r.item.id, { correctedDay: v })}
+            onConfirmCorrection={(v) =>
+              void setInboxDecision(r.item.id, { correctionConfirmed: v })
+            }
+            onConfirmRecipient={(v) => void setInboxDecision(r.item.id, { recipientConfirmed: v })}
             onDupOk={(v) => void setInboxDecision(r.item.id, { duplicateAcknowledged: v })}
             onDismiss={() => void setSharedInputStatus(r.item.id, "dismissed")}
             onDelete={() => void deleteSharedInput(r.item.id)}
@@ -463,6 +495,9 @@ function InboxSmsRow({
   onBank,
   onPurpose,
   onDate,
+  onCorrectDate,
+  onConfirmCorrection,
+  onConfirmRecipient,
   onDupOk,
   onDismiss,
   onDelete,
@@ -474,9 +509,7 @@ function InboxSmsRow({
     agent: Agent | null;
     distributor: Distributor | null;
     purpose: BusinessPurpose;
-    dateIso: string | null;
-    dateIsDayOnly: boolean;
-    dateFromMessage: boolean;
+    date: CanonicalDate;
     duplicate: boolean;
     identity: string | null;
     input: ReadinessInput;
@@ -491,12 +524,16 @@ function InboxSmsRow({
   onBank: (v: string) => void;
   onPurpose: (v: BusinessPurpose) => void;
   onDate: (v: string) => void;
+  onCorrectDate: (v: string) => void;
+  onConfirmCorrection: (v: boolean) => void;
+  onConfirmRecipient: (v: boolean) => void;
   onDupOk: (v: boolean) => void;
   onDismiss: () => void;
   onDelete: () => void;
 }) {
-  const { item, row, bank, agent, distributor, purpose, dateIso } = review;
+  const { item, row, bank, agent, distributor, purpose, date } = review;
   const evaluation = evaluateRow(review.input);
+  const [correcting, setCorrecting] = useState(false);
   const direction = directionOf(row);
   const airtime = isAirtimeRow(row);
   const fp = row.ok ? fingerprintSource(row.raw) : null;
@@ -520,7 +557,11 @@ function InboxSmsRow({
         )}
         <span className="text-xs text-ink-soft">{row.ok ? (row.channel ?? "Unknown") : "—"}</span>
         <span className="text-xs text-ink-soft">
-          {dateIso ? formatTxnDate(dateIso, !review.dateIsDayOnly) : "no date"}
+          {date.effectiveDate
+            ? formatDayShort(date.effectiveDate) +
+              (date.effectiveTime ? ` ${date.effectiveTime}` : "") +
+              (date.effectiveProvenance === "batch" ? " (added)" : "")
+            : "no date"}
         </span>
         <span
           className={
@@ -599,14 +640,65 @@ function InboxSmsRow({
             </Select>
           )}
 
-          {!review.dateFromMessage && (
+          {!date.hasGenuineDate && (
             <Input
               type="date"
               className="h-8 w-auto text-xs"
+              value={date.effectiveDate ?? ""}
               onChange={(e) => onDate(e.target.value)}
             />
           )}
+
+          {date.hasGenuineDate && !correcting && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 text-xs"
+              onClick={() => setCorrecting(true)}
+            >
+              Correct source date
+            </Button>
+          )}
+
+          {date.hasGenuineDate && correcting && (
+            <span className="flex items-center gap-1">
+              <Input
+                type="date"
+                className="h-8 w-auto text-xs"
+                value={date.reviewerDateOverride ?? date.sourceDate ?? ""}
+                onChange={(e) => onCorrectDate(e.target.value)}
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 text-xs"
+                onClick={() => {
+                  onCorrectDate("");
+                  onConfirmCorrection(false);
+                  setCorrecting(false);
+                }}
+              >
+                Keep {formatDayShort(date.sourceDate)}
+              </Button>
+            </span>
+          )}
         </div>
+      )}
+
+      {date.conflict && (
+        <label className="flex items-center gap-2 text-xs text-airtime">
+          <Checkbox checked={false} onCheckedChange={(v) => onConfirmCorrection(Boolean(v))} />
+          Date conflict: SMS says {formatDayShort(date.sourceDate)}; correction says{" "}
+          {formatDayShort(date.reviewerDateOverride)}. Tick to use the correction.
+        </label>
+      )}
+
+      {review.input.recipientMismatch && (
+        <label className="flex items-center gap-2 text-xs text-airtime">
+          <Checkbox checked={false} onCheckedChange={(v) => onConfirmRecipient(Boolean(v))} />
+          {evaluation.blockers.find((b) => b.code === "recipient_mismatch")?.message} Tick to
+          confirm the link.
+        </label>
       )}
 
       {review.duplicate && (

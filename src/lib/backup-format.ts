@@ -303,6 +303,10 @@ const sharedInputSchema = z
         distributorId: z.string().nullable().optional(),
         purpose: z.string().optional(),
         day: z.string().optional(),
+        time: z.string().optional(),
+        correctedDay: z.string().optional(),
+        correctionConfirmed: z.boolean().optional(),
+        recipientConfirmed: z.boolean().optional(),
         duplicateAcknowledged: z.boolean().optional(),
       })
       .passthrough()

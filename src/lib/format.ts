@@ -1,3 +1,5 @@
+import { dayFromIso, formatDayLong, formatDayShort } from "./capture/date";
+
 export function santimToEtb(santim: number): number {
   return santim / 100;
 }
@@ -20,13 +22,16 @@ export function parseEtbToSantim(input: string): number | null {
   return Math.round(n * 100);
 }
 
+/**
+ * A calendar day is rendered from the digits it was stored with. Day-only
+ * values must never travel through the local timezone, or a saved Aug 02 can
+ * be shown as Aug 01.
+ */
 export function formatDate(iso: string): string {
+  const day = dayFromIso(iso);
+  if (day) return formatDayLong(day);
   const d = new Date(iso);
-  return d.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-  });
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
 }
 
 /**
@@ -88,6 +93,11 @@ export function parseEthiopianDate(raw: string): Date | null {
 }
 
 export function formatDateTime(iso: string): string {
+  // The stored timestamp already carries the day and clock time the source
+  // stated; re-interpreting it in the local zone would move both.
+  const day = dayFromIso(iso);
+  const time = iso.match(/T(\d{2}:\d{2})/)?.[1];
+  if (day && time) return `${formatDayShort(day)}, ${time}`;
   const d = new Date(iso);
   return d.toLocaleString(undefined, {
     month: "short",

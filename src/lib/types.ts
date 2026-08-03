@@ -288,6 +288,14 @@ export interface InboxDecision {
   purpose?: string;
   /** Operator-chosen day (yyyy-mm-dd) for a message that stated no date. */
   day?: string;
+  /** Optional clock time chosen by the operator; never invented. */
+  time?: string;
+  /** An explicit correction of a genuine source date. */
+  correctedDay?: string;
+  /** The operator confirmed the correction of a genuine source date. */
+  correctionConfirmed?: boolean;
+  /** The operator confirmed the linked party despite a name mismatch. */
+  recipientConfirmed?: boolean;
   /** The reviewer confirmed a flagged identity collision is not a repeat. */
   duplicateAcknowledged?: boolean;
 }

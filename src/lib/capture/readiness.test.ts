@@ -27,7 +27,13 @@ describe("duplicate-risk gate", () => {
   });
 
   it("never asks about duplicates for an ordinary unique message", () => {
-    expect(evaluateRow(ready)).toEqual({ state: "READY", blocker: null, canImport: true });
+    expect(evaluateRow(ready)).toMatchObject({
+      state: "READY",
+      blocker: null,
+      blockerCode: null,
+      blockers: [],
+      canImport: true,
+    });
   });
 
   it("never lets an acknowledgement override a missing date, account, purpose or link", () => {
@@ -53,5 +59,49 @@ describe("one readiness engine", () => {
     const rows: ReadinessInput[] = [ready, { ...ready, hasDate: false }, ready];
     expect(importableCount(rows)).toBe(2);
     expect(rows.filter((r) => evaluateRow(r).canImport)).toHaveLength(2);
+  });
+});
+
+describe("exact blockers", () => {
+  it("spells out a date conflict instead of a generic warning", () => {
+    const e = evaluateRow({
+      ...ready,
+      dateConflict: true,
+      sourceDay: "Jul 24",
+      correctedDay: "Jul 25",
+    });
+    expect(e.state).toBe("NEEDS_ATTENTION");
+    expect(e.blockerCode).toBe("date_conflict");
+    expect(e.blocker).toBe("Date conflict: SMS says Jul 24; correction says Jul 25.");
+  });
+
+  it("names the mismatched recipient", () => {
+    const e = evaluateRow({
+      ...ready,
+      requiresLink: true,
+      recipientMismatch: true,
+      messageParty: "Alexo Bekele",
+      linkedParty: "Alexo",
+    });
+    expect(e.blockerCode).toBe("recipient_mismatch");
+    expect(e.blocker).toContain("Alexo Bekele");
+    expect(e.canImport).toBe(false);
+  });
+
+  it("returns structured codes for the ordinary gates", () => {
+    const codes = (i: ReadinessInput) => evaluateRow(i).blockers.map((b) => b.code);
+    expect(codes({ ...ready, hasDate: false })).toContain("choose_date");
+    expect(codes({ ...ready, accountSelected: false })).toContain("choose_account");
+    expect(codes({ ...ready, requiresLink: true, linkSatisfied: false })).toContain("choose_agent");
+    expect(
+      codes({ ...ready, requiresLink: true, linkSatisfied: false, linkKind: "distributor" }),
+    ).toContain("choose_distributor");
+    expect(codes({ ...ready, duplicateRisk: true })).toContain("duplicate_collision");
+  });
+
+  it("never shows the generic message when a precise reason exists", () => {
+    const e = evaluateRow({ ...ready, needsReview: true, hasDate: false });
+    expect(e.blocker).toBe("Choose date");
+    expect(e.blockers.map((b) => b.code)).not.toContain("needs_review");
   });
 });
