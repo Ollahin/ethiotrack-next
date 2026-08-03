@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   addSmsInboxRows,
-  addTransactions,
+  addTransaction,
   clearAll,
   db,
   importInboxSms,
@@ -16,7 +16,7 @@ import type { Transaction } from "./types";
 const AGENT = "agent-alexo";
 
 async function openCredit(): Promise<void> {
-  await addTransactions([
+  await addTransaction(
     {
       type: "airtime_evd",
       amountSantim: 5_000_000,
