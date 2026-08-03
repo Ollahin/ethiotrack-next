@@ -68,9 +68,9 @@ describe("canonical date resolution", () => {
   });
 
   it("prefers sharing metadata over a batch date but not over the message", () => {
-    expect(canonicalDate({ metadataDate: "2026-08-01", batchDate: "2026-08-02" }).effectiveDate).toBe(
-      "2026-08-01",
-    );
+    expect(
+      canonicalDate({ metadataDate: "2026-08-01", batchDate: "2026-08-02" }).effectiveDate,
+    ).toBe("2026-08-01");
     expect(
       canonicalDate({ sourceDate: "2026-07-24", metadataDate: "2026-08-01" }).effectiveDate,
     ).toBe("2026-07-24");

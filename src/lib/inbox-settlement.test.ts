@@ -16,20 +16,19 @@ import type { Transaction } from "./types";
 const AGENT = "agent-alexo";
 
 async function openCredit(): Promise<void> {
-  await addTransaction(
-    {
-      type: "airtime_evd",
-      amountSantim: 5_000_000,
-      airtimeDirection: "sent",
-      partyName: "Alexo",
-      partyId: AGENT,
-      partyType: "agent",
-      channel: "Other",
-      note: "EVD sent to Alexo",
-      date: storageIso("2026-08-01"),
-      dateIsDayOnly: true,
-      source: "manual",
-    } as Omit<Transaction, "id" | "createdAt">);
+  await addTransaction({
+    type: "airtime_evd",
+    amountSantim: 5_000_000,
+    airtimeDirection: "sent",
+    partyName: "Alexo",
+    partyId: AGENT,
+    partyType: "agent",
+    channel: "Other",
+    note: "EVD sent to Alexo",
+    date: storageIso("2026-08-01"),
+    dateIsDayOnly: true,
+    source: "manual",
+  } as Omit<Transaction, "id" | "createdAt">);
 }
 
 const settlement: Omit<Transaction, "id" | "createdAt"> = {
@@ -50,9 +49,7 @@ describe("agent settlement imported from the inbox", () => {
   beforeEach(async () => {
     await clearAll();
     await openCredit();
-    await addSmsInboxRows(
-      ingestSmsDrafts("Credited with ETB 15,000.00", { captureId: "cap" }),
-    );
+    await addSmsInboxRows(ingestSmsDrafts("Credited with ETB 15,000.00", { captureId: "cap" }));
   });
 
   it("allocates partially against the open credit and clears the inbox row", async () => {

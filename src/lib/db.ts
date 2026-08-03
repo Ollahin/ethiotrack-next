@@ -1109,12 +1109,7 @@ export async function importInboxSms(
       let closed = 0;
       let leftoverSantim = 0;
       if (opts.settleAgentId) {
-        const res = await settleAgentPaymentWithin(
-          d,
-          txn.id,
-          opts.settleAgentId,
-          txn.amountSantim,
-        );
+        const res = await settleAgentPaymentWithin(d, txn.id, opts.settleAgentId, txn.amountSantim);
         allocated = res.allocated;
         closed = res.closed;
         leftoverSantim = res.leftoverSantim;

@@ -149,7 +149,9 @@ export function rowBlockers(i: ReadinessInput): Blocker[] {
   if (i.duplicateRisk && !i.duplicateRiskAcknowledged)
     add("duplicate_collision", "Already saved: confirm this is not the same message");
   if (i.recipientMismatch) {
-    const said = i.messageParty ? `message says ${i.messageParty}` : "the message names someone else";
+    const said = i.messageParty
+      ? `message says ${i.messageParty}`
+      : "the message names someone else";
     const linked = i.linkedParty ? `linked to ${i.linkedParty}` : "the linked party differs";
     add("recipient_mismatch", `Recipient mismatch: ${said}; ${linked}.`);
   }
