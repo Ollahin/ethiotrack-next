@@ -293,21 +293,30 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
   const selectedIds = reviews.filter((r) => selected[r.item.id]).map((r) => r.item.id);
   const allSelected = reviews.length > 0 && selectedIds.length === reviews.length;
 
-  /** One tap dates every selected message that stated no date of its own. */
+  /**
+   * One tap dates every selected message that stated no date of its own. A
+   * genuine source date is never overwritten, and the operator is told exactly
+   * how many rows were changed and how many were left alone.
+   */
   async function applyDay(day: string) {
     if (!day) return;
-    const targets = reviews.filter(
-      (r) => (selected[r.item.id] || selectedIds.length === 0) && !r.dateFromMessage,
-    );
+    const scope = reviews.filter((r) => selected[r.item.id] || selectedIds.length === 0);
+    const targets = scope.filter((r) => !r.date.hasGenuineDate);
+    const skipped = scope.length - targets.length;
     if (!targets.length) {
-      setNote("Every selected message already carries its own date.");
+      setNote(
+        `No dates changed — ${skipped} message(s) already carry their own date, which is kept.`,
+      );
       return;
     }
     await setInboxDecisions(
       targets.map((t) => t.item.id),
       { day },
     );
-    setNote(`Date applied to ${targets.length} message(s).`);
+    setNote(
+      `${formatDayShort(day)} applied to ${targets.length} undated message(s)` +
+        (skipped ? `; ${skipped} kept their own date.` : "."),
+    );
   }
 
   async function importReady() {
@@ -336,7 +345,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
           type: row.type,
           amountSantim: row.amountSantim,
           principalSantim: row.principalSantim,
-          dateIsDayOnly: r.dateIsDayOnly,
+          dateIsDayOnly: !r.date.effectiveTime,
           airtimeDirection: isAirtimeTransaction({ type: row.type }) ? "sent" : undefined,
           partyName: row.party ?? "Unknown",
           partyId,
@@ -346,7 +355,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
           distributorId,
           reference: row.reference,
           note: row.note ?? row.raw,
-          date: r.dateIso!,
+          date: storageIso(r.date.effectiveDate!, r.date.effectiveTime),
           isPersonal: isPersonalPurpose(r.purpose),
           needsReview: row.needsReview,
           captureKey: r.identity ?? r.item.id,
