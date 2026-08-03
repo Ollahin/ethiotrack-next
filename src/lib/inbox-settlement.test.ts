@@ -29,8 +29,7 @@ async function openCredit(): Promise<void> {
       date: storageIso("2026-08-01"),
       dateIsDayOnly: true,
       source: "manual",
-    } as Omit<Transaction, "id" | "createdAt">,
-  ]);
+    } as Omit<Transaction, "id" | "createdAt">);
 }
 
 const settlement: Omit<Transaction, "id" | "createdAt"> = {
