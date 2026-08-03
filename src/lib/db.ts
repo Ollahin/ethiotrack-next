@@ -1102,39 +1102,22 @@ export async function importInboxSms(
       const txn: Transaction = { ...input, id: makeId(), createdAt: new Date().toISOString() };
       await d.transactions.put(txn);
 
+      // Settlement always runs through the one shared domain command, inside
+      // this same transaction, so allocation can never diverge from the
+      // manual settlement path.
       let allocated = 0;
       let closed = 0;
       let leftoverSantim = 0;
       if (opts.settleAgentId) {
-        const allocs = await d.settlementAllocations.toArray();
-        const credits = agentCredits(opts.settleAgentId, all);
-        const plan = planAllocations(txn.amountSantim, credits, allocs);
-        leftoverSantim = plan.leftoverSantim;
-        const now = new Date().toISOString();
-        if (plan.allocations.length > 0) {
-          await d.settlementAllocations.bulkPut(
-            plan.allocations.map((a) => ({
-              id: makeId(),
-              paymentTxnId: txn.id,
-              creditTxnId: a.creditTxnId,
-              agentId: opts.settleAgentId!,
-              amountSantim: a.amountSantim,
-              createdAt: now,
-            })),
-          );
-          for (const a of plan.allocations) {
-            allocated += a.amountSantim;
-            if (!a.closes) continue;
-            const credit = credits.find((c) => c.id === a.creditTxnId);
-            if (!credit) continue;
-            await d.transactions.put({ ...credit, isSettled: true, settledAt: now });
-            closed++;
-          }
-          await d.transactions.put({
-            ...txn,
-            settlesTxnIds: plan.allocations.map((a) => a.creditTxnId),
-          });
-        }
+        const res = await settleAgentPaymentWithin(
+          d,
+          txn.id,
+          opts.settleAgentId,
+          txn.amountSantim,
+        );
+        allocated = res.allocated;
+        closed = res.closed;
+        leftoverSantim = res.leftoverSantim;
       }
 
       if (opts.inboxId) await d.sharedInputs.delete(opts.inboxId);
