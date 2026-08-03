@@ -20,9 +20,18 @@ import { type ParsedRow } from "@/lib/parser";
 import { parseSourceRecords } from "@/lib/capture/parse-records";
 import { fingerprintSource } from "@/lib/capture/source-fingerprint";
 import { ingestSmsDrafts, sortInboxRows } from "@/lib/capture/inbox-ingest";
+import {
+  canonicalDate,
+  dayFromIso,
+  formatDayShort,
+  storageIso,
+  timeFromIso,
+  todayDay,
+  yesterdayDay,
+  type CanonicalDate,
+} from "@/lib/capture/date";
 import { autoBank, autoPurpose } from "@/lib/capture/defaults";
 import { existingIdentities, smsIdentity } from "@/lib/capture/identity";
-import { todayString, yesterdayString } from "@/lib/capture/batch";
 import {
   PURPOSE_LABEL,
   purposeOptions,
@@ -69,10 +78,6 @@ function exactAgent(label: string | undefined, agents: Agent[]): Agent | null {
   const key = normalizeLabel(label);
   if (!key) return null;
   return agents.find((a) => normalizeLabel(a.name) === key) ?? null;
-}
-
-function isoFromDay(day: string): string {
-  return `${day}T00:00:00.000Z`;
 }
 
 export interface SmsInboxProps {
