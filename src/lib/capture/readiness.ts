@@ -6,6 +6,26 @@
 
 export type ReadinessState = "READY" | "NEEDS_ATTENTION" | "INCOMPLETE" | "INVALID";
 
+/** Machine-readable reasons. Every row shows the exact reason it is held. */
+export type BlockerCode =
+  | "invalid_amounts"
+  | "unreadable_message"
+  | "choose_source"
+  | "choose_date"
+  | "date_conflict"
+  | "choose_account"
+  | "choose_purpose"
+  | "choose_agent"
+  | "choose_distributor"
+  | "duplicate_collision"
+  | "recipient_mismatch"
+  | "needs_review";
+
+export interface Blocker {
+  code: BlockerCode;
+  message: string;
+}
+
 export interface ReadinessInput {
   /** Issuer/channel resolved (fingerprint or operator choice). */
   sourceResolved: boolean;
@@ -25,6 +45,20 @@ export interface ReadinessInput {
   linkSatisfied: boolean;
   /** The link was an exact match rather than an operator override/guess. */
   linkCertain?: boolean;
+  /** The link needed is a distributor rather than an agent. */
+  linkKind?: "agent" | "distributor";
+  /** A confirmed correction disagrees with the day the message stated. */
+  dateConflict?: boolean;
+  /** The day the message itself stated — used to spell out a conflict. */
+  sourceDay?: string;
+  /** The day the reviewer's correction proposes. */
+  correctedDay?: string;
+  /** The linked party's name does not match the name in the message. */
+  recipientMismatch?: boolean;
+  /** Name in the message, used to spell out a recipient mismatch. */
+  messageParty?: string;
+  /** Name of the party the operator linked. */
+  linkedParty?: string;
   /** Parser flagged something for a human to look at. */
   needsReview?: boolean;
   /**
@@ -40,10 +74,12 @@ export function rowReadiness(i: ReadinessInput): ReadinessState {
   if (i.financialBlockers > 0) return "INVALID";
   if (!i.sourceResolved || !i.familyResolved) return "INCOMPLETE";
   if (!i.hasDate) return "INCOMPLETE";
+  if (i.dateConflict) return "NEEDS_ATTENTION";
   if (!i.accountSelected) return "INCOMPLETE";
   if (!i.purposeResolved) return "INCOMPLETE";
   if (i.requiresLink && !i.linkSatisfied) return "INCOMPLETE";
   if (i.duplicateRisk && !i.duplicateRiskAcknowledged) return "NEEDS_ATTENTION";
+  if (i.recipientMismatch) return "NEEDS_ATTENTION";
   if (i.needsReview) return "NEEDS_ATTENTION";
   if (i.requiresLink && i.linkCertain === false) return "NEEDS_ATTENTION";
   return "READY";
