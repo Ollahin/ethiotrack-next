@@ -20,13 +20,16 @@ export function parseEtbToSantim(input: string): number | null {
   return Math.round(n * 100);
 }
 
+/**
+ * A calendar day is rendered from the digits it was stored with. Day-only
+ * values must never travel through the local timezone, or a saved Aug 02 can
+ * be shown as Aug 01.
+ */
 export function formatDate(iso: string): string {
+  const day = dayFromIso(iso);
+  if (day) return formatDayLong(day);
   const d = new Date(iso);
-  return d.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-  });
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
 }
 
 /**
