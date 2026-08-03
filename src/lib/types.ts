@@ -267,6 +267,29 @@ export interface SharedInput {
   blob?: Blob;
   status: "pending" | "reviewed" | "dismissed";
   reviewedAt?: string;
+  /**
+   * Everything the operator has decided about this message so far. It lives on
+   * the inbox record itself, not in screen state, so a review survives a
+   * refresh, a lock and a share-target hand-over. Absent on rows captured
+   * before this field existed, which simply means "nothing decided yet".
+   */
+  decisions?: InboxDecision;
+}
+
+/**
+ * Operator decisions for one inbox message. `null` is an explicit "none"
+ * chosen by a human; `undefined` means the app may still infer the answer.
+ */
+export interface InboxDecision {
+  bankId?: string | null;
+  agentId?: string | null;
+  distributorId?: string | null;
+  /** BusinessPurpose value, kept as a string so persistence stays schema-free. */
+  purpose?: string;
+  /** Operator-chosen day (yyyy-mm-dd) for a message that stated no date. */
+  day?: string;
+  /** The reviewer confirmed a flagged identity collision is not a repeat. */
+  duplicateAcknowledged?: boolean;
 }
 
 export const CHANNELS = [
