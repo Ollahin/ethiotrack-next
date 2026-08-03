@@ -419,10 +419,10 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
           {reviews.length} waiting · {readyCount} ready
         </span>
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
-          <Button size="sm" variant="secondary" onClick={() => applyDay(todayString())}>
+          <Button size="sm" variant="secondary" onClick={() => applyDay(todayDay())}>
             Today
           </Button>
-          <Button size="sm" variant="secondary" onClick={() => applyDay(yesterdayString())}>
+          <Button size="sm" variant="secondary" onClick={() => applyDay(yesterdayDay())}>
             Yesterday
           </Button>
           <Input
@@ -468,6 +468,11 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
             onBank={(v) => void setInboxDecision(r.item.id, { bankId: v === NONE ? null : v })}
             onPurpose={(v) => void setInboxDecision(r.item.id, { purpose: v })}
             onDate={(v) => void setInboxDecision(r.item.id, { day: v })}
+            onCorrectDate={(v) => void setInboxDecision(r.item.id, { correctedDay: v })}
+            onConfirmCorrection={(v) =>
+              void setInboxDecision(r.item.id, { correctionConfirmed: v })
+            }
+            onConfirmRecipient={(v) => void setInboxDecision(r.item.id, { recipientConfirmed: v })}
             onDupOk={(v) => void setInboxDecision(r.item.id, { duplicateAcknowledged: v })}
             onDismiss={() => void setSharedInputStatus(r.item.id, "dismissed")}
             onDelete={() => void deleteSharedInput(r.item.id)}
