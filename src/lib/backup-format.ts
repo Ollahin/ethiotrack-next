@@ -296,6 +296,17 @@ const sharedInputSchema = z
     fileType: z.string().optional(),
     status: z.enum(["pending", "reviewed", "dismissed"]),
     reviewedAt: z.string().optional(),
+    decisions: z
+      .object({
+        bankId: z.string().nullable().optional(),
+        agentId: z.string().nullable().optional(),
+        distributorId: z.string().nullable().optional(),
+        purpose: z.string().optional(),
+        day: z.string().optional(),
+        duplicateAcknowledged: z.boolean().optional(),
+      })
+      .passthrough()
+      .optional(),
     blobBase64: z.string().optional(),
     blobType: z.string().optional(),
   })

@@ -37,6 +37,8 @@ import {
   addSmsInboxRows,
   deleteSharedInput,
   importInboxSms,
+  setInboxDecision,
+  setInboxDecisions,
   setSharedInputStatus,
   useAgents,
   useBanks,
@@ -82,12 +84,6 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
   const [text, setText] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
-  const [agentPick, setAgentPick] = useState<Record<string, string>>({});
-  const [distPick, setDistPick] = useState<Record<string, string>>({});
-  const [bankPick, setBankPick] = useState<Record<string, string>>({});
-  const [purposePick, setPurposePick] = useState<Record<string, BusinessPurpose>>({});
-  const [datePick, setDatePick] = useState<Record<string, string>>({});
-  const [dupOk, setDupOk] = useState<Record<string, boolean>>({});
   const [batchDay, setBatchDay] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -152,6 +148,11 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
 
   const reviews: Review[] = useMemo(() => {
     return pending.map((item) => {
+      // Every operator decision is read back from the inbox record itself, so
+      // a refresh, a lock or a share hand-over never loses review work.
+      const dec = item.decisions ?? {};
+      const pickOf = (v: string | null | undefined): string | undefined =>
+        v === null ? NONE : (v ?? undefined);
       const row = parseSourceRecords(item.text ?? "")[0] ?? {
         ok: false as const,
         raw: item.text ?? "",
@@ -161,7 +162,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
       const direction = directionOf(row);
 
       // ---- account: an exact tail selects the configured bank by itself
-      const pickedBank = bankPick[item.id];
+      const pickedBank = pickOf(dec.bankId);
       const bank =
         pickedBank && pickedBank !== NONE
           ? (banks.find((b) => b.id === pickedBank) ?? null)
@@ -170,7 +171,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
             : null;
 
       // ---- agent: exact name only, or the operator's choice
-      const pickedAgent = agentPick[item.id];
+      const pickedAgent = pickOf(dec.agentId);
       const agent =
         pickedAgent === NONE
           ? null
@@ -181,7 +182,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
               : null;
 
       // ---- distributor: exact match on name, alias or configured account
-      const pickedDist = distPick[item.id];
+      const pickedDist = pickOf(dec.distributorId);
       const autoDist =
         row.ok && direction === "out"
           ? matchDistributorForPayment(
@@ -198,7 +199,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
 
       // ---- purpose follows from the links unless the operator overrode it
       const purpose =
-        purposePick[item.id] ??
+        (dec.purpose as BusinessPurpose | undefined) ??
         autoPurpose({
           direction,
           agentLinked: Boolean(agent),
@@ -206,7 +207,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
         });
 
       // ---- date: the message first, then the operator's date
-      const picked = datePick[item.id];
+      const picked = dec.day;
       const dateFromMessage = Boolean(row.ok && row.date);
       const dateIso = dateFromMessage
         ? (row as { date?: string }).date!
@@ -250,7 +251,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
         needsReview: Boolean(row.ok && row.needsReview),
         // Only an actual identity collision asks the operator anything.
         duplicateRisk: duplicate,
-        duplicateRiskAcknowledged: Boolean(dupOk[item.id]),
+        duplicateRiskAcknowledged: Boolean(dec.duplicateAcknowledged),
       };
 
       return {
@@ -268,26 +269,14 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
         input,
       };
     });
-  }, [
-    pending,
-    agents,
-    banks,
-    distributors,
-    identities,
-    agentPick,
-    distPick,
-    bankPick,
-    purposePick,
-    datePick,
-    dupOk,
-  ]);
+  }, [pending, agents, banks, distributors, identities]);
 
   const readyCount = importableCount(reviews.map((r) => r.input));
   const selectedIds = reviews.filter((r) => selected[r.item.id]).map((r) => r.item.id);
   const allSelected = reviews.length > 0 && selectedIds.length === reviews.length;
 
   /** One tap dates every selected message that stated no date of its own. */
-  function applyDay(day: string) {
+  async function applyDay(day: string) {
     if (!day) return;
     const targets = reviews.filter(
       (r) => (selected[r.item.id] || selectedIds.length === 0) && !r.dateFromMessage,
@@ -296,11 +285,10 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
       setNote("Every selected message already carries its own date.");
       return;
     }
-    setDatePick((s) => {
-      const next = { ...s };
-      for (const t of targets) next[t.item.id] = day;
-      return next;
-    });
+    await setInboxDecisions(
+      targets.map((t) => t.item.id),
+      { day },
+    );
     setNote(`Date applied to ${targets.length} message(s).`);
   }
 
@@ -446,12 +434,14 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
             distributors={distributors}
             selected={Boolean(selected[r.item.id])}
             onSelect={(v) => setSelected((s) => ({ ...s, [r.item.id]: v }))}
-            onAgent={(v) => setAgentPick((s) => ({ ...s, [r.item.id]: v }))}
-            onDistributor={(v) => setDistPick((s) => ({ ...s, [r.item.id]: v }))}
-            onBank={(v) => setBankPick((s) => ({ ...s, [r.item.id]: v }))}
-            onPurpose={(v) => setPurposePick((s) => ({ ...s, [r.item.id]: v }))}
-            onDate={(v) => setDatePick((s) => ({ ...s, [r.item.id]: v }))}
-            onDupOk={(v) => setDupOk((s) => ({ ...s, [r.item.id]: v }))}
+            onAgent={(v) => void setInboxDecision(r.item.id, { agentId: v === NONE ? null : v })}
+            onDistributor={(v) =>
+              void setInboxDecision(r.item.id, { distributorId: v === NONE ? null : v })
+            }
+            onBank={(v) => void setInboxDecision(r.item.id, { bankId: v === NONE ? null : v })}
+            onPurpose={(v) => void setInboxDecision(r.item.id, { purpose: v })}
+            onDate={(v) => void setInboxDecision(r.item.id, { day: v })}
+            onDupOk={(v) => void setInboxDecision(r.item.id, { duplicateAcknowledged: v })}
             onDismiss={() => void setSharedInputStatus(r.item.id, "dismissed")}
             onDelete={() => void deleteSharedInput(r.item.id)}
           />

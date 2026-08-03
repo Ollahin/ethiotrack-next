@@ -8,6 +8,7 @@ import type {
   DailyOpening,
   Distributor,
   FulfillmentEntry,
+  InboxDecision,
   PeriodClosing,
   PeriodOpening,
   SharedInput,
@@ -205,6 +206,26 @@ class EthioTrackDB extends Dexie {
     // v7: additive only — explicit, partial-aware agent settlement allocations
     // plus a capture identity index so a retried import can never double-write.
     this.version(7).stores({
+      agents: "id, name, phone",
+      distributors: "id, name",
+      banks: "id, name, channel",
+      dailyOpenings: "id, date",
+      dailyClosings: "id, date, openingId",
+      periodOpenings: "id, weekStart",
+      periodClosings: "id, weekStart, openingId",
+      transactions:
+        "id, date, type, partyId, channel, isSettled, isPersonal, statementImportId, captureKey",
+      statementImports: "id, distributorId, importedAt",
+      fulfillments: "id, intentTxnId, recordedAt",
+      approvedMappings: "id, targetType, normalizedLabel, targetId",
+      sharedInputs: "id, receivedAt, status",
+      settlementAllocations: "id, paymentTxnId, creditTxnId, agentId",
+      meta: "key",
+    });
+    // v8: additive only — inbox review decisions are stored on the inbox row
+    // itself. No index changes, no data rewrite: existing rows simply have no
+    // `decisions` object, which means "nothing decided yet".
+    this.version(8).stores({
       agents: "id, name, phone",
       distributors: "id, name",
       banks: "id, name, channel",
@@ -974,6 +995,38 @@ export async function setSharedInputStatus(
 
 export async function deleteSharedInput(id: string): Promise<void> {
   await db().sharedInputs.delete(id);
+}
+
+/**
+ * Merge a review decision into one inbox row. Decisions are stored where the
+ * message is stored, so refreshing, locking or reopening the app can never
+ * lose work a human already did. Unknown ids are ignored rather than creating
+ * an orphan row.
+ */
+export async function setInboxDecision(id: string, patch: Partial<InboxDecision>): Promise<void> {
+  const d = db();
+  await d.transaction("rw", d.sharedInputs, async () => {
+    const row = await d.sharedInputs.get(id);
+    if (!row) return;
+    await d.sharedInputs.put({ ...row, decisions: { ...row.decisions, ...patch } });
+  });
+}
+
+/** The same merge applied to many rows atomically (bulk date/purpose apply). */
+export async function setInboxDecisions(
+  ids: string[],
+  patch: Partial<InboxDecision>,
+): Promise<number> {
+  if (!ids.length) return 0;
+  const d = db();
+  return d.transaction("rw", d.sharedInputs, async () => {
+    const rows = (await d.sharedInputs.bulkGet(ids)).filter(Boolean) as SharedInput[];
+    if (!rows.length) return 0;
+    await d.sharedInputs.bulkPut(
+      rows.map((row) => ({ ...row, decisions: { ...row.decisions, ...patch } })),
+    );
+    return rows.length;
+  });
 }
 
 /**
