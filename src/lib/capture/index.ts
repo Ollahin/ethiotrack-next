@@ -7,5 +7,6 @@ export * from "./direction";
 export * from "./apply-direction";
 export * from "./batch";
 export * from "./identity";
+export * from "./date";
 export * from "./defaults";
 export * from "./inbox-ingest";
