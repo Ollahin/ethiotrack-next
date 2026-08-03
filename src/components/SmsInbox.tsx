@@ -24,6 +24,7 @@ import {
   canonicalDate,
   dayFromIso,
   formatDayShort,
+  planBulkDate,
   storageIso,
   timeFromIso,
   todayDay,
