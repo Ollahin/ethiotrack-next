@@ -27,7 +27,13 @@ describe("duplicate-risk gate", () => {
   });
 
   it("never asks about duplicates for an ordinary unique message", () => {
-    expect(evaluateRow(ready)).toEqual({ state: "READY", blocker: null, canImport: true });
+    expect(evaluateRow(ready)).toMatchObject({
+      state: "READY",
+      blocker: null,
+      blockerCode: null,
+      blockers: [],
+      canImport: true,
+    });
   });
 
   it("never lets an acknowledgement override a missing date, account, purpose or link", () => {
