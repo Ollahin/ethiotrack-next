@@ -16,12 +16,12 @@
 - Never commit private screenshots, real names, account numbers, references,
   phone numbers or raw private messages.
 
-## Validation snapshot (recorded from an actual `bun run verify` run)
+## Validation snapshot (recorded from an actual run)
 
 - Typecheck: pass (`tsc --noEmit`)
-- Lint: pass — 8 problems, 0 errors, 8 warnings
+- Lint: pass — 7 problems, 0 errors, 7 warnings
 - Format check: pass (`prettier --check .`)
-- Tests: 636 passed in 21 test files
+- Tests: 747 passed in 31 test files
 - Build: pass (`vite build`, Nitro worker output generated)
 
 ## Repository truth
@@ -46,28 +46,66 @@
 - Backup v3 export, account reset and restore, proven by a full browser
   journey (export → clear → restore → identical ledger).
 
-### Implemented and test-covered, awaiting browser acceptance
+### Implemented and test-covered, awaiting browser proof
 
-- Float/EVD SMS parsing, pairing, reference deduplication, adapter and import
-  UI (`src/lib/float-evd-sms-parser.ts`, `src/lib/float-evd-sms-adapter.ts`,
-  `src/components/SmsFloatEvdImport.tsx`), including alias-based distributor
+- One capture surface: `src/components/SmsInbox.tsx` renders both `/capture`
+  and `/inbox`. The retired `PasteImport.tsx` and `SmartCapture.tsx`
+  components and the old parser-toggle Smart Capture architecture no longer
+  exist.
+- Unified ingestion: paste, clipboard and Android shared text all pass through
+  `src/lib/capture/inbox-ingest.ts` and are persisted as ordered Dexie
+  `sharedInputs` rows (`seq`, `origin`) before anything is parsed.
+- Canonical candidate batches with stable candidate IDs
+  (`src/lib/capture/batch.ts`, `src/lib/capture/candidate.ts`): one batch is
+  carried from detection through review to import, with no reparsing.
+- Bulk date assignment across selected undated rows; time stays optional and
+  hidden by default.
+- Purpose-specific agent and distributor linking
+  (`src/lib/capture/purpose.ts`, `src/lib/capture/defaults.ts`): exact account
+  tail selects the configured bank, an agent link on incoming money selects
+  agent settlement, an exact distributor match selects distributor payment.
+- Source-first SMS classification and grammatical direction rules
+  (`src/lib/capture/source-fingerprint.ts`, `src/lib/capture/segmentation.ts`,
+  `src/lib/capture/direction.ts`, `src/lib/capture/apply-direction.ts`).
+- Partial atomic FIFO settlement allocations (`src/lib/settlement.ts`,
+  `recordAgentSettlement` / `importInboxSms` in `src/lib/db.ts`): a receipt,
+  its allocations, the agent link and the inbox row removal succeed or roll
+  back together; retries are idempotent.
+- Dexie v7 with the `settlementAllocations` store.
+- Allocation-aware agent ledgers (`src/lib/agent-ledger.ts`) reporting open
+  credit from allocations rather than whole-transaction matching.
+- Reference-less duplicate-risk handling (`src/lib/capture/identity.ts`):
+  reference identity when the source states one, otherwise a canonical
+  fingerprint; confirmation is raised only on a genuine collision, and the old
+  mandatory "no reference" checkbox is gone.
+- Generic, position-aware OCR evidence reconstruction
+  (`src/lib/ocr-row-reconstruction.ts`) behind `src/lib/ocr-parser.ts` and
+  `parseRefillHistory`; incomplete rows stay visible, unselected and PARTIAL.
+- Float/EVD SMS parsing, pairing, reference deduplication and adapter
+  (`src/lib/float-evd-sms-parser.ts`, `src/lib/float-evd-sms-adapter.ts`,
+  `src/components/SmsFloatEvdImport.tsx`) with alias-based distributor
   resolution. Corpus: 14 sanitized fixtures, 17 expected events, 3 review rows.
-- Smart Capture classification and routing (`src/lib/smart-capture.ts`,
-  `src/components/SmartCapture.tsx`).
-- Shared-input inbox and share handoff (`src/routes/inbox.tsx`,
-  `src/lib/share-inbox.ts`, `src/lib/share-handoff.ts`).
-- Backup v4 (adds `approvedMappings`, migrates v2 and v3 files).
+- Backup coverage for all currently persisted records, including
+  `settlementAllocations`, `sharedInputs` (with `seq`/`origin`) and
+  `approvedMappings`, with migration of older backup files.
 
-### Partially implemented
+### Current release blockers
 
-- Approved mappings: the pure rules (`src/lib/approved-mappings.ts`), the
-  Dexie table and backup coverage exist, but no import or review screen reads
-  or writes mappings yet, so approvals are never captured or reused.
-- Android share target: manifest entry, `public/sw.js` interception and the
-  `/share-target` server fallback exist; the inbox cannot yet continue from a
-  stored image Blob.
-- PWA installability: manifest and guarded service-worker registration exist,
-  but the referenced icons are absent from `public/`.
+1. Agent settlement browser proof is outstanding: 50,000 open credit →
+   15,000 receipt imported through the inbox → 35,000 open credit still shown
+   after a refresh.
+2. Persisted SMS inbox and bulk workflow browser proof is outstanding: paste a
+   real multi-message capture, confirm one persisted row per message in source
+   order, apply one bulk date, import, refresh, and confirm the unimported
+   rows are still pending.
+3. Refill screenshot OCR browser proof is outstanding: real screenshot →
+   complete/incomplete rows → explicit agent linking → save → refresh →
+   History totals match the source.
+4. PWA offline behaviour and installability are not completed. Manifest,
+   icons and a guarded service worker exist, but the worker caches nothing, so
+   there is no offline app shell and no install/offline proof on a device.
+5. Deployment is not completed. No private-beta origin is live and no
+   update/migration safety has been exercised on a stable origin.
 
 ### Deferred until after MVP
 
@@ -101,68 +139,18 @@
 - Repeated legitimate transactions remain separate rows.
 - Financial history is append-only.
 
-## Smart Capture — current state
+## Canonical remaining order
 
-Present in code:
+Current task:
 
-- Single capture entry point `src/components/SmartCapture.tsx`, used by
-  `/capture` and `/inbox`.
-- Deterministic text classification with per-family evidence, tie detection
-  and manual override (`src/lib/smart-capture.ts`).
-- Shared-input inbox with pending/handled lists, dismiss and delete.
-- Android manifest `share_target` (`public/manifest.webmanifest`),
-  `public/sw.js` multipart interception into a standalone store, and the
-  `/share-target` route as a server-side fallback.
-- Backup v4 persistence of approved mappings and Dexie tables for
-  `approvedMappings` and `sharedInputs`.
+- 0.4C-bR7 — Close Capture and settlement browser acceptance
 
-Remaining blockers (verified against current code):
+Next tasks, in order:
 
-1. A shared image lands in the inbox with its Blob, but review renders a bare
-   `StatementImport`, so the operator must re-upload the same file.
-2. Inbox items are marked `reviewed` when handed to a parser, not when a row
-   is actually saved or dismissed.
-3. No clipboard action in the inbox or capture box.
-4. Text that no parser recognises yields no candidates, so the override select
-   is hidden and the operator cannot force a family.
-5. Approved mappings are stored and backed up but never read or written by any
-   import path, so nothing is learned from an approval.
-6. `public/` has no `icon-192.png`, `icon-512.png` or `icon-maskable-512.png`,
-   so the manifest icons 404 and installability is unproven.
-7. No browser proof of Android install, lock/unlock and refresh-resume of a
-   shared item.
-
-## Current task
-
-Task 0.4C-bR — Complete Smart Capture and Android Share Target
-
-## Next task (after acceptance)
-
-Task 0.4C-c — Fresh-account setup, offline PWA and deployment readiness
-
-## TASK 0.4C-bR1P — OCR list-row reconstruction replaced (current release blocker)
-
-The legacy date-backtracking + party/amount/day deduplication scraper is
-DELETED. Screenshot list parsing now runs through the generic, position-aware
-evidence engine `src/lib/ocr-row-reconstruction.ts`:
-
-- OCR text becomes ordered evidence tokens (amount/sign, date/time, candidate
-  party) carrying source line index, in-line column, raw text and optional
-  bounding coordinates.
-- Rows are anchored on defensible amounts; the dominant party/date offset is
-  measured per image, so party→amount→date, date→party→amount, party+amount and
-  date+amount layouts and adjacent line reordering all reconstruct.
-- Every evidence token is consumed at most once, evidence never crosses a
-  neighbouring anchor boundary, source order is preserved and repeated
-  legitimate rows are never deduplicated.
-- A defensible amount with a missing party or date stays a visible, unselected
-  incomplete row; the image is reported as PARTIAL.
-
-Wired through `src/lib/ocr-parser.ts` and `parseRefillHistory` in
-`src/lib/distributor-parser.ts`. `bun run verify` green: 667 tests, 23 files.
-
-STATUS: **Refill screenshot OCR is NOT claimed complete.** Mandatory browser
-acceptance (real screenshot → complete/incomplete rows → explicit agent linking
-→ save → refresh → History totals match the source) is still OUTSTANDING and is
-the current release blocker. The scripted journey reaches setup, distributor and
-agent creation; the upload → link → save → refresh leg has not yet been proven.
+- 0.4C-c1 — Fresh-account guided setup
+- 0.4C-c2 — Installable offline app shell
+- 0.4C-c3 — Offline OCR preparation
+- 0.4C-c4 — Android/iOS device acceptance
+- 0.4C-c5 — Vercel private-beta deployment
+- 0.4C-c6 — Stable-origin migration/update safety
+- 0.4C-c7 — Release-candidate acceptance
