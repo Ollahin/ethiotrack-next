@@ -176,3 +176,26 @@ export function storageIso(day: string, time?: string): string {
   const t = time && TIME_RE.test(time) ? (time.length === 5 ? `${time}:00` : time) : "00:00:00";
   return `${day}T${t}.000Z`;
 }
+
+export interface BulkDateTarget {
+  id: string;
+  hasGenuineDate: boolean;
+}
+
+export interface BulkDatePlan {
+  /** Rows the day will actually be written to. */
+  apply: string[];
+  /** Rows left alone because they carry a genuine date of their own. */
+  skipped: string[];
+}
+
+/**
+ * A bulk date only ever reaches rows with no genuine date. Nothing here can
+ * overwrite what a message stated, no matter how many rows are selected.
+ */
+export function planBulkDate(targets: BulkDateTarget[]): BulkDatePlan {
+  const apply: string[] = [];
+  const skipped: string[] = [];
+  for (const t of targets) (t.hasGenuineDate ? skipped : apply).push(t.id);
+  return { apply, skipped };
+}
