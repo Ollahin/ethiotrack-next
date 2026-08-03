@@ -58,7 +58,7 @@ import {
 import { normalizeLabel } from "@/lib/approved-mappings";
 import { matchDistributorForPayment } from "@/lib/purchase-fulfillment";
 import { isAirtimeTransaction } from "@/lib/airtime-movement";
-import { formatEtb, formatTxnDate } from "@/lib/format";
+import { formatEtb } from "@/lib/format";
 import type { Agent, Bank, Distributor, SharedInput, Transaction } from "@/lib/types";
 
 const NONE = "__none__";
