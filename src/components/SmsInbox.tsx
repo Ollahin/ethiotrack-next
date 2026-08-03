@@ -557,7 +557,11 @@ function InboxSmsRow({
         )}
         <span className="text-xs text-ink-soft">{row.ok ? (row.channel ?? "Unknown") : "—"}</span>
         <span className="text-xs text-ink-soft">
-          {dateIso ? formatTxnDate(dateIso, !review.dateIsDayOnly) : "no date"}
+          {date.effectiveDate
+            ? formatDayShort(date.effectiveDate) +
+              (date.effectiveTime ? ` ${date.effectiveTime}` : "") +
+              (date.effectiveProvenance === "batch" ? " (added)" : "")
+            : "no date"}
         </span>
         <span
           className={
