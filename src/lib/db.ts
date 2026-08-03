@@ -701,7 +701,7 @@ export interface SettlementResult {
  * allocations, the closed credits and the inbox row always commit together.
  */
 async function settleAgentPaymentWithin(
-  d: EthioDb,
+  d: EthioTrackDB,
   paymentTxnId: string,
   agentId: string,
   paymentSantim: number,
