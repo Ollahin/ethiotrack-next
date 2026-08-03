@@ -495,6 +495,9 @@ function InboxSmsRow({
   onBank,
   onPurpose,
   onDate,
+  onCorrectDate,
+  onConfirmCorrection,
+  onConfirmRecipient,
   onDupOk,
   onDismiss,
   onDelete,
@@ -506,9 +509,7 @@ function InboxSmsRow({
     agent: Agent | null;
     distributor: Distributor | null;
     purpose: BusinessPurpose;
-    dateIso: string | null;
-    dateIsDayOnly: boolean;
-    dateFromMessage: boolean;
+    date: CanonicalDate;
     duplicate: boolean;
     identity: string | null;
     input: ReadinessInput;
@@ -523,12 +524,16 @@ function InboxSmsRow({
   onBank: (v: string) => void;
   onPurpose: (v: BusinessPurpose) => void;
   onDate: (v: string) => void;
+  onCorrectDate: (v: string) => void;
+  onConfirmCorrection: (v: boolean) => void;
+  onConfirmRecipient: (v: boolean) => void;
   onDupOk: (v: boolean) => void;
   onDismiss: () => void;
   onDelete: () => void;
 }) {
-  const { item, row, bank, agent, distributor, purpose, dateIso } = review;
+  const { item, row, bank, agent, distributor, purpose, date } = review;
   const evaluation = evaluateRow(review.input);
+  const [correcting, setCorrecting] = useState(false);
   const direction = directionOf(row);
   const airtime = isAirtimeRow(row);
   const fp = row.ok ? fingerprintSource(row.raw) : null;
