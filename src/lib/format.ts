@@ -1,3 +1,5 @@
+import { dayFromIso, formatDayLong, formatDayShort } from "./capture/date";
+
 export function santimToEtb(santim: number): number {
   return santim / 100;
 }
@@ -91,6 +93,11 @@ export function parseEthiopianDate(raw: string): Date | null {
 }
 
 export function formatDateTime(iso: string): string {
+  // The stored timestamp already carries the day and clock time the source
+  // stated; re-interpreting it in the local zone would move both.
+  const day = dayFromIso(iso);
+  const time = iso.match(/T(\d{2}:\d{2})/)?.[1];
+  if (day && time) return `${formatDayShort(day)}, ${time}`;
   const d = new Date(iso);
   return d.toLocaleString(undefined, {
     month: "short",
