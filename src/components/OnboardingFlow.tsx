@@ -61,15 +61,7 @@ export function OnboardingFlow() {
   const nav = useNavigate();
   const [step, setStep] = useState<Step>("welcome");
   const steps: Step[] = useMemo(
-    () => [
-      "welcome",
-      "master-pin",
-      "user-profile",
-      "banks",
-      "distributors",
-      "agents",
-      "finish",
-    ],
+    () => ["welcome", "master-pin", "user-profile", "banks", "distributors", "agents", "finish"],
     [],
   );
   const [masterPin, setMasterPin] = useState("");
