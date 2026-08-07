@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import {
   getLicense,
   getLockoutStatus,
-  isLicenseActive,
   isUnlocked,
   verifyDailyPin,
   getInstallationId,
@@ -17,7 +16,7 @@ import {
 } from "@/lib/crypto";
 import { accountIsEmpty } from "@/lib/db";
 
-import { KeyRound, Lock, ShieldCheck, ShieldAlert, Timer, Download, LogOut } from "lucide-react";
+import { Lock, Timer, Download, ShieldAlert, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { LicenseStatus } from "@/components/LicenseStatus";
 import { LicenseExpiryBanner } from "@/components/LicenseExpiryBanner";
@@ -34,7 +33,7 @@ export const Route = createFileRoute("/unlock")({
   component: UnlockPage,
 });
 
-type Mode = "loading" | "onboarding" | "unlock" | "expired" | "tamper";
+type Mode = "loading" | "onboarding" | "unlock" | "expired" | "tamper" | "unactivated";
 
 function UnlockPage() {
   const nav = useNavigate();
@@ -47,7 +46,11 @@ function UnlockPage() {
   const [installationId, setInstallationId] = useState("");
 
   const lockoutKind: AuthKind | null =
-    mode === "unlock" ? "daily-pin" : mode === "expired" ? "license-activation" : null;
+    mode === "unlock"
+      ? "daily-pin"
+      : mode === "expired" || mode === "unactivated" || mode === "tamper"
+        ? "license-activation"
+        : null;
 
   useEffect(() => {
     getInstallationId().then(setInstallationId);
@@ -74,7 +77,7 @@ function UnlockPage() {
   }, [lockoutKind]);
 
   async function resolveMode(): Promise<Mode> {
-    const { getLicenseState, getLicense } = await import("@/lib/crypto");
+    const { getLicenseState, getLicense, hasDailyPin } = await import("@/lib/crypto");
     const state = await getLicenseState();
     const lic = await getLicense();
 
@@ -84,12 +87,13 @@ function UnlockPage() {
     if (state === "EXPIRED") return "expired";
     if (state === "UNACTIVATED") {
       const empty = await accountIsEmpty();
-      return empty ? "onboarding" : "tamper"; // Business data but no license = tamper
+      return empty ? "unactivated" : "tamper";
     }
 
-    // VALID state - check if we need onboarding (fresh device with license but no PIN)
+    // VALID state - check if we need onboarding (fresh device with license but no PIN/data)
     const empty = await accountIsEmpty();
-    if (empty) return "onboarding";
+    const pinExists = await hasDailyPin();
+    if (empty || !pinExists) return "onboarding";
 
     return "unlock";
   }
@@ -135,7 +139,11 @@ function UnlockPage() {
       await activateLicense(cred);
       toast.success("License activated");
       setCredInput("");
-      setMode(await resolveMode());
+      const next = await resolveMode();
+      setMode(next);
+      if (next === "unlock" && isUnlocked()) {
+        nav({ to: "/" });
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Invalid credential format");
     } finally {
@@ -146,24 +154,44 @@ function UnlockPage() {
   if (mode === "loading") return null;
   if (mode === "onboarding") return <OnboardingFlow />;
 
-  if (mode === "expired" || mode === "tamper") {
+  if (mode === "expired" || mode === "tamper" || mode === "unactivated") {
     const isTamper = mode === "tamper";
+    const isUnactivated = mode === "unactivated";
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-ink text-white px-4">
         <div className="w-full max-w-sm space-y-6">
           <div className="text-center">
             <div
-              className={`inline-flex items-center justify-center h-12 w-12 rounded-full ${isTamper ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"}`}
+              className={`inline-flex items-center justify-center h-12 w-12 rounded-full ${
+                isTamper
+                  ? "bg-amber-500/20 text-amber-400"
+                  : isUnactivated
+                    ? "bg-primary/20 text-primary"
+                    : "bg-red-500/20 text-red-400"
+              }`}
             >
-              {isTamper ? <ShieldAlert className="h-6 w-6" /> : <Timer className="h-6 w-6" />}
+              {isTamper ? (
+                <ShieldAlert className="h-6 w-6" />
+              ) : isUnactivated ? (
+                <KeyRound className="h-6 w-6" />
+              ) : (
+                <Timer className="h-6 w-6" />
+              )}
             </div>
             <h1 className="mt-4 text-2xl font-bold">
-              {isTamper ? "Tamper Protection" : "Subscription Expired"}
+              {isTamper
+                ? "Tamper Protection"
+                : isUnactivated
+                  ? "Activation Required"
+                  : "Subscription Expired"}
             </h1>
             <p className="text-sm text-white/60 mt-2">
               {isTamper
                 ? "Account data exists but a valid Operations authorization is missing. Paste a recovery credential to continue."
-                : "Access to this ledger has ended. Your data is preserved locally. Paste a new activation credential from Operations to continue."}
+                : isUnactivated
+                  ? "This device is not yet authorized to run EthioTrack. Paste an activation credential from Operations to begin."
+                  : "Access to this ledger has ended. Your data is preserved locally. Paste a new activation credential from Operations to continue."}
             </p>
           </div>
 
@@ -193,23 +221,34 @@ function UnlockPage() {
                 ? `Locked · ${Math.ceil(lockout.msRemaining / 1000)}s`
                 : isTamper
                   ? "Restore Authorization"
-                  : "Renew Access"}
+                  : isUnactivated
+                    ? "Activate Device"
+                    : "Renew Access"}
             </Button>
           </form>
 
-          <div className="pt-4 border-t border-white/5 space-y-3">
-            <Button
-              variant="outline"
-              className="w-full border-white/10 hover:bg-white/5 text-white/70"
-              onClick={() => nav({ to: "/exports" })}
-            >
-              <Download className="h-4 w-4 mr-2" /> Export Backup
-            </Button>
+          {!isUnactivated && (
+            <div className="pt-4 border-t border-white/5 space-y-3">
+              <Button
+                variant="outline"
+                className="w-full border-white/10 hover:bg-white/5 text-white/70"
+                onClick={() => nav({ to: "/exports" })}
+              >
+                <Download className="h-4 w-4 mr-2" /> Export Backup
+              </Button>
+              <p className="text-[10px] text-white/40 text-center leading-relaxed">
+                Your Daily PIN cannot bypass this. Only a valid operations credential can restore
+                access.
+              </p>
+            </div>
+          )}
+
+          {isUnactivated && (
             <p className="text-[10px] text-white/40 text-center leading-relaxed">
-              Your Daily PIN cannot bypass this. Only a valid operations credential can restore full
-              access.
+              EthioTrack is a local-only application. Operations activation is required for fresh
+              installations.
             </p>
-          </div>
+          )}
         </div>
       </div>
     );
