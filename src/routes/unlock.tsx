@@ -181,12 +181,12 @@ function UnlockPage() {
         <Input
           type="password"
           autoFocus
-          placeholder={mode === "setup-master" || mode === "renew" ? "Master PIN" : "PIN"}
+          placeholder={mode === ("renew" as Mode) ? "Master PIN" : "PIN"}
           value={pin}
           onChange={(e) => setPinInput(e.target.value)}
           className="bg-white/5 border-white/10 text-white text-center text-lg tracking-widest"
         />
-        {mode !== "setup-master" && mode !== "renew" && (
+        {mode !== ("renew" as Mode) && (
           <LicenseExpiryBanner variant="dark" showAction={false} />
         )}
         {copy.confirm && (
@@ -196,16 +196,6 @@ function UnlockPage() {
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             className="bg-white/5 border-white/10 text-white text-center text-lg tracking-widest"
-          />
-        )}
-        {mode === "setup-user" && (
-          <Input
-            type="text"
-            placeholder="Your name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoComplete="name"
-            className="bg-white/5 border-white/10 text-white text-center"
           />
         )}
         <Button type="submit" disabled={busy || !!lockout?.locked} className="w-full">
