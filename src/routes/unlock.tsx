@@ -80,10 +80,10 @@ function UnlockPage() {
     setExpiresAt(lic?.expiresAt ?? null);
     if (!master) return "setup-master";
     if (!licensed) return "renew";
-    if (!user) return "setup-user";
-    if (await accountIsEmpty()) return "setup-user"; // Fallback to setup if no data
-
+    const empty = await accountIsEmpty();
+    if (!user || empty) return "setup-user";
     return "unlock";
+
   }
 
   useEffect(() => {
