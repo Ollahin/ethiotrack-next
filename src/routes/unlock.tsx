@@ -83,14 +83,18 @@ function UnlockPage() {
   }
 
   useEffect(() => {
+    let alive = true;
     (async () => {
       const next = await resolveMode();
+      if (!alive) return;
+      console.log("Resolved mode:", next);
       if (next === "unlock" && isUnlocked()) {
-        nav({ to: "/" });
+        nav({ to: "/", replace: true });
         return;
       }
       setMode(next);
     })();
+    return () => { alive = false; };
   }, [nav]);
 
   async function submit(e: React.FormEvent) {
