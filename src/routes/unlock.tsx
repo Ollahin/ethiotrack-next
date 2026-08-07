@@ -138,16 +138,9 @@ function UnlockPage() {
   }
 
   if (mode === "loading") return null;
+  if (mode === "setup-master" || mode === "setup-user") return <OnboardingFlow />;
 
   const copy = {
-    "setup-master": {
-      icon: <KeyRound className="h-6 w-6" />,
-      title: "Owner setup",
-      sub: "Create the master PIN. You'll re-enter it every month to keep the app active.",
-      cta: "Set master PIN & activate",
-      confirm: true,
-      note: "The master PIN is stored only on this device. Keep it private — anyone with it can extend the license.",
-    },
     renew: {
       icon: <Timer className="h-6 w-6" />,
       title: "License expired",
@@ -157,14 +150,6 @@ function UnlockPage() {
       cta: "Renew for 30 days",
       confirm: false,
       note: "Only the prototype owner has this PIN. The daily user PIN cannot renew the license.",
-    },
-    "setup-user": {
-      icon: <ShieldCheck className="h-6 w-6" />,
-      title: "Create daily PIN",
-      sub: "This is the PIN the operator types every day to open the ledger.",
-      cta: "Set PIN & continue",
-      confirm: true,
-      note: "Separate from the master PIN. Losing it does not destroy data in v1.",
     },
     unlock: {
       icon: <Lock className="h-6 w-6" />,
@@ -176,7 +161,7 @@ function UnlockPage() {
       confirm: false,
       note: null as string | null,
     },
-  }[mode];
+  }[mode as "renew" | "unlock"];
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-ink text-white px-4">
@@ -240,7 +225,7 @@ function UnlockPage() {
         {copy.note && (
           <p className="text-[11px] text-white/50 text-center leading-relaxed">{copy.note}</p>
         )}
-        {mode !== "setup-master" && mode !== "renew" && (
+        {mode === "unlock" && (
           <LicenseStatus variant="dark" onlyNearExpiry />
         )}
         {mode === "renew" && <LicenseStatus variant="dark" />}
