@@ -40,7 +40,6 @@ import {
 
 type Step =
   | "welcome"
-  | "master-pin"
   | "user-profile"
   | "banks"
   | "distributors"
@@ -61,11 +60,9 @@ export function OnboardingFlow() {
   const nav = useNavigate();
   const [step, setStep] = useState<Step>("welcome");
   const steps: Step[] = useMemo(
-    () => ["welcome", "master-pin", "user-profile", "banks", "distributors", "agents", "finish"],
+    () => ["welcome", "user-profile", "banks", "distributors", "agents", "finish"],
     [],
   );
-  const [masterPin, setMasterPin] = useState("");
-  const [masterConfirm, setMasterConfirm] = useState("");
   const [userName, setUserNameInput] = useState("");
   const [userPin, setUserPin] = useState("");
   const [userConfirm, setUserConfirm] = useState("");
@@ -111,19 +108,6 @@ export function OnboardingFlow() {
     if (idx > 0) setStep(steps[idx - 1]);
   };
 
-  const setupSecurity = async () => {
-    if (masterPin.length < 6) return toast.error("Master PIN must be 6 characters");
-    if (masterPin !== masterConfirm) return toast.error("Master PINs don't match");
-    setBusy(true);
-    try {
-      // Deprecated master PIN setup removed as per new architecture.
-      // In a real flow, this step would be skipped or replaced by activation.
-      // For now, we allow continuing if they reached here.
-      handleNext();
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const setupUser = async () => {
     if (!userName.trim()) return toast.error("Name is required");
@@ -203,58 +187,6 @@ export function OnboardingFlow() {
         </div>
       )}
 
-      {step === "master-pin" && (
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-primary">
-              <KeyRound className="h-5 w-5" />
-              <span className="text-sm font-semibold uppercase tracking-wider">
-                Step 1: Ownership
-              </span>
-            </div>
-            <h2 className="text-2xl font-bold">Set Master PIN</h2>
-            <p className="text-sm text-white/60">
-              This PIN is for the owner. You'll need it once a month to keep the app active.
-            </p>
-          </div>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Master PIN (6 characters)</Label>
-              <Input
-                type="password"
-                maxLength={6}
-                placeholder="••••••"
-                value={masterPin}
-                onChange={(e) => setMasterPin(e.target.value)}
-                className="bg-white/5 border-white/10 text-center text-2xl tracking-[1em]"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Confirm Master PIN</Label>
-              <Input
-                type="password"
-                maxLength={6}
-                placeholder="••••••"
-                value={masterConfirm}
-                onChange={(e) => setMasterConfirm(e.target.value)}
-                className="bg-white/5 border-white/10 text-center text-2xl tracking-[1em]"
-              />
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <Button variant="ghost" onClick={handleBack} className="flex-1">
-              Back
-            </Button>
-            <Button
-              onClick={setupSecurity}
-              disabled={busy || masterPin.length < 6}
-              className="flex-[2]"
-            >
-              Continue
-            </Button>
-          </div>
-        </div>
-      )}
 
       {step === "user-profile" && (
         <div className="space-y-6">
@@ -262,7 +194,7 @@ export function OnboardingFlow() {
             <div className="flex items-center gap-2 text-primary">
               <Users className="h-5 w-5" />
               <span className="text-sm font-semibold uppercase tracking-wider">
-                Step 2: Operator
+                Step 1: Operator
               </span>
             </div>
             <h2 className="text-2xl font-bold">Daily Profile</h2>
@@ -321,7 +253,7 @@ export function OnboardingFlow() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-primary">
               <Building2 className="h-5 w-5" />
-              <span className="text-sm font-semibold uppercase tracking-wider">Step 3: Banks</span>
+              <span className="text-sm font-semibold uppercase tracking-wider">Step 2: Banks</span>
             </div>
             <h2 className="text-2xl font-bold">Your Accounts</h2>
             <p className="text-sm text-white/60">
@@ -398,7 +330,7 @@ export function OnboardingFlow() {
             <div className="flex items-center gap-2 text-primary">
               <Truck className="h-5 w-5" />
               <span className="text-sm font-semibold uppercase tracking-wider">
-                Step 4: Suppliers
+                Step 3: Suppliers
               </span>
             </div>
             <h2 className="text-2xl font-bold">Distributors</h2>
@@ -461,7 +393,7 @@ export function OnboardingFlow() {
             <div className="flex items-center gap-2 text-primary">
               <Users className="h-5 w-5" />
               <span className="text-sm font-semibold uppercase tracking-wider">
-                Step 5: Customers
+                Step 4: Customers
               </span>
             </div>
             <h2 className="text-2xl font-bold">Sales Agents</h2>
