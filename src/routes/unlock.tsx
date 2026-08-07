@@ -138,7 +138,11 @@ function UnlockPage() {
   }
 
   if (mode === "loading") return null;
-  if (mode === "setup-master" || mode === "setup-user") return <OnboardingFlow />;
+  if (mode === "setup-master" || mode === "setup-user") {
+    console.log("Rendering OnboardingFlow, mode:", mode);
+    return <OnboardingFlow />;
+  }
+
 
   const copy = {
     renew: {
