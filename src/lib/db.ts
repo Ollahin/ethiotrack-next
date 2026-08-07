@@ -26,6 +26,7 @@ import {
   type ApprovedMapping,
   type MappingApproval,
   type MappingTargetType,
+  type EntityIndex,
 } from "./approved-mappings";
 import {
   BACKUP_APP,

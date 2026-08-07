@@ -16,11 +16,14 @@ import {
   type LockoutStatus,
   verifyPin,
 } from "@/lib/crypto";
+import { accountIsEmpty } from "@/lib/db";
+
 import { KeyRound, Lock, ShieldCheck, Timer } from "lucide-react";
 import { toast } from "sonner";
 import { LicenseStatus } from "@/components/LicenseStatus";
 import { LicenseExpiryBanner } from "@/components/LicenseExpiryBanner";
 import { setUserName } from "@/lib/user";
+import { OnboardingFlow } from "@/components/OnboardingFlow";
 
 export const Route = createFileRoute("/unlock")({
   head: () => ({
@@ -76,20 +79,28 @@ function UnlockPage() {
     ]);
     setExpiresAt(lic?.expiresAt ?? null);
     if (!master) return "setup-master";
+    const empty = await accountIsEmpty();
+    if (!user || empty) return "setup-user";
     if (!licensed) return "renew";
-    if (!user) return "setup-user";
+
     return "unlock";
+
   }
 
   useEffect(() => {
+    let alive = true;
     (async () => {
       const next = await resolveMode();
+      if (!alive) return;
       if (next === "unlock" && isUnlocked()) {
-        nav({ to: "/" });
+        nav({ to: "/", replace: true });
         return;
       }
       setMode(next);
     })();
+    return () => {
+      alive = false;
+    };
   }, [nav]);
 
   async function submit(e: React.FormEvent) {
@@ -137,16 +148,11 @@ function UnlockPage() {
   }
 
   if (mode === "loading") return null;
+  if (mode === "setup-master" || mode === "setup-user") {
+    return <OnboardingFlow />;
+  }
 
   const copy = {
-    "setup-master": {
-      icon: <KeyRound className="h-6 w-6" />,
-      title: "Owner setup",
-      sub: "Create the master PIN. You'll re-enter it every month to keep the app active.",
-      cta: "Set master PIN & activate",
-      confirm: true,
-      note: "The master PIN is stored only on this device. Keep it private — anyone with it can extend the license.",
-    },
     renew: {
       icon: <Timer className="h-6 w-6" />,
       title: "License expired",
@@ -156,14 +162,6 @@ function UnlockPage() {
       cta: "Renew for 30 days",
       confirm: false,
       note: "Only the prototype owner has this PIN. The daily user PIN cannot renew the license.",
-    },
-    "setup-user": {
-      icon: <ShieldCheck className="h-6 w-6" />,
-      title: "Create daily PIN",
-      sub: "This is the PIN the operator types every day to open the ledger.",
-      cta: "Set PIN & continue",
-      confirm: true,
-      note: "Separate from the master PIN. Losing it does not destroy data in v1.",
     },
     unlock: {
       icon: <Lock className="h-6 w-6" />,
@@ -175,7 +173,7 @@ function UnlockPage() {
       confirm: false,
       note: null as string | null,
     },
-  }[mode];
+  }[mode as "renew" | "unlock"];
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-ink text-white px-4">
@@ -195,14 +193,12 @@ function UnlockPage() {
         <Input
           type="password"
           autoFocus
-          placeholder={mode === "setup-master" || mode === "renew" ? "Master PIN" : "PIN"}
+          placeholder={mode === ("renew" as Mode) ? "Master PIN" : "PIN"}
           value={pin}
           onChange={(e) => setPinInput(e.target.value)}
           className="bg-white/5 border-white/10 text-white text-center text-lg tracking-widest"
         />
-        {mode !== "setup-master" && mode !== "renew" && (
-          <LicenseExpiryBanner variant="dark" showAction={false} />
-        )}
+        {mode !== ("renew" as Mode) && <LicenseExpiryBanner variant="dark" showAction={false} />}
         {copy.confirm && (
           <Input
             type="password"
@@ -210,16 +206,6 @@ function UnlockPage() {
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             className="bg-white/5 border-white/10 text-white text-center text-lg tracking-widest"
-          />
-        )}
-        {mode === "setup-user" && (
-          <Input
-            type="text"
-            placeholder="Your name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoComplete="name"
-            className="bg-white/5 border-white/10 text-white text-center"
           />
         )}
         <Button type="submit" disabled={busy || !!lockout?.locked} className="w-full">
@@ -239,9 +225,7 @@ function UnlockPage() {
         {copy.note && (
           <p className="text-[11px] text-white/50 text-center leading-relaxed">{copy.note}</p>
         )}
-        {mode !== "setup-master" && mode !== "renew" && (
-          <LicenseStatus variant="dark" onlyNearExpiry />
-        )}
+        {mode === "unlock" && <LicenseStatus variant="dark" onlyNearExpiry />}
         {mode === "renew" && <LicenseStatus variant="dark" />}
       </form>
     </div>

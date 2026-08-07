@@ -26,7 +26,7 @@ export function LockGate({ children }: { children: ReactNode }) {
       if (!alive) return;
       if (!licensed) lock();
       if (pathname !== "/unlock" && (!exists || !isUnlocked() || !licensed)) {
-        nav({ to: "/unlock" });
+        nav({ to: "/unlock", replace: true });
       }
       setChecked(true);
     })();
