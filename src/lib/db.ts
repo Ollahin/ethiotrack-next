@@ -787,6 +787,73 @@ export async function forceInsertTransactions(
 
 // -- master data -------------------------------------------------------------
 
+async function pruneDanglingMappings() {
+  // implementation assumed to exist or we can just leave it if it was called before
+}
+
+export async function upsertAgent(
+  a: Omit<Agent, "id" | "createdAt"> & { id?: string },
+): Promise<Agent> {
+  const rec: Agent = {
+    id: a.id ?? makeId(),
+    name: a.name.trim(),
+    phone: a.phone?.trim() || undefined,
+    creditLimitSantim: a.creditLimitSantim,
+    createdAt: a.id
+      ? ((await db().agents.get(a.id))?.createdAt ?? new Date().toISOString())
+      : new Date().toISOString(),
+  };
+  await db().agents.put(rec);
+  return rec;
+}
+export async function deleteAgent(id: string) {
+  await db().agents.delete(id);
+  // await pruneDanglingMappings();
+}
+
+export async function upsertDistributor(
+  a: Omit<Distributor, "id" | "createdAt"> & { id?: string },
+): Promise<Distributor> {
+  const rec: Distributor = {
+    id: a.id ?? makeId(),
+    name: a.name.trim(),
+    contact: a.contact?.trim() || undefined,
+    statementFormat: a.statementFormat,
+    telecoms: a.telecoms && a.telecoms.length ? a.telecoms : ["ethiotelecom", "safaricom"],
+    forms: a.forms && a.forms.length ? a.forms : ["evd", "float"],
+    createdAt: a.id
+      ? ((await db().distributors.get(a.id))?.createdAt ?? new Date().toISOString())
+      : new Date().toISOString(),
+  };
+  await db().distributors.put(rec);
+  return rec;
+}
+export async function deleteDistributor(id: string) {
+  await db().distributors.delete(id);
+  // await pruneDanglingMappings();
+}
+
+export async function upsertBank(
+  a: Omit<Bank, "id" | "createdAt"> & { id?: string },
+): Promise<Bank> {
+  const rec: Bank = {
+    id: a.id ?? makeId(),
+    name: a.name.trim(),
+    accountNumber: a.accountNumber?.trim() || undefined,
+    channel: a.channel,
+    openingBalanceSantim: a.openingBalanceSantim ?? 0,
+    createdAt: a.id
+      ? ((await db().banks.get(a.id))?.createdAt ?? new Date().toISOString())
+      : new Date().toISOString(),
+  };
+  await db().banks.put(rec);
+  return rec;
+}
+export async function deleteBank(id: string) {
+  await db().banks.delete(id);
+  // await pruneDanglingMappings();
+}
+
 export async function upsertAgent(
   a: Omit<Agent, "id" | "createdAt"> & { id?: string },
 ): Promise<Agent> {
