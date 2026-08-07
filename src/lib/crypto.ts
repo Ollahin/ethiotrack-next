@@ -1,4 +1,4 @@
-import { metaGet, metaSet } from "./db";
+import { metaGet, metaSet, db } from "./db";
 
 // State keys
 const DAILY_PIN_VERIFIER_KEY = "daily_pin_v1";
@@ -110,6 +110,9 @@ export interface LicenseRecord {
   renewals: number;
 }
 export const LICENSE_PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
+
+export type LicenseState = "UNACTIVATED" | "VALID" | "EXPIRED" | "TAMPER_LOCKED";
+
 
 export async function getInstallationId(): Promise<string> {
   let id = await metaGet<string>("installation_id");
