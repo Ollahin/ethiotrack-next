@@ -79,6 +79,8 @@ function UnlockPage() {
     if (!master) return "setup-master";
     if (!licensed) return "renew";
     if (!user) return "setup-user";
+    if (await accountIsEmpty()) return "setup-user"; // Fallback to setup if no data
+
     return "unlock";
   }
 
