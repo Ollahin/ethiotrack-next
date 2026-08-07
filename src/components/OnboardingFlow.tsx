@@ -22,7 +22,7 @@ import { upsertBank, upsertDistributor, upsertAgent, db } from "@/lib/db";
 import { CHANNELS, TELECOM_LABEL, AIRTIME_FORM_LABEL, DISTRIBUTOR_FORMAT_LABEL, type Telecom, type AirtimeForm, type DistributorStatementFormat } from "@/lib/types";
 import { parseEtbToSantim } from "@/lib/format";
 import { toast } from "sonner";
-import { ShieldCheck, KeyRound, Building2, Truck, Users, ArrowRight, ArrowLeft, CheckCircle2, Save } from "lucide-react";
+import { ShieldCheck, KeyRound, Building2, Truck, Users, ArrowRight, ArrowLeft, CheckCircle2, Save, Plus } from "lucide-react";
 
 type Step = "welcome" | "master-pin" | "user-profile" | "banks" | "distributors" | "agents" | "finish";
 
