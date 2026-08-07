@@ -84,7 +84,6 @@ function UnlockPage() {
     if (!licensed) return "renew";
 
     return "unlock";
-
   }
 
   useEffect(() => {

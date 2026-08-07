@@ -39,7 +39,7 @@ function ReportsPage() {
   const txns = useTransactions();
   const distributors = useDistributors();
   const closings = useAllPeriodClosings();
-  const now = new Date();
+  const now = useMemo(() => new Date(), []);
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [summaryRange, setSummaryRange] = useState<"week" | "month" | "active">("week");
