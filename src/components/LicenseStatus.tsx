@@ -31,7 +31,7 @@ export function LicenseStatus({
   const [now, setNow] = useState(Date.now());
 
   async function refresh() {
-    const rec = await getLicense();
+    const rec = await getLicenseRecord();
     setLic(rec ?? null);
   }
 
