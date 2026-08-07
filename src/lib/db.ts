@@ -808,22 +808,6 @@ async function pruneDanglingMappings() {
   }
 }
 
-export async function accountIsEmpty(): Promise<boolean> {
-  const d = db();
-  const counts = await Promise.all([
-    d.agents.count(),
-    d.distributors.count(),
-    d.banks.count(),
-    d.dailyOpenings.count(),
-    d.dailyClosings.count(),
-    d.periodOpenings.count(),
-    d.periodClosings.count(),
-    d.transactions.count(),
-    d.statementImports.count(),
-    d.fulfillments.count(),
-  ]);
-  return counts.every((n) => n === 0);
-}
 
 
 export async function upsertAgent(
