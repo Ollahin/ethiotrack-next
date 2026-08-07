@@ -113,7 +113,6 @@ export const LICENSE_PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
 
 export type LicenseState = "UNACTIVATED" | "VALID" | "EXPIRED" | "TAMPER_LOCKED";
 
-
 export async function getInstallationId(): Promise<string> {
   let id = await metaGet<string>("installation_id");
   if (!id) {
@@ -194,7 +193,9 @@ export async function getLicenseRecord(): Promise<LicenseRecord | undefined> {
 export async function getLicenseState(): Promise<LicenseState> {
   const cred = await getLicense();
   const [hasBusinessData, myId] = await Promise.all([
-    db().transactions.count().then((c) => c > 0),
+    db()
+      .transactions.count()
+      .then((c) => c > 0),
     getInstallationId(),
   ]);
 
@@ -220,7 +221,6 @@ export async function isLicenseActive(): Promise<boolean> {
   const state = await getLicenseState();
   return state === "VALID";
 }
-
 
 // -- Daily PIN (User Data Protection) ---------------------------------------
 

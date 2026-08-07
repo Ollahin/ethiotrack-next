@@ -57,7 +57,6 @@ export function LicenseExpiryBanner({
       ? "Your license expires today. Renew soon to avoid interruption."
       : `Your license expires in ${days} day${days === 1 ? "" : "s"}. Renew soon to avoid interruption.`;
 
-
   return (
     <div className={`flex items-start gap-3 rounded-xl border p-3 text-sm ${wrap}`} role="status">
       <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />

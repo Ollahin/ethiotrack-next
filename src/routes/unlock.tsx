@@ -94,7 +94,6 @@ function UnlockPage() {
     return "unlock";
   }
 
-
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -215,7 +214,6 @@ function UnlockPage() {
       </div>
     );
   }
-
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-ink text-white px-4">
