@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,29 +98,35 @@ export function OnboardingFlow() {
   }, [step]);
 
   const handleNext = () => {
-    const steps: Step[] = [
-      "welcome",
-      "master-pin",
-      "user-profile",
-      "banks",
-      "distributors",
-      "agents",
-      "finish",
-    ];
+    const steps: Step[] = useMemo(
+      () => [
+        "welcome",
+        "master-pin",
+        "user-profile",
+        "banks",
+        "distributors",
+        "agents",
+        "finish",
+      ],
+      [],
+    );
     const idx = steps.indexOf(step);
     if (idx < steps.length - 1) setStep(steps[idx + 1]);
   };
 
   const handleBack = () => {
-    const steps: Step[] = [
-      "welcome",
-      "master-pin",
-      "user-profile",
-      "banks",
-      "distributors",
-      "agents",
-      "finish",
-    ];
+    const steps: Step[] = useMemo(
+      () => [
+        "welcome",
+        "master-pin",
+        "user-profile",
+        "banks",
+        "distributors",
+        "agents",
+        "finish",
+      ],
+      [],
+    );
     const idx = steps.indexOf(step);
     if (idx > 0) setStep(steps[idx - 1]);
   };
