@@ -215,7 +215,7 @@ async function deriveKey(pin: string, salt: Uint8Array, iterations: number) {
     "deriveBits",
   ]);
   return crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt, iterations, hash: "SHA-256" },
+    { name: "PBKDF2", salt: salt as BufferSource, iterations, hash: "SHA-256" },
     baseKey,
     256,
   );
