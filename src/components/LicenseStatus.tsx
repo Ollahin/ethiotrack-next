@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { getLicense, subscribeUnlock, type LicenseRecord, LICENSE_PERIOD_MS } from "@/lib/crypto";
+import {
+  getLicenseRecord,
+  subscribeUnlock,
+  type LicenseRecord,
+  LICENSE_PERIOD_MS,
+} from "@/lib/crypto";
 import { ShieldCheck, ShieldAlert, Timer } from "lucide-react";
 
 type Variant = "dark" | "card";
@@ -31,7 +36,7 @@ export function LicenseStatus({
   const [now, setNow] = useState(Date.now());
 
   async function refresh() {
-    const rec = await getLicense();
+    const rec = await getLicenseRecord();
     setLic(rec ?? null);
   }
 

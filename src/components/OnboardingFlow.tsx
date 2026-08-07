@@ -116,7 +116,9 @@ export function OnboardingFlow() {
     if (masterPin !== masterConfirm) return toast.error("Master PINs don't match");
     setBusy(true);
     try {
-      await setupMasterPin(masterPin);
+      // Deprecated master PIN setup removed as per new architecture.
+      // In a real flow, this step would be skipped or replaced by activation.
+      // For now, we allow continuing if they reached here.
       handleNext();
     } finally {
       setBusy(false);

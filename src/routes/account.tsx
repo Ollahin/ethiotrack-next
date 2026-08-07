@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LicenseStatus } from "@/components/LicenseStatus";
 import { LicenseExpiryBanner } from "@/components/LicenseExpiryBanner";
-import { changeMasterPin, changePin, clearPin, renewLicense, verifyPin } from "@/lib/crypto";
+import { changeDailyPin, clearDailyPin, verifyDailyPin, getLicenseRecord } from "@/lib/crypto";
 import { clearAll } from "@/lib/db";
 import {
   Dialog,
@@ -22,9 +22,9 @@ export const Route = createFileRoute("/account")({
   head: () => ({
     meta: [
       { title: "Account · EthioTrack" },
-      { name: "description", content: "Your name, license, PIN and master PIN." },
+      { name: "description", content: "Your name, license, and PIN." },
       { property: "og:title", content: "Account · EthioTrack" },
-      { property: "og:description", content: "Manage your profile, license and security." },
+      { property: "og:description", content: "Manage your profile and security." },
     ],
   }),
   component: AccountPage,
@@ -41,9 +41,6 @@ function AccountPage() {
   });
   const [oldPin, setOld] = useState("");
   const [newPin, setNew] = useState("");
-  const [oldMaster, setOldMaster] = useState("");
-  const [newMaster, setNewMaster] = useState("");
-  const [renewPin, setRenewPin] = useState("");
   const [wipeOpen, setWipeOpen] = useState(false);
   const [wipePin, setWipePin] = useState("");
   const [wipeBusy, setWipeBusy] = useState(false);
@@ -151,7 +148,7 @@ function AccountPage() {
         </Button>
       </Card>
 
-      <Card title="Change PIN" desc="Set a new daily PIN. Doesn't affect stored data.">
+      <Card title="Change Daily PIN" desc="Set a new daily PIN. Doesn't affect stored data.">
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label>Current PIN</Label>
@@ -166,7 +163,7 @@ function AccountPage() {
           className="mt-3"
           onClick={async () => {
             try {
-              const ok = await changePin(oldPin, newPin);
+              const ok = await changeDailyPin(oldPin, newPin);
               if (ok) {
                 toast.success("PIN updated");
                 setOld("");
@@ -181,73 +178,17 @@ function AccountPage() {
         </Button>
       </Card>
 
-      <Card title="Renew license" desc="Enter the master PIN to extend by 30 days.">
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Input
-            type="password"
-            placeholder="Master PIN"
-            value={renewPin}
-            onChange={(e) => setRenewPin(e.target.value)}
-          />
-          <Button
-            onClick={async () => {
-              try {
-                const rec = await renewLicense(renewPin);
-                if (rec) {
-                  toast.success("License renewed for 30 days");
-                  setRenewPin("");
-                } else toast.error("Incorrect master PIN");
-              } catch (err) {
-                toast.error(err instanceof Error ? err.message : "Locked");
-              }
-            }}
-          >
-            Renew
-          </Button>
-        </div>
-      </Card>
-
-      <Card title="Change master PIN" desc="Owner-only. Requires the current master PIN.">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label>Current master PIN</Label>
-            <Input
-              type="password"
-              value={oldMaster}
-              onChange={(e) => setOldMaster(e.target.value)}
-            />
-          </div>
-          <div>
-            <Label>New master PIN</Label>
-            <Input
-              type="password"
-              value={newMaster}
-              onChange={(e) => setNewMaster(e.target.value)}
-            />
-          </div>
-        </div>
-        <Button
-          className="mt-3"
-          onClick={async () => {
-            try {
-              if (newMaster.length < 6)
-                return toast.error("Master PIN must be at least 6 characters");
-              const ok = await changeMasterPin(oldMaster, newMaster);
-              if (ok) {
-                toast.success("Master PIN updated");
-                setOldMaster("");
-                setNewMaster("");
-              } else toast.error("Current master PIN is wrong");
-            } catch (err) {
-              toast.error(err instanceof Error ? err.message : "Locked");
-            }
-          }}
-        >
-          Update master PIN
+      <Card title="License" desc="Your subscription is managed via Operations credentials.">
+        <p className="text-sm text-ink-soft">
+          Activation and renewals require a signed operations credential bound to this device.
+          Contact your distributor for a new credential if your license has expired.
+        </p>
+        <Button variant="outline" className="mt-3" onClick={() => (location.href = "/unlock")}>
+          View License Status
         </Button>
       </Card>
 
-      <Card title="Danger zone" desc="Both actions are irreversible.">
+      <Card title="Danger zone" desc="Irreversible actions. Be careful.">
         <div className="flex flex-wrap gap-2">
           <Button
             variant="destructive"
@@ -262,7 +203,7 @@ function AccountPage() {
             variant="outline"
             onClick={async () => {
               if (!confirm("Remove the daily PIN? App will ask to set a new one.")) return;
-              await clearPin();
+              await clearDailyPin();
               location.href = "/unlock";
             }}
           >
@@ -303,7 +244,7 @@ function AccountPage() {
               onClick={async () => {
                 setWipeBusy(true);
                 try {
-                  const ok = await verifyPin(wipePin);
+                  const ok = await verifyDailyPin(wipePin);
                   if (!ok) {
                     toast.error("Incorrect PIN");
                     return;
