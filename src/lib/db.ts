@@ -787,6 +787,43 @@ export async function forceInsertTransactions(
 
 // -- master data -------------------------------------------------------------
 
+async function pruneDanglingMappings() {
+  const [agents, distributors, banks, mappings] = await Promise.all([
+    db().agents.toArray(),
+    db().distributors.toArray(),
+    db().banks.toArray(),
+    db().approvedMappings.toArray(),
+  ]);
+
+  const index: EntityIndex = {
+    agent: new Set(agents.map((a) => a.id)),
+    distributor: new Set(distributors.map((d) => d.id)),
+    bank: new Set(banks.map((b) => b.id)),
+  };
+
+  const { kept, dropped } = pruneMappings(mappings, index);
+  if (dropped.length > 0) {
+    await db().approvedMappings.bulkDelete(dropped.map((m) => m.id));
+  }
+}
+
+export async function accountIsEmpty(): Promise<boolean> {
+  const d = db();
+  const counts = await Promise.all([
+    d.agents.count(),
+    d.distributors.count(),
+    d.banks.count(),
+    d.dailyOpenings.count(),
+    d.dailyClosings.count(),
+    d.periodOpenings.count(),
+    d.periodClosings.count(),
+    d.transactions.count(),
+    d.statementImports.count(),
+    d.fulfillments.count(),
+  ]);
+  return counts.every((n) => n === 0);
+}
+
 
 export async function upsertAgent(
   a: Omit<Agent, "id" | "createdAt"> & { id?: string },
