@@ -147,7 +147,7 @@ export async function verifyLicenseCredential(cred: LicenseCredential): Promise<
     return await crypto.subtle.verify(
       { name: "Ed25519" },
       pubKey,
-      sig.buffer,
+      sig,
       data
     );
   } catch (err) {
