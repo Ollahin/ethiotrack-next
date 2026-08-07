@@ -191,13 +191,36 @@ export async function getLicenseRecord(): Promise<LicenseRecord | undefined> {
   };
 }
 
-export async function isLicenseActive(): Promise<boolean> {
+export async function getLicenseState(): Promise<LicenseState> {
   const cred = await getLicense();
-  if (!cred) return false;
+  const [hasBusinessData, myId] = await Promise.all([
+    db().transactions.count().then((c) => c > 0),
+    getInstallationId(),
+  ]);
+
+  if (!cred) {
+    return hasBusinessData ? "TAMPER_LOCKED" : "UNACTIVATED";
+  }
+
+  // Check binding
+  if (cred.installationId !== myId) return "TAMPER_LOCKED";
+
+  // Check signature
+  const valid = await verifyLicenseCredential(cred);
+  if (!valid) return "TAMPER_LOCKED";
+
+  // Check expiry
   const now = Date.now();
-  if (now > cred.expiresAt) return false;
-  return await verifyLicenseCredential(cred);
+  if (now > cred.expiresAt) return "EXPIRED";
+
+  return "VALID";
 }
+
+export async function isLicenseActive(): Promise<boolean> {
+  const state = await getLicenseState();
+  return state === "VALID";
+}
+
 
 // -- Daily PIN (User Data Protection) ---------------------------------------
 
