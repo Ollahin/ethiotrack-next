@@ -26,6 +26,17 @@ import { ShieldCheck, KeyRound, Building2, Truck, Users, ArrowRight, ArrowLeft, 
 
 type Step = "welcome" | "master-pin" | "user-profile" | "banks" | "distributors" | "agents" | "finish";
 
+function StepLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-ink text-white flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-8 bg-card/20 p-8 rounded-3xl border border-white/5 backdrop-blur-xl">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+
 export function OnboardingFlow() {
   const nav = useNavigate();
   const [step, setStep] = useState<Step>("welcome");
@@ -150,8 +161,8 @@ export function OnboardingFlow() {
   };
 
   return (
-    <div className="min-h-screen bg-ink text-white flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-8 bg-card/20 p-8 rounded-3xl border border-white/5 backdrop-blur-xl">
+    <StepLayout>
+
         
         {step === "welcome" && (
           <div className="space-y-6 text-center">
@@ -417,14 +428,15 @@ export function OnboardingFlow() {
                 Go to Backups first
               </Button>
             </div>
-
+            
             <Button onClick={finish} className="w-full h-12 text-lg bg-money-in hover:bg-money-in/90">
               Launch App <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
+
           </div>
         )}
 
-      </div>
-    </div>
+    </StepLayout>
   );
 }
+
