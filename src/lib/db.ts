@@ -788,25 +788,6 @@ export async function forceInsertTransactions(
 
 // -- master data -------------------------------------------------------------
 
-async function pruneDanglingMappings() {
-  const [agents, distributors, banks, mappings] = await Promise.all([
-    db().agents.toArray(),
-    db().distributors.toArray(),
-    db().banks.toArray(),
-    db().approvedMappings.toArray(),
-  ]);
-
-  const index: EntityIndex = {
-    agent: new Set(agents.map((a) => a.id)),
-    distributor: new Set(distributors.map((d) => d.id)),
-    bank: new Set(banks.map((b) => b.id)),
-  };
-
-  const { kept, dropped } = pruneMappings(mappings, index);
-  if (dropped.length > 0) {
-    await db().approvedMappings.bulkDelete(dropped.map((m) => m.id));
-  }
-}
 
 
 
