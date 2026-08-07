@@ -130,7 +130,7 @@ export async function verifyLicenseCredential(cred: LicenseCredential): Promise<
       pubKeyData as BufferSource,
       { name: "Ed25519", namedCurve: "Ed25519" },
       true,
-      ["verify"]
+      ["verify"],
     );
 
     const encoder = new TextEncoder();
@@ -140,16 +140,11 @@ export async function verifyLicenseCredential(cred: LicenseCredential): Promise<
         issuedAt: cred.issuedAt,
         expiresAt: cred.expiresAt,
         keyId: cred.keyId,
-      })
+      }),
     );
 
     const sig = fromB64(cred.signatureB64);
-    return await crypto.subtle.verify(
-      { name: "Ed25519" },
-      pubKey,
-      sig as BufferSource,
-      data
-    );
+    return await crypto.subtle.verify({ name: "Ed25519" }, pubKey, sig as BufferSource, data);
   } catch (err) {
     console.error("License verification failed", err);
     return false;
@@ -321,7 +316,7 @@ function fromB64(s: string): Uint8Array {
 export async function simulateIssueCredential(
   installationId: string,
   validityDays: number,
-  keyPair: CryptoKeyPair
+  keyPair: CryptoKeyPair,
 ): Promise<LicenseCredential> {
   const now = Date.now();
   const expiresAt = now + validityDays * 24 * 60 * 60 * 1000;
@@ -336,11 +331,7 @@ export async function simulateIssueCredential(
   };
   const data = encoder.encode(JSON.stringify(payload));
 
-  const sig = await crypto.subtle.sign(
-    { name: "Ed25519" },
-    keyPair.privateKey,
-    data
-  );
+  const sig = await crypto.subtle.sign({ name: "Ed25519" }, keyPair.privateKey, data);
 
   return {
     ...payload,
@@ -349,11 +340,10 @@ export async function simulateIssueCredential(
 }
 
 export async function rotateAuthority(): Promise<CryptoKeyPair> {
-  const pair = await crypto.subtle.generateKey(
-    { name: "Ed25519", namedCurve: "Ed25519" },
-    true,
-    ["sign", "verify"]
-  );
+  const pair = await crypto.subtle.generateKey({ name: "Ed25519", namedCurve: "Ed25519" }, true, [
+    "sign",
+    "verify",
+  ]);
   const pubRaw = await crypto.subtle.exportKey("raw", pair.publicKey);
   await metaSet(AUTHORITY_PUB_KEY_KEY, new Uint8Array(pubRaw));
   return pair;
@@ -366,6 +356,12 @@ export const setPin = setDailyPin;
 export const changePin = changeDailyPin;
 export const clearPin = clearDailyPin;
 export const hasMasterPin = async () => false;
-export const setupMasterPin = async () => { throw new Error("Use operations activation"); };
-export const renewLicense = async () => { throw new Error("Use operations activation"); };
-export const changeMasterPin = async () => { throw new Error("Not supported"); };
+export const setupMasterPin = async () => {
+  throw new Error("Use operations activation");
+};
+export const renewLicense = async () => {
+  throw new Error("Use operations activation");
+};
+export const changeMasterPin = async () => {
+  throw new Error("Not supported");
+};

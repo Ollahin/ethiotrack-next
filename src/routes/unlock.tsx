@@ -46,9 +46,8 @@ function UnlockPage() {
   const [lockout, setLockout] = useState<LockoutStatus | null>(null);
   const [installationId, setInstallationId] = useState("");
 
-  const lockoutKind: AuthKind | null = 
-    mode === "unlock" ? "daily-pin" : 
-    mode === "expired" ? "license-activation" : null;
+  const lockoutKind: AuthKind | null =
+    mode === "unlock" ? "daily-pin" : mode === "expired" ? "license-activation" : null;
 
   useEffect(() => {
     getInstallationId().then(setInstallationId);
@@ -75,13 +74,10 @@ function UnlockPage() {
   }, [lockoutKind]);
 
   async function resolveMode(): Promise<Mode> {
-    const [licensed, lic] = await Promise.all([
-      isLicenseActive(),
-      getLicense(),
-    ]);
-    
+    const [licensed, lic] = await Promise.all([isLicenseActive(), getLicense()]);
+
     setLicense(lic ?? null);
-    
+
     // If not licensed, we stop everything else
     if (!licensed) return "expired";
 
@@ -154,8 +150,8 @@ function UnlockPage() {
             </div>
             <h1 className="mt-4 text-2xl font-bold">Subscription Expired</h1>
             <p className="text-sm text-white/60 mt-2">
-              Access to this ledger has ended. Your data is preserved locally.
-              Paste a new activation credential from Operations to continue.
+              Access to this ledger has ended. Your data is preserved locally. Paste a new
+              activation credential from Operations to continue.
             </p>
           </div>
 
@@ -175,19 +171,29 @@ function UnlockPage() {
               onChange={(e) => setCredInput(e.target.value)}
               className="w-full h-32 bg-white/5 border-white/10 rounded-lg p-3 text-xs font-mono text-white placeholder:text-white/20 resize-none focus:ring-1 focus:ring-primary outline-none"
             />
-            
-            <Button type="submit" disabled={busy || !credInput || !!lockout?.locked} className="w-full h-12">
-              {lockout?.locked ? `Locked · ${Math.ceil(lockout.msRemaining / 1000)}s` : "Renew Access"}
+
+            <Button
+              type="submit"
+              disabled={busy || !credInput || !!lockout?.locked}
+              className="w-full h-12"
+            >
+              {lockout?.locked
+                ? `Locked · ${Math.ceil(lockout.msRemaining / 1000)}s`
+                : "Renew Access"}
             </Button>
           </form>
 
           <div className="pt-4 border-t border-white/5 space-y-3">
-            <Button variant="outline" className="w-full border-white/10 hover:bg-white/5 text-white/70" onClick={() => nav({ to: "/exports" })}>
+            <Button
+              variant="outline"
+              className="w-full border-white/10 hover:bg-white/5 text-white/70"
+              onClick={() => nav({ to: "/exports" })}
+            >
               <Download className="h-4 w-4 mr-2" /> Export Backup
             </Button>
             <p className="text-[10px] text-white/40 text-center leading-relaxed">
-              Your Daily PIN cannot bypass this. 
-              Only a valid operations credential can restore full access.
+              Your Daily PIN cannot bypass this. Only a valid operations credential can restore full
+              access.
             </p>
           </div>
         </div>
@@ -209,10 +215,11 @@ function UnlockPage() {
             Enter Daily PIN
           </div>
           <p className="text-sm text-white/60 mt-1">
-            License active until {license ? new Date(license.expiresAt).toLocaleDateString() : '...'}
+            License active until{" "}
+            {license ? new Date(license.expiresAt).toLocaleDateString() : "..."}
           </p>
         </div>
-        
+
         <Input
           type="password"
           autoFocus

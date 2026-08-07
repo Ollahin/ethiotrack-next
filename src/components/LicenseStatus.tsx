@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { getLicenseRecord, subscribeUnlock, type LicenseRecord, LICENSE_PERIOD_MS } from "@/lib/crypto";
+import {
+  getLicenseRecord,
+  subscribeUnlock,
+  type LicenseRecord,
+  LICENSE_PERIOD_MS,
+} from "@/lib/crypto";
 import { ShieldCheck, ShieldAlert, Timer } from "lucide-react";
 
 type Variant = "dark" | "card";
