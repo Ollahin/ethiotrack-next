@@ -1,10 +1,11 @@
 import { b64 } from "./crypto-utils";
+import type { LicenseCredential } from "./crypto";
 
 export async function simulateIssueCredential(
   installationId: string,
   validityDays: number,
   keyPair: CryptoKeyPair,
-): Promise<any> {
+): Promise<LicenseCredential> {
   const now = Date.now();
   const expiresAt = now + validityDays * 24 * 60 * 60 * 1000;
   const keyId = "dev-v1";
