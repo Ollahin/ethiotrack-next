@@ -34,7 +34,7 @@ export const Route = createFileRoute("/unlock")({
   component: UnlockPage,
 });
 
-type Mode = "loading" | "onboarding" | "unlock" | "expired";
+type Mode = "loading" | "onboarding" | "unlock" | "expired" | "tamper";
 
 function UnlockPage() {
   const nav = useNavigate();
