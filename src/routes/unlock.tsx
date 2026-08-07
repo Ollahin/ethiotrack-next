@@ -5,24 +5,22 @@ import { Input } from "@/components/ui/input";
 import {
   getLicense,
   getLockoutStatus,
-  hasMasterPin,
-  hasPin,
   isLicenseActive,
   isUnlocked,
-  renewLicense,
-  setPin,
-  setupMasterPin,
+  verifyDailyPin,
+  getInstallationId,
+  activateLicense,
   subscribeLockout,
   type LockoutStatus,
-  verifyPin,
+  type AuthKind,
+  type LicenseCredential,
 } from "@/lib/crypto";
 import { accountIsEmpty } from "@/lib/db";
 
-import { KeyRound, Lock, ShieldCheck, Timer } from "lucide-react";
+import { KeyRound, Lock, ShieldCheck, Timer, Download, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { LicenseStatus } from "@/components/LicenseStatus";
 import { LicenseExpiryBanner } from "@/components/LicenseExpiryBanner";
-import { setUserName } from "@/lib/user";
 import { OnboardingFlow } from "@/components/OnboardingFlow";
 
 export const Route = createFileRoute("/unlock")({
@@ -36,19 +34,25 @@ export const Route = createFileRoute("/unlock")({
   component: UnlockPage,
 });
 
-type Mode = "loading" | "setup-master" | "setup-user" | "unlock" | "renew";
+type Mode = "loading" | "onboarding" | "unlock" | "expired";
 
 function UnlockPage() {
   const nav = useNavigate();
   const [mode, setMode] = useState<Mode>("loading");
   const [pin, setPinInput] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [name, setName] = useState("");
+  const [credInput, setCredInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  const [license, setLicense] = useState<LicenseCredential | null>(null);
   const [lockout, setLockout] = useState<LockoutStatus | null>(null);
+  const [installationId, setInstallationId] = useState("");
 
-  const lockoutKind = mode === "unlock" ? "user" : mode === "renew" ? "master" : null;
+  const lockoutKind: AuthKind | null = 
+    mode === "unlock" ? "daily-pin" : 
+    mode === "expired" ? "license-activation" : null;
+
+  useEffect(() => {
+    getInstallationId().then(setInstallationId);
+  }, []);
 
   useEffect(() => {
     if (!lockoutKind) {
@@ -71,17 +75,19 @@ function UnlockPage() {
   }, [lockoutKind]);
 
   async function resolveMode(): Promise<Mode> {
-    const [master, user, licensed, lic] = await Promise.all([
-      hasMasterPin(),
-      hasPin(),
+    const [licensed, lic] = await Promise.all([
       isLicenseActive(),
       getLicense(),
     ]);
-    setExpiresAt(lic?.expiresAt ?? null);
-    if (!master) return "setup-master";
+    
+    setLicense(lic ?? null);
+    
+    // If not licensed, we stop everything else
+    if (!licensed) return "expired";
+
+    // If licensed, check if we need onboarding (fresh device)
     const empty = await accountIsEmpty();
-    if (!user || empty) return "setup-user";
-    if (!licensed) return "renew";
+    if (empty) return "onboarding";
 
     return "unlock";
   }
@@ -102,130 +108,136 @@ function UnlockPage() {
     };
   }, [nav]);
 
-  async function submit(e: React.FormEvent) {
+  async function handleUnlock(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      if (mode === "setup-master") {
-        if (pin.length < 6) return toast.error("Master PIN must be at least 6 characters");
-        if (pin !== confirm) return toast.error("Master PINs don't match");
-        await setupMasterPin(pin);
-        toast.success("Master PIN set — license active for 30 days");
-        setPinInput("");
-        setConfirm("");
-        setMode(await resolveMode());
-      } else if (mode === "renew") {
-        try {
-          const rec = await renewLicense(pin);
-          if (!rec) return toast.error("Incorrect master PIN");
-          toast.success("License renewed for 30 days");
-          setPinInput("");
-          setMode(await resolveMode());
-        } catch (err) {
-          toast.error(err instanceof Error ? err.message : "Locked");
-        }
-      } else if (mode === "setup-user") {
-        if (name.trim().length < 2) return toast.error("Enter your name");
-        if (pin.length < 4) return toast.error("PIN must be at least 4 characters");
-        if (pin !== confirm) return toast.error("PINs don't match");
-        await setUserName(name);
-        await setPin(pin);
-        toast.success(`Welcome, ${name.trim().split(/\s+/)[0]}`);
+      const ok = await verifyDailyPin(pin);
+      if (ok) {
         nav({ to: "/" });
       } else {
-        try {
-          const ok = await verifyPin(pin);
-          if (!ok) return toast.error("Incorrect PIN");
-          nav({ to: "/" });
-        } catch (err) {
-          toast.error(err instanceof Error ? err.message : "Locked");
-        }
+        toast.error("Incorrect Daily PIN");
       }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Locked");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleActivate(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const cred: LicenseCredential = JSON.parse(credInput);
+      await activateLicense(cred);
+      toast.success("License activated");
+      setCredInput("");
+      setMode(await resolveMode());
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Invalid credential format");
     } finally {
       setBusy(false);
     }
   }
 
   if (mode === "loading") return null;
-  if (mode === "setup-master" || mode === "setup-user") {
-    return <OnboardingFlow />;
-  }
+  if (mode === "onboarding") return <OnboardingFlow />;
 
-  const copy = {
-    renew: {
-      icon: <Timer className="h-6 w-6" />,
-      title: "License expired",
-      sub: expiresAt
-        ? `Access ended ${new Date(expiresAt).toLocaleDateString()}. Enter the master PIN to extend by 30 days.`
-        : "Enter the master PIN to activate 30 days of access.",
-      cta: "Renew for 30 days",
-      confirm: false,
-      note: "Only the prototype owner has this PIN. The daily user PIN cannot renew the license.",
-    },
-    unlock: {
-      icon: <Lock className="h-6 w-6" />,
-      title: "Enter your PIN",
-      sub: expiresAt
-        ? `License active until ${new Date(expiresAt).toLocaleDateString()}.`
-        : "Enter your PIN to continue.",
-      cta: "Unlock",
-      confirm: false,
-      note: null as string | null,
-    },
-  }[mode as "renew" | "unlock"];
+  if (mode === "expired") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-ink text-white px-4">
+        <div className="w-full max-w-sm space-y-6">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-red-500/20 text-red-400">
+              <Timer className="h-6 w-6" />
+            </div>
+            <h1 className="mt-4 text-2xl font-bold">Subscription Expired</h1>
+            <p className="text-sm text-white/60 mt-2">
+              Access to this ledger has ended. Your data is preserved locally.
+              Paste a new activation credential from Operations to continue.
+            </p>
+          </div>
+
+          <form onSubmit={handleActivate} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">
+                Installation ID (Device Bound)
+              </label>
+              <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-xs font-mono break-all select-all">
+                {installationId}
+              </div>
+            </div>
+
+            <textarea
+              placeholder="Paste activation credential JSON here..."
+              value={credInput}
+              onChange={(e) => setCredInput(e.target.value)}
+              className="w-full h-32 bg-white/5 border-white/10 rounded-lg p-3 text-xs font-mono text-white placeholder:text-white/20 resize-none focus:ring-1 focus:ring-primary outline-none"
+            />
+            
+            <Button type="submit" disabled={busy || !credInput || !!lockout?.locked} className="w-full h-12">
+              {lockout?.locked ? `Locked · ${Math.ceil(lockout.msRemaining / 1000)}s` : "Renew Access"}
+            </Button>
+          </form>
+
+          <div className="pt-4 border-t border-white/5 space-y-3">
+            <Button variant="outline" className="w-full border-white/10 hover:bg-white/5 text-white/70" onClick={() => nav({ to: "/exports" })}>
+              <Download className="h-4 w-4 mr-2" /> Export Backup
+            </Button>
+            <p className="text-[10px] text-white/40 text-center leading-relaxed">
+              Your Daily PIN cannot bypass this. 
+              Only a valid operations credential can restore full access.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-ink text-white px-4">
-      <form onSubmit={submit} className="w-full max-w-sm space-y-5">
+      <form onSubmit={handleUnlock} className="w-full max-w-sm space-y-5">
         <div className="text-center">
           <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-primary/20 text-primary">
-            {copy.icon}
+            <Lock className="h-6 w-6" />
           </div>
           <h1 className="mt-3 text-2xl font-extrabold tracking-tight">
             Ethio<span className="text-primary">Track</span>
           </h1>
           <div className="text-xs font-semibold uppercase tracking-wider text-primary/80 mt-2">
-            {copy.title}
+            Enter Daily PIN
           </div>
-          <p className="text-sm text-white/60 mt-1">{copy.sub}</p>
+          <p className="text-sm text-white/60 mt-1">
+            License active until {license ? new Date(license.expiresAt).toLocaleDateString() : '...'}
+          </p>
         </div>
+        
         <Input
           type="password"
           autoFocus
-          placeholder={mode === ("renew" as Mode) ? "Master PIN" : "PIN"}
+          placeholder="Daily PIN"
           value={pin}
           onChange={(e) => setPinInput(e.target.value)}
-          className="bg-white/5 border-white/10 text-white text-center text-lg tracking-widest"
+          className="bg-white/5 border-white/10 text-white text-center text-lg tracking-widest h-12"
         />
-        {mode !== ("renew" as Mode) && <LicenseExpiryBanner variant="dark" showAction={false} />}
-        {copy.confirm && (
-          <Input
-            type="password"
-            placeholder="Confirm PIN"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            className="bg-white/5 border-white/10 text-white text-center text-lg tracking-widest"
-          />
-        )}
-        <Button type="submit" disabled={busy || !!lockout?.locked} className="w-full">
-          {lockout?.locked ? `Locked · ${Math.ceil(lockout.msRemaining / 1000)}s` : copy.cta}
+
+        <LicenseExpiryBanner variant="dark" showAction={false} />
+
+        <Button type="submit" disabled={busy || !!lockout?.locked} className="w-full h-12">
+          {lockout?.locked ? `Locked · ${Math.ceil(lockout.msRemaining / 1000)}s` : "Unlock"}
         </Button>
+
         {lockout && !lockout.locked && lockout.failures > 0 && (
           <p className="text-[11px] text-amber-300/80 text-center">
             {lockout.attemptsLeft} attempt{lockout.attemptsLeft === 1 ? "" : "s"} left before
             temporary lockout.
           </p>
         )}
-        {lockout?.locked && (
-          <p className="text-[11px] text-red-300/80 text-center">
-            Too many wrong PINs. Try again in {Math.ceil(lockout.msRemaining / 1000)}s.
-          </p>
-        )}
-        {copy.note && (
-          <p className="text-[11px] text-white/50 text-center leading-relaxed">{copy.note}</p>
-        )}
-        {mode === "unlock" && <LicenseStatus variant="dark" onlyNearExpiry />}
-        {mode === "renew" && <LicenseStatus variant="dark" />}
+
+        <div className="pt-4 text-center">
+          <LicenseStatus variant="dark" onlyNearExpiry />
+        </div>
       </form>
     </div>
   );
