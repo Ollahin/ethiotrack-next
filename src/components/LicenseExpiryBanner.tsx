@@ -24,7 +24,7 @@ export function LicenseExpiryBanner({
   useEffect(() => {
     let alive = true;
     const refresh = async () => {
-      const rec = await getLicense();
+      const rec = await getLicenseRecord();
       if (alive) setLic(rec ?? null);
     };
     refresh();
