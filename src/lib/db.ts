@@ -330,6 +330,54 @@ export function db(): EthioTrackDB {
   return _db;
 }
 
+export async function upsertBank(b: Omit<Bank, "id" | "createdAt">): Promise<Bank> {
+  const bank: Bank = {
+    ...b,
+    id: makeId(),
+    createdAt: new Date().toISOString(),
+  };
+  await db().banks.put(bank);
+  return bank;
+}
+
+export async function deleteBank(id: string): Promise<void> {
+  await db().banks.delete(id);
+}
+
+export async function upsertDistributor(
+  d: Omit<Distributor, "id" | "createdAt"> & { id?: string },
+): Promise<Distributor> {
+  const existing = d.id ? await db().distributors.get(d.id) : null;
+  const dist: Distributor = {
+    ...d,
+    id: d.id || makeId(),
+    createdAt: existing?.createdAt || new Date().toISOString(),
+  };
+  await db().distributors.put(dist);
+  return dist;
+}
+
+export async function deleteDistributor(id: string): Promise<void> {
+  await db().distributors.delete(id);
+}
+
+export async function upsertAgent(
+  a: Omit<Agent, "id" | "createdAt"> & { id?: string },
+): Promise<Agent> {
+  const existing = a.id ? await db().agents.get(a.id) : null;
+  const agent: Agent = {
+    ...a,
+    id: a.id || makeId(),
+    createdAt: existing?.createdAt || new Date().toISOString(),
+  };
+  await db().agents.put(agent);
+  return agent;
+}
+
+export async function deleteAgent(id: string): Promise<void> {
+  await db().agents.delete(id);
+}
+
 // -- reactive hooks ----------------------------------------------------------
 
 export function useTransactions(): Transaction[] {
