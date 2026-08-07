@@ -127,7 +127,7 @@ export async function verifyLicenseCredential(cred: LicenseCredential): Promise<
 
     const pubKey = await crypto.subtle.importKey(
       "raw",
-      pubKeyData,
+      pubKeyData as BufferSource,
       { name: "Ed25519", namedCurve: "Ed25519" },
       true,
       ["verify"]
