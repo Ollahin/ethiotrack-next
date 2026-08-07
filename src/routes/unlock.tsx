@@ -17,7 +17,7 @@ import {
 } from "@/lib/crypto";
 import { accountIsEmpty } from "@/lib/db";
 
-import { KeyRound, Lock, ShieldCheck, Timer, Download, LogOut } from "lucide-react";
+import { KeyRound, Lock, ShieldCheck, ShieldAlert, Timer, Download, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { LicenseStatus } from "@/components/LicenseStatus";
 import { LicenseExpiryBanner } from "@/components/LicenseExpiryBanner";
