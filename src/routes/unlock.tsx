@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { LicenseStatus } from "@/components/LicenseStatus";
 import { LicenseExpiryBanner } from "@/components/LicenseExpiryBanner";
 import { setUserName } from "@/lib/user";
+import { OnboardingFlow } from "@/components/OnboardingFlow";
 
 export const Route = createFileRoute("/unlock")({
   head: () => ({
