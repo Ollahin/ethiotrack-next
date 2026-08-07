@@ -79,9 +79,10 @@ function UnlockPage() {
     ]);
     setExpiresAt(lic?.expiresAt ?? null);
     if (!master) return "setup-master";
-    if (!licensed) return "renew";
     const empty = await accountIsEmpty();
     if (!user || empty) return "setup-user";
+    if (!licensed) return "renew";
+
     return "unlock";
 
   }
