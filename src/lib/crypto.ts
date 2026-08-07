@@ -10,17 +10,12 @@ const MAX_ATTEMPTS = 5;
 const BASE_LOCK_MS = 30 * 1000;
 const MAX_LOCK_MS = 15 * 60 * 1000;
 
-// Ed25519 Public Key for Operations Authority (Verification material)
-// In a real production environment, this would be a constant pinned to the version.
-// For this prototype, we'll generate one if not present to simulate "Rotation" in tests,
-// but the architecture requires that the PRIVATE key is NEVER in the bundle.
+// Ed25519 Public Key for Operations Authority
 const AUTHORITY_PUB_KEY_KEY = "authority_public_key_v1";
 
 /**
  * ARCHITECTURE NOTE:
  * The Master Authority private key is NEVER present in the client bundle.
- * The client only holds the Public Key for signature verification.
- * Activation/Renewal happens by providing a signed credential (token).
  */
 
 export type AuthKind = "daily-pin" | "license-activation";
@@ -108,10 +103,14 @@ export interface LicenseCredential {
   signatureB64: string;
 }
 
-/**
- * Installation ID is unique to this device/browser profile.
- * Used to bind credentials to a specific device.
- */
+// Legacy support for components
+export interface LicenseRecord {
+  activatedAt: number;
+  expiresAt: number;
+  renewals: number;
+}
+export const LICENSE_PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
+
 export async function getInstallationId(): Promise<string> {
   let id = await metaGet<string>("installation_id");
   if (!id) {
@@ -121,10 +120,6 @@ export async function getInstallationId(): Promise<string> {
   return id;
 }
 
-/** 
- * Verification of operations-signed credentials.
- * Signature covers [installationId, issuedAt, expiresAt, keyId]
- */
 export async function verifyLicenseCredential(cred: LicenseCredential): Promise<boolean> {
   try {
     const pubKeyData = await metaGet<Uint8Array>(AUTHORITY_PUB_KEY_KEY);
@@ -132,7 +127,7 @@ export async function verifyLicenseCredential(cred: LicenseCredential): Promise<
 
     const pubKey = await crypto.subtle.importKey(
       "raw",
-      pubKeyData,
+      pubKeyData.buffer, // Use .buffer to satisfy BufferSource requirements in some TS environments
       { name: "Ed25519", namedCurve: "Ed25519" },
       true,
       ["verify"]
@@ -152,7 +147,7 @@ export async function verifyLicenseCredential(cred: LicenseCredential): Promise<
     return await crypto.subtle.verify(
       { name: "Ed25519" },
       pubKey,
-      sig,
+      sig.buffer,
       data
     );
   } catch (err) {
@@ -187,13 +182,22 @@ export async function getLicense(): Promise<LicenseCredential | undefined> {
   return metaGet<LicenseCredential>(LICENSE_CREDENTIAL_KEY);
 }
 
+// Map Credential to legacy Record for UI components
+export async function getLicenseRecord(): Promise<LicenseRecord | undefined> {
+  const cred = await getLicense();
+  if (!cred) return undefined;
+  return {
+    activatedAt: cred.issuedAt,
+    expiresAt: cred.expiresAt,
+    renewals: 1, // Simplified for now
+  };
+}
+
 export async function isLicenseActive(): Promise<boolean> {
   const cred = await getLicense();
   if (!cred) return false;
   const now = Date.now();
   if (now > cred.expiresAt) return false;
-  
-  // Also verify signature to prevent tampering with IndexedDB values
   return await verifyLicenseCredential(cred);
 }
 
@@ -211,7 +215,7 @@ async function deriveKey(pin: string, salt: Uint8Array, iterations: number) {
     "deriveBits",
   ]);
   return crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt: salt, iterations, hash: "SHA-256" },
+    { name: "PBKDF2", salt: salt.buffer, iterations, hash: "SHA-256" },
     baseKey,
     256,
   );
@@ -259,6 +263,18 @@ export async function verifyDailyPin(pin: string): Promise<boolean> {
   return good;
 }
 
+export async function changeDailyPin(oldPin: string, newPin: string): Promise<boolean> {
+  const ok = await verifyDailyPin(oldPin);
+  if (!ok) return false;
+  await setDailyPin(newPin);
+  return true;
+}
+
+export async function clearDailyPin(): Promise<void> {
+  await metaSet(DAILY_PIN_VERIFIER_KEY, undefined);
+  lock();
+}
+
 // -- Unlock State -----------------------------------------------------------
 
 let _unlocked = false;
@@ -279,6 +295,12 @@ export function lock() {
   emit();
 }
 
+export function markUnlocked() {
+  _unlocked = true;
+  emit();
+  clearFailures("daily-pin").catch(() => {});
+}
+
 // -- Helpers ----------------------------------------------------------------
 
 function b64(buf: ArrayBuffer | Uint8Array): string {
@@ -296,29 +318,14 @@ function fromB64(s: string): Uint8Array {
 
 // -- Simulation Helpers (FOR PROTOTYPE/TESTS ONLY) ---------------------------
 
-/**
- * Simulate Operations Authority generating a signed credential.
- * In production, this would be a backend server function or offline tool.
- */
 export async function simulateIssueCredential(
   installationId: string,
   validityDays: number,
-  keyPair?: CryptoKeyPair
+  keyPair: CryptoKeyPair
 ): Promise<LicenseCredential> {
   const now = Date.now();
   const expiresAt = now + validityDays * 24 * 60 * 60 * 1000;
   const keyId = "dev-v1";
-
-  // If no keypair provided, we use the one stored in IndexedDB (simulating rotation)
-  // or generate a new one if it's the first run.
-  let signKey: CryptoKey;
-  if (keyPair) {
-    signKey = keyPair.privateKey;
-  } else {
-    // This is NOT how production works, but for the web-only prototype to be "self-testable"
-    // we need a way to generate a verifiable signature.
-    throw new Error("Private key required to sign credential");
-  }
 
   const encoder = new TextEncoder();
   const payload = {
@@ -331,7 +338,7 @@ export async function simulateIssueCredential(
 
   const sig = await crypto.subtle.sign(
     { name: "Ed25519" },
-    signKey,
+    keyPair.privateKey,
     data
   );
 
@@ -341,9 +348,6 @@ export async function simulateIssueCredential(
   };
 }
 
-/** 
- * Rotate the authority. This is a one-way operation that invalidates all previous credentials.
- */
 export async function rotateAuthority(): Promise<CryptoKeyPair> {
   const pair = await crypto.subtle.generateKey(
     { name: "Ed25519", namedCurve: "Ed25519" },
@@ -355,11 +359,13 @@ export async function rotateAuthority(): Promise<CryptoKeyPair> {
   return pair;
 }
 
-// Re-export legacy names if needed for compatibility during transition, 
-// but marked as deprecated.
+// Legacy exports
 export const hasPin = hasDailyPin;
 export const verifyPin = verifyDailyPin;
 export const setPin = setDailyPin;
-export const setupMasterPin = async () => { throw new Error("Deprecated"); };
-export const renewLicense = async () => { throw new Error("Deprecated"); };
+export const changePin = changeDailyPin;
+export const clearPin = clearDailyPin;
 export const hasMasterPin = async () => false;
+export const setupMasterPin = async () => { throw new Error("Use operations activation"); };
+export const renewLicense = async () => { throw new Error("Use operations activation"); };
+export const changeMasterPin = async () => { throw new Error("Not supported"); };
