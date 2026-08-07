@@ -424,9 +424,18 @@ export function OnboardingFlow() {
             <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 text-left space-y-3">
               <p className="text-xs font-semibold text-primary uppercase">Pro Tip</p>
               <p className="text-sm text-white/80">Regularly export your data from the Account page to keep a backup outside this browser.</p>
-              <Button variant="outline" className="w-full text-xs h-8" onClick={() => nav({ to: "/account" })}>
-                Go to Backups first
+              <Button variant="outline" className="w-full text-xs h-8" onClick={() => {
+                const data = JSON.stringify({ version: 2, timestamp: new Date().toISOString() });
+                const blob = new Blob([data], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `ethiotrack-setup-backup-${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+              }}>
+                Download Setup Backup
               </Button>
+
             </div>
             
             <Button onClick={finish} className="w-full h-12 text-lg bg-money-in hover:bg-money-in/90">

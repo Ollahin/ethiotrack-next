@@ -87,7 +87,6 @@ function UnlockPage() {
     (async () => {
       const next = await resolveMode();
       if (!alive) return;
-      console.log("Resolved mode:", next);
       if (next === "unlock" && isUnlocked()) {
         nav({ to: "/", replace: true });
         return;
@@ -171,8 +170,8 @@ function UnlockPage() {
     },
   }[mode as "renew" | "unlock"];
 
-  console.log("Rendering UnlockPage base UI, mode:", mode);
   return (
+
 
     <div className="min-h-screen flex items-center justify-center bg-ink text-white px-4">
       <form onSubmit={submit} className="w-full max-w-sm space-y-5">
