@@ -268,7 +268,8 @@ function UnlockPage() {
             Enter Daily PIN
           </div>
           <p className="text-sm text-white/60 mt-1">
-            License active until {license ? new Date(license.expiresAt).toLocaleDateString() : "..."}
+            License active until{" "}
+            {license ? new Date(license.expiresAt).toLocaleDateString() : "..."}
           </p>
         </div>
 

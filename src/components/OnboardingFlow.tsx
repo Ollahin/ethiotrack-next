@@ -38,13 +38,7 @@ import {
   Plus,
 } from "lucide-react";
 
-type Step =
-  | "welcome"
-  | "user-profile"
-  | "banks"
-  | "distributors"
-  | "agents"
-  | "finish";
+type Step = "welcome" | "user-profile" | "banks" | "distributors" | "agents" | "finish";
 
 function StepLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -107,7 +101,6 @@ export function OnboardingFlow() {
     const idx = steps.indexOf(step);
     if (idx > 0) setStep(steps[idx - 1]);
   };
-
 
   const setupUser = async () => {
     if (!userName.trim()) return toast.error("Name is required");
@@ -186,7 +179,6 @@ export function OnboardingFlow() {
           </Button>
         </div>
       )}
-
 
       {step === "user-profile" && (
         <div className="space-y-6">
