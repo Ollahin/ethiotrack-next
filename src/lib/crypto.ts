@@ -1,22 +1,20 @@
 import { metaGet, metaSet, db } from "./db";
+import { b64, fromB64 } from "./crypto-utils";
 
 // State keys
 const DAILY_PIN_VERIFIER_KEY = "daily_pin_v1";
 const LICENSE_CREDENTIAL_KEY = "license_credential_v1";
 const LOCKOUT_META_KEY = "auth_lockout_v1";
+const AUTHORITY_PUB_KEY_KEY = "authority_public_key_v1";
+
+// DEFAULT Operations Public Key (Ed25519)
+// This allows the prototype to verify credentials out of the box.
+const DEFAULT_PUB_KEY_B64 = "DxHZhcLOiQQFRn5YMZdXT/+uylaaS+fnGPLL+8ftGf0=";
 
 // Constants
 const MAX_ATTEMPTS = 5;
 const BASE_LOCK_MS = 30 * 1000;
 const MAX_LOCK_MS = 15 * 60 * 1000;
-
-// Ed25519 Public Key for Operations Authority
-const AUTHORITY_PUB_KEY_KEY = "authority_public_key_v1";
-
-/**
- * ARCHITECTURE NOTE:
- * The Master Authority private key is NEVER present in the client bundle.
- */
 
 export type AuthKind = "daily-pin" | "license-activation";
 
@@ -103,7 +101,6 @@ export interface LicenseCredential {
   signatureB64: string;
 }
 
-// Legacy support for components
 export interface LicenseRecord {
   activatedAt: number;
   expiresAt: number;
@@ -124,8 +121,10 @@ export async function getInstallationId(): Promise<string> {
 
 export async function verifyLicenseCredential(cred: LicenseCredential): Promise<boolean> {
   try {
-    const pubKeyData = await metaGet<Uint8Array>(AUTHORITY_PUB_KEY_KEY);
-    if (!pubKeyData) return false;
+    let pubKeyData = await metaGet<Uint8Array>(AUTHORITY_PUB_KEY_KEY);
+    if (!pubKeyData) {
+      pubKeyData = fromB64(DEFAULT_PUB_KEY_B64);
+    }
 
     const pubKey = await crypto.subtle.importKey(
       "raw",
@@ -179,14 +178,13 @@ export async function getLicense(): Promise<LicenseCredential | undefined> {
   return metaGet<LicenseCredential>(LICENSE_CREDENTIAL_KEY);
 }
 
-// Map Credential to legacy Record for UI components
 export async function getLicenseRecord(): Promise<LicenseRecord | undefined> {
   const cred = await getLicense();
   if (!cred) return undefined;
   return {
     activatedAt: cred.issuedAt,
     expiresAt: cred.expiresAt,
-    renewals: 1, // Simplified for now
+    renewals: 1,
   };
 }
 
@@ -203,16 +201,12 @@ export async function getLicenseState(): Promise<LicenseState> {
     return hasBusinessData ? "TAMPER_LOCKED" : "UNACTIVATED";
   }
 
-  // Check binding
   if (cred.installationId !== myId) return "TAMPER_LOCKED";
 
-  // Check signature
   const valid = await verifyLicenseCredential(cred);
   if (!valid) return "TAMPER_LOCKED";
 
-  // Check expiry
-  const now = Date.now();
-  if (now > cred.expiresAt) return "EXPIRED";
+  if (Date.now() > cred.expiresAt) return "EXPIRED";
 
   return "VALID";
 }
@@ -320,59 +314,6 @@ export function markUnlocked() {
   _unlocked = true;
   emit();
   clearFailures("daily-pin").catch(() => {});
-}
-
-// -- Helpers ----------------------------------------------------------------
-
-function b64(buf: ArrayBuffer | Uint8Array): string {
-  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
-  let s = "";
-  for (const b of bytes) s += String.fromCharCode(b);
-  return btoa(s);
-}
-function fromB64(s: string): Uint8Array {
-  const bin = atob(s);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-
-// -- Simulation Helpers (FOR PROTOTYPE/TESTS ONLY) ---------------------------
-
-export async function simulateIssueCredential(
-  installationId: string,
-  validityDays: number,
-  keyPair: CryptoKeyPair,
-): Promise<LicenseCredential> {
-  const now = Date.now();
-  const expiresAt = now + validityDays * 24 * 60 * 60 * 1000;
-  const keyId = "dev-v1";
-
-  const encoder = new TextEncoder();
-  const payload = {
-    installationId,
-    issuedAt: now,
-    expiresAt,
-    keyId,
-  };
-  const data = encoder.encode(JSON.stringify(payload));
-
-  const sig = await crypto.subtle.sign({ name: "Ed25519" }, keyPair.privateKey, data);
-
-  return {
-    ...payload,
-    signatureB64: b64(sig),
-  };
-}
-
-export async function rotateAuthority(): Promise<CryptoKeyPair> {
-  const pair = await crypto.subtle.generateKey({ name: "Ed25519", namedCurve: "Ed25519" }, true, [
-    "sign",
-    "verify",
-  ]);
-  const pubRaw = await crypto.subtle.exportKey("raw", pair.publicKey);
-  await metaSet(AUTHORITY_PUB_KEY_KEY, new Uint8Array(pubRaw));
-  return pair;
 }
 
 // Legacy exports
