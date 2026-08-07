@@ -52,10 +52,11 @@ export function LicenseExpiryBanner({
       : "border-amber-300 bg-amber-50 text-amber-900";
 
   const message = expired
-    ? "Your license has expired. Enter the master PIN to renew for 30 days."
+    ? "Your license has expired. Paste a new Operations activation credential to continue."
     : days <= 0
-      ? "Your license expires today. Renew with the master PIN to keep access."
-      : `Your license expires in ${days} day${days === 1 ? "" : "s"}. Renew with the master PIN to avoid interruption.`;
+      ? "Your license expires today. Renew soon to avoid interruption."
+      : `Your license expires in ${days} day${days === 1 ? "" : "s"}. Renew soon to avoid interruption.`;
+
 
   return (
     <div className={`flex items-start gap-3 rounded-xl border p-3 text-sm ${wrap}`} role="status">
