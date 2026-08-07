@@ -46,7 +46,11 @@ function UnlockPage() {
   const [installationId, setInstallationId] = useState("");
 
   const lockoutKind: AuthKind | null =
-    mode === "unlock" ? "daily-pin" : mode === "expired" || mode === "unactivated" || mode === "tamper" ? "license-activation" : null;
+    mode === "unlock"
+      ? "daily-pin"
+      : mode === "expired" || mode === "unactivated" || mode === "tamper"
+        ? "license-activation"
+        : null;
 
   useEffect(() => {
     getInstallationId().then(setInstallationId);
@@ -153,30 +157,41 @@ function UnlockPage() {
   if (mode === "expired" || mode === "tamper" || mode === "unactivated") {
     const isTamper = mode === "tamper";
     const isUnactivated = mode === "unactivated";
-    
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-ink text-white px-4">
         <div className="w-full max-w-sm space-y-6">
           <div className="text-center">
             <div
               className={`inline-flex items-center justify-center h-12 w-12 rounded-full ${
-                isTamper ? "bg-amber-500/20 text-amber-400" : 
-                isUnactivated ? "bg-primary/20 text-primary" : "bg-red-500/20 text-red-400"
+                isTamper
+                  ? "bg-amber-500/20 text-amber-400"
+                  : isUnactivated
+                    ? "bg-primary/20 text-primary"
+                    : "bg-red-500/20 text-red-400"
               }`}
             >
-              {isTamper ? <ShieldAlert className="h-6 w-6" /> : 
-               isUnactivated ? <KeyRound className="h-6 w-6" /> : <Timer className="h-6 w-6" />}
+              {isTamper ? (
+                <ShieldAlert className="h-6 w-6" />
+              ) : isUnactivated ? (
+                <KeyRound className="h-6 w-6" />
+              ) : (
+                <Timer className="h-6 w-6" />
+              )}
             </div>
             <h1 className="mt-4 text-2xl font-bold">
-              {isTamper ? "Tamper Protection" : 
-               isUnactivated ? "Activation Required" : "Subscription Expired"}
+              {isTamper
+                ? "Tamper Protection"
+                : isUnactivated
+                  ? "Activation Required"
+                  : "Subscription Expired"}
             </h1>
             <p className="text-sm text-white/60 mt-2">
               {isTamper
                 ? "Account data exists but a valid Operations authorization is missing. Paste a recovery credential to continue."
                 : isUnactivated
-                ? "This device is not yet authorized to run EthioTrack. Paste an activation credential from Operations to begin."
-                : "Access to this ledger has ended. Your data is preserved locally. Paste a new activation credential from Operations to continue."}
+                  ? "This device is not yet authorized to run EthioTrack. Paste an activation credential from Operations to begin."
+                  : "Access to this ledger has ended. Your data is preserved locally. Paste a new activation credential from Operations to continue."}
             </p>
           </div>
 
@@ -207,8 +222,8 @@ function UnlockPage() {
                 : isTamper
                   ? "Restore Authorization"
                   : isUnactivated
-                  ? "Activate Device"
-                  : "Renew Access"}
+                    ? "Activate Device"
+                    : "Renew Access"}
             </Button>
           </form>
 
@@ -222,15 +237,16 @@ function UnlockPage() {
                 <Download className="h-4 w-4 mr-2" /> Export Backup
               </Button>
               <p className="text-[10px] text-white/40 text-center leading-relaxed">
-                Your Daily PIN cannot bypass this. Only a valid operations credential can restore full
+                Your Daily PIN cannot bypass this. Only a valid operations credential can restore
                 access.
               </p>
             </div>
           )}
-          
+
           {isUnactivated && (
             <p className="text-[10px] text-white/40 text-center leading-relaxed">
-              EthioTrack is a local-only application. Operations activation is required for fresh installations.
+              EthioTrack is a local-only application. Operations activation is required for fresh
+              installations.
             </p>
           )}
         </div>
@@ -252,8 +268,7 @@ function UnlockPage() {
             Enter Daily PIN
           </div>
           <p className="text-sm text-white/60 mt-1">
-            License active until{" "}
-            {license ? new Date(license.expiresAt).toLocaleDateString() : "..."}
+            License active until {license ? new Date(license.expiresAt).toLocaleDateString() : "..."}
           </p>
         </div>
 
