@@ -60,6 +60,18 @@ function StepLayout({ children }: { children: React.ReactNode }) {
 export function OnboardingFlow() {
   const nav = useNavigate();
   const [step, setStep] = useState<Step>("welcome");
+  const steps: Step[] = useMemo(
+    () => [
+      "welcome",
+      "master-pin",
+      "user-profile",
+      "banks",
+      "distributors",
+      "agents",
+      "finish",
+    ],
+    [],
+  );
   const [masterPin, setMasterPin] = useState("");
   const [masterConfirm, setMasterConfirm] = useState("");
   const [userName, setUserNameInput] = useState("");
@@ -98,35 +110,11 @@ export function OnboardingFlow() {
   }, [step]);
 
   const handleNext = () => {
-    const steps: Step[] = useMemo(
-      () => [
-        "welcome",
-        "master-pin",
-        "user-profile",
-        "banks",
-        "distributors",
-        "agents",
-        "finish",
-      ],
-      [],
-    );
     const idx = steps.indexOf(step);
     if (idx < steps.length - 1) setStep(steps[idx + 1]);
   };
 
   const handleBack = () => {
-    const steps: Step[] = useMemo(
-      () => [
-        "welcome",
-        "master-pin",
-        "user-profile",
-        "banks",
-        "distributors",
-        "agents",
-        "finish",
-      ],
-      [],
-    );
     const idx = steps.indexOf(step);
     if (idx > 0) setStep(steps[idx - 1]);
   };
