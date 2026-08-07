@@ -93,7 +93,9 @@ function UnlockPage() {
       }
       setMode(next);
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [nav]);
 
   async function submit(e: React.FormEvent) {
@@ -145,8 +147,6 @@ function UnlockPage() {
     return <OnboardingFlow />;
   }
 
-
-
   const copy = {
     renew: {
       icon: <Timer className="h-6 w-6" />,
@@ -171,8 +171,6 @@ function UnlockPage() {
   }[mode as "renew" | "unlock"];
 
   return (
-
-
     <div className="min-h-screen flex items-center justify-center bg-ink text-white px-4">
       <form onSubmit={submit} className="w-full max-w-sm space-y-5">
         <div className="text-center">
@@ -195,9 +193,7 @@ function UnlockPage() {
           onChange={(e) => setPinInput(e.target.value)}
           className="bg-white/5 border-white/10 text-white text-center text-lg tracking-widest"
         />
-        {mode !== ("renew" as Mode) && (
-          <LicenseExpiryBanner variant="dark" showAction={false} />
-        )}
+        {mode !== ("renew" as Mode) && <LicenseExpiryBanner variant="dark" showAction={false} />}
         {copy.confirm && (
           <Input
             type="password"
@@ -224,9 +220,7 @@ function UnlockPage() {
         {copy.note && (
           <p className="text-[11px] text-white/50 text-center leading-relaxed">{copy.note}</p>
         )}
-        {mode === "unlock" && (
-          <LicenseStatus variant="dark" onlyNearExpiry />
-        )}
+        {mode === "unlock" && <LicenseStatus variant="dark" onlyNearExpiry />}
         {mode === "renew" && <LicenseStatus variant="dark" />}
       </form>
     </div>
