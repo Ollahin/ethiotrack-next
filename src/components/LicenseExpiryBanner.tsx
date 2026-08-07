@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { AlertTriangle } from "lucide-react";
-import { getLicense, subscribeUnlock, type LicenseRecord } from "@/lib/crypto";
+import { getLicenseRecord, subscribeUnlock, type LicenseRecord } from "@/lib/crypto";
 
 type Variant = "dark" | "light";
 
