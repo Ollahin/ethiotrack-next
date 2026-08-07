@@ -1,4 +1,4 @@
-import { metaGet, metaSet } from "./db";
+import { metaGet, metaSet, db } from "./db";
 
 // State keys
 const DAILY_PIN_VERIFIER_KEY = "daily_pin_v1";
@@ -111,6 +111,8 @@ export interface LicenseRecord {
 }
 export const LICENSE_PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
 
+export type LicenseState = "UNACTIVATED" | "VALID" | "EXPIRED" | "TAMPER_LOCKED";
+
 export async function getInstallationId(): Promise<string> {
   let id = await metaGet<string>("installation_id");
   if (!id) {
@@ -188,12 +190,36 @@ export async function getLicenseRecord(): Promise<LicenseRecord | undefined> {
   };
 }
 
-export async function isLicenseActive(): Promise<boolean> {
+export async function getLicenseState(): Promise<LicenseState> {
   const cred = await getLicense();
-  if (!cred) return false;
+  const [hasBusinessData, myId] = await Promise.all([
+    db()
+      .transactions.count()
+      .then((c) => c > 0),
+    getInstallationId(),
+  ]);
+
+  if (!cred) {
+    return hasBusinessData ? "TAMPER_LOCKED" : "UNACTIVATED";
+  }
+
+  // Check binding
+  if (cred.installationId !== myId) return "TAMPER_LOCKED";
+
+  // Check signature
+  const valid = await verifyLicenseCredential(cred);
+  if (!valid) return "TAMPER_LOCKED";
+
+  // Check expiry
   const now = Date.now();
-  if (now > cred.expiresAt) return false;
-  return await verifyLicenseCredential(cred);
+  if (now > cred.expiresAt) return "EXPIRED";
+
+  return "VALID";
+}
+
+export async function isLicenseActive(): Promise<boolean> {
+  const state = await getLicenseState();
+  return state === "VALID";
 }
 
 // -- Daily PIN (User Data Protection) ---------------------------------------

@@ -84,6 +84,7 @@ export function LicenseStatus({
 
   const remainingMs = lic.expiresAt - now;
   const active = remainingMs > 0;
+
   const days = daysBetween(Math.abs(remainingMs));
   const pct = active ? Math.max(0, Math.min(100, (remainingMs / LICENSE_PERIOD_MS) * 100)) : 0;
 

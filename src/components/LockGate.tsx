@@ -22,7 +22,11 @@ export function LockGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [exists, licensed] = await Promise.all([hasPin(), isLicenseActive()]);
+      const { getLicenseState } = await import("@/lib/crypto");
+      const state = await getLicenseState();
+      const licensed = state === "VALID";
+      const exists = await hasPin();
+
       if (!alive) return;
       if (!licensed) lock();
       if (pathname !== "/unlock" && (!exists || !isUnlocked() || !licensed)) {

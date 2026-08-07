@@ -17,7 +17,7 @@ import {
 } from "@/lib/crypto";
 import { accountIsEmpty } from "@/lib/db";
 
-import { KeyRound, Lock, ShieldCheck, Timer, Download, LogOut } from "lucide-react";
+import { KeyRound, Lock, ShieldCheck, ShieldAlert, Timer, Download, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { LicenseStatus } from "@/components/LicenseStatus";
 import { LicenseExpiryBanner } from "@/components/LicenseExpiryBanner";
@@ -34,7 +34,7 @@ export const Route = createFileRoute("/unlock")({
   component: UnlockPage,
 });
 
-type Mode = "loading" | "onboarding" | "unlock" | "expired";
+type Mode = "loading" | "onboarding" | "unlock" | "expired" | "tamper";
 
 function UnlockPage() {
   const nav = useNavigate();
@@ -74,14 +74,20 @@ function UnlockPage() {
   }, [lockoutKind]);
 
   async function resolveMode(): Promise<Mode> {
-    const [licensed, lic] = await Promise.all([isLicenseActive(), getLicense()]);
+    const { getLicenseState, getLicense } = await import("@/lib/crypto");
+    const state = await getLicenseState();
+    const lic = await getLicense();
 
     setLicense(lic ?? null);
 
-    // If not licensed, we stop everything else
-    if (!licensed) return "expired";
+    if (state === "TAMPER_LOCKED") return "tamper";
+    if (state === "EXPIRED") return "expired";
+    if (state === "UNACTIVATED") {
+      const empty = await accountIsEmpty();
+      return empty ? "onboarding" : "tamper"; // Business data but no license = tamper
+    }
 
-    // If licensed, check if we need onboarding (fresh device)
+    // VALID state - check if we need onboarding (fresh device with license but no PIN)
     const empty = await accountIsEmpty();
     if (empty) return "onboarding";
 
@@ -140,18 +146,24 @@ function UnlockPage() {
   if (mode === "loading") return null;
   if (mode === "onboarding") return <OnboardingFlow />;
 
-  if (mode === "expired") {
+  if (mode === "expired" || mode === "tamper") {
+    const isTamper = mode === "tamper";
     return (
       <div className="min-h-screen flex items-center justify-center bg-ink text-white px-4">
         <div className="w-full max-w-sm space-y-6">
           <div className="text-center">
-            <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-red-500/20 text-red-400">
-              <Timer className="h-6 w-6" />
+            <div
+              className={`inline-flex items-center justify-center h-12 w-12 rounded-full ${isTamper ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"}`}
+            >
+              {isTamper ? <ShieldAlert className="h-6 w-6" /> : <Timer className="h-6 w-6" />}
             </div>
-            <h1 className="mt-4 text-2xl font-bold">Subscription Expired</h1>
+            <h1 className="mt-4 text-2xl font-bold">
+              {isTamper ? "Tamper Protection" : "Subscription Expired"}
+            </h1>
             <p className="text-sm text-white/60 mt-2">
-              Access to this ledger has ended. Your data is preserved locally. Paste a new
-              activation credential from Operations to continue.
+              {isTamper
+                ? "Account data exists but a valid Operations authorization is missing. Paste a recovery credential to continue."
+                : "Access to this ledger has ended. Your data is preserved locally. Paste a new activation credential from Operations to continue."}
             </p>
           </div>
 
@@ -179,7 +191,9 @@ function UnlockPage() {
             >
               {lockout?.locked
                 ? `Locked · ${Math.ceil(lockout.msRemaining / 1000)}s`
-                : "Renew Access"}
+                : isTamper
+                  ? "Restore Authorization"
+                  : "Renew Access"}
             </Button>
           </form>
 
