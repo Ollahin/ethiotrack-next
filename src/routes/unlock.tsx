@@ -16,6 +16,8 @@ import {
   type LockoutStatus,
   verifyPin,
 } from "@/lib/crypto";
+import { accountIsEmpty } from "@/lib/db";
+
 import { KeyRound, Lock, ShieldCheck, Timer } from "lucide-react";
 import { toast } from "sonner";
 import { LicenseStatus } from "@/components/LicenseStatus";
