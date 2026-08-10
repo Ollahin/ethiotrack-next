@@ -19,17 +19,17 @@ export async function createOperationsAuthority(keyId: string): Promise<{
   const keyPair = await crypto.subtle.generateKey(
     { name: "Ed25519", namedCurve: "Ed25519" } as any,
     true,
-    ["sign", "verify"]
+    ["sign", "verify"],
   );
   const pubRaw = await crypto.subtle.exportKey("raw", keyPair.publicKey);
-  
+
   return {
     authority: {
       keyId,
       publicKeyB64: b64(pubRaw),
-      privateKey: keyPair.privateKey
+      privateKey: keyPair.privateKey,
     },
-    keyPair
+    keyPair,
   };
 }
 
@@ -37,32 +37,28 @@ export async function issueSignedCredential(
   authority: OperationsAuthority,
   privateKey: CryptoKey,
   installationId: string,
-  type: 'activation' | 'renewal' | 'recovery',
-  days: number
+  type: "activation" | "renewal" | "recovery",
+  days: number,
 ): Promise<LicenseCredential> {
   const now = Date.now();
-  const expiresAt = now + (days * 24 * 60 * 60 * 1000);
-  
+  const expiresAt = now + days * 24 * 60 * 60 * 1000;
+
   const payload = {
     installationId,
     issuedAt: now,
     expiresAt,
     keyId: authority.keyId,
-    credentialType: type
+    credentialType: type,
   };
-  
+
   const encoder = new TextEncoder();
   const data = encoder.encode(JSON.stringify(payload));
-  
-  const sig = await crypto.subtle.sign(
-    { name: "Ed25519" } as any,
-    privateKey,
-    data
-  );
-  
+
+  const sig = await crypto.subtle.sign({ name: "Ed25519" } as any, privateKey, data);
+
   return {
     ...payload,
-    signatureB64: b64(sig)
+    signatureB64: b64(sig),
   };
 }
 
@@ -79,6 +75,6 @@ export async function importPrivateKey(b64Str: string): Promise<CryptoKey> {
     buf.buffer as ArrayBuffer,
     { name: "Ed25519", namedCurve: "Ed25519" } as any,
     true,
-    ["sign"]
+    ["sign"],
   );
 }

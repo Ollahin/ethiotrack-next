@@ -98,10 +98,9 @@ export interface LicenseCredential {
   issuedAt: number;
   expiresAt: number;
   keyId: string;
-  credentialType?: 'activation' | 'renewal' | 'recovery';
+  credentialType?: "activation" | "renewal" | "recovery";
   signatureB64: string;
 }
-
 
 export interface LicenseRecord {
   activatedAt: number;
@@ -151,7 +150,6 @@ export async function verifyLicenseCredential(cred: LicenseCredential): Promise<
         credentialType: cred.credentialType,
       }),
     );
-
 
     const sig = fromB64(cred.signatureB64);
     return await crypto.subtle.verify({ name: "Ed25519" }, pubKey, sig as BufferSource, data);

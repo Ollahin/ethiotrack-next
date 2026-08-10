@@ -208,7 +208,6 @@ function UnlockPage() {
                   : isUnactivated
                     ? "Give the Installation ID below to Operations. Paste the activation code they give you below to begin."
                     : "Access to this ledger has ended. Your data is preserved locally. Give the Installation ID below to Operations and paste the new code they give you."}
-
             </p>
           </div>
 
