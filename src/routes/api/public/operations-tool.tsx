@@ -13,7 +13,7 @@ import { b64 } from "@/lib/crypto-utils";
 import { Key, Shield, Copy, Download, Upload, CheckCircle2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/api/public/operations-tool" as never)({
+export const Route = createFileRoute("/unlock" as never)({
   component: OperationsToolPage,
 });
 
