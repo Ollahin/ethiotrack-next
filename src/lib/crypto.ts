@@ -181,6 +181,13 @@ export async function activateLicense(cred: LicenseCredential): Promise<boolean>
   });
   await clearFailures("license-activation");
   emit();
+  // Mark as activated in provenance metadata
+  await metaSet("licensing_migration_v1", {
+    version: 1,
+    everActivated: true,
+    activatedAt: Date.now(),
+  });
+
   return true;
 }
 
