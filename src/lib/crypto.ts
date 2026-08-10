@@ -9,7 +9,7 @@ const AUTHORITY_PUB_KEY_KEY = "authority_public_key_v1";
 
 // DEFAULT Operations Public Key (Ed25519)
 // This allows the prototype to verify credentials out of the box.
-const DEFAULT_PUB_KEY_B64 = "DxHZhcLOiQQFRn5YMZdXT/+uylaaS+fnGPLL+8ftGf0=";
+const DEFAULT_PUB_KEY_B64 = "DxHZhcLOiQQFRn5YMZdXT/+uylaaS+fnGPLL+8ftGf0="; // Current Operations Authority Public Key
 
 // Constants
 const MAX_ATTEMPTS = 5;
@@ -98,6 +98,7 @@ export interface LicenseCredential {
   issuedAt: number;
   expiresAt: number;
   keyId: string;
+  credentialType?: "activation" | "renewal" | "recovery";
   signatureB64: string;
 }
 
@@ -146,6 +147,7 @@ export async function verifyLicenseCredential(cred: LicenseCredential): Promise<
         issuedAt: cred.issuedAt,
         expiresAt: cred.expiresAt,
         keyId: cred.keyId,
+        credentialType: cred.credentialType,
       }),
     );
 
