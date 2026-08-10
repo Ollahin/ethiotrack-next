@@ -76,9 +76,10 @@ export async function importPrivateKey(b64Str: string): Promise<CryptoKey> {
   const buf = fromB64(b64Str);
   return await crypto.subtle.importKey(
     "pkcs8",
-    buf,
+    buf as BufferSource,
     { name: "Ed25519", namedCurve: "Ed25519" },
     true,
     ["sign"]
   );
+
 }
