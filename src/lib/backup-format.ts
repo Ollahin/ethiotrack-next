@@ -477,8 +477,9 @@ export function checkIntegrity(b: BackupV4): string[] {
   for (const s of b.settings) {
     if (settingKeys.has(s.key)) errors.push(`settings: duplicate key ${s.key}`);
     settingKeys.add(s.key);
-    if (isCredentialMetaKey(s.key))
+    if (isCredentialMetaKey(s.key)) {
       errors.push(`settings: credential key ${s.key} is not portable`);
+    }
   }
 
   const declared = countsOf(b);
