@@ -100,7 +100,10 @@ async function deriveKey(pin: string, salt: Uint8Array, iterations: number) {
   );
 }
 
-async function verifyHash(pin: string, rec: { saltB64: string; verifierB64: string; iterations: number }) {
+async function verifyHash(
+  pin: string,
+  rec: { saltB64: string; verifierB64: string; iterations: number },
+) {
   const salt = fromB64(rec.saltB64);
   const key = await deriveKey(pin, salt, rec.iterations);
   const a = new Uint8Array(key);
@@ -131,7 +134,9 @@ export async function setMasterPin(pin: string): Promise<void> {
 
 export async function verifyMasterPin(pin: string): Promise<boolean> {
   await assertNotLocked("master-pin");
-  const rec = await metaGet<{ saltB64: string; verifierB64: string; iterations: number }>(MASTER_PIN_VERIFIER_KEY);
+  const rec = await metaGet<{ saltB64: string; verifierB64: string; iterations: number }>(
+    MASTER_PIN_VERIFIER_KEY,
+  );
   if (!rec) return false;
   const ok = await verifyHash(pin, rec);
   if (ok) {
@@ -164,7 +169,9 @@ export async function setDailyPin(pin: string): Promise<void> {
 
 export async function verifyDailyPin(pin: string): Promise<boolean> {
   await assertNotLocked("daily-pin");
-  const rec = await metaGet<{ saltB64: string; verifierB64: string; iterations: number }>(DAILY_PIN_VERIFIER_KEY);
+  const rec = await metaGet<{ saltB64: string; verifierB64: string; iterations: number }>(
+    DAILY_PIN_VERIFIER_KEY,
+  );
   if (!rec) return false;
   const ok = await verifyHash(pin, rec);
   if (ok) {

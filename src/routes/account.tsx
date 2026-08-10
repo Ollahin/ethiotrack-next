@@ -175,7 +175,10 @@ function AccountPage() {
         </Button>
       </Card>
 
-      <Card title="Product access" desc="Your subscription is managed by operations via Master PIN.">
+      <Card
+        title="Product access"
+        desc="Your subscription is managed by operations via Master PIN."
+      >
         <p className="text-sm text-ink-soft">
           Renewals require entering the Master PIN provided by your distributor.
         </p>

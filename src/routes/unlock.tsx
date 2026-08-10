@@ -16,7 +16,9 @@ import { accountIsEmpty } from "@/lib/db";
 
 import { Lock, Timer, Download, ShieldAlert, KeyRound } from "lucide-react";
 import { toast } from "sonner";
-{/* Components removed */}
+{
+  /* Components removed */
+}
 import { OnboardingFlow } from "@/components/OnboardingFlow";
 
 export const Route = createFileRoute("/unlock")({
@@ -30,12 +32,7 @@ export const Route = createFileRoute("/unlock")({
   component: UnlockPage,
 });
 
-type Mode =
-  | "loading"
-  | "onboarding"
-  | "unlock"
-  | "master-pin-setup"
-  | "master-pin-verify";
+type Mode = "loading" | "onboarding" | "unlock" | "master-pin-setup" | "master-pin-verify";
 
 function UnlockPage() {
   const nav = useNavigate();
@@ -75,7 +72,7 @@ function UnlockPage() {
   async function resolveMode(): Promise<Mode> {
     const { hasMasterPin, hasDailyPin } = await import("@/lib/crypto");
     const masterExists = await hasMasterPin();
-    
+
     if (!masterExists) return "master-pin-setup";
 
     const empty = await accountIsEmpty();
@@ -210,9 +207,7 @@ function UnlockPage() {
           <div className="text-xs font-semibold uppercase tracking-wider text-primary/80 mt-2">
             Enter Daily PIN
           </div>
-          <p className="text-sm text-white/60 mt-1">
-            Product access active
-          </p>
+          <p className="text-sm text-white/60 mt-1">Product access active</p>
         </div>
 
         <Input
@@ -237,7 +232,7 @@ function UnlockPage() {
           </p>
         )}
 
-{/* Status removed */}
+        {/* Status removed */}
       </form>
     </div>
   );
