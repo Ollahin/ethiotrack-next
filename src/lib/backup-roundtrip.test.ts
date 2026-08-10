@@ -112,7 +112,7 @@ async function seedBaseline() {
     baselineTransactions().map((t) => ({ ...t, statementImportId: "imp-1" })),
   );
   await metaSet("user_profile_v1", { name: "Owner", businessName: "Shop" });
-  await metaSet("pin_v1", { hash: "secret", salt: "s" });
+  await metaSet("daily_pin_v1", { hash: "secret", salt: "s" });
 }
 
 function ledgerTotals(txns: Transaction[], distributorId: string, form: "evd" | "float") {
@@ -190,9 +190,9 @@ describe("backup round trip", () => {
   it("keeps device credentials out of the file and out of the restore", async () => {
     await seedBaseline();
     const b = await exportBackup();
-    expect(JSON.stringify(b)).not.toContain("pin_v1");
+    expect(JSON.stringify(b)).not.toContain("daily_pin_v1");
     await importBackup(b, { replaceExisting: true });
-    expect(await metaGet("pin_v1")).toMatchObject({ hash: "secret" });
+    expect(await metaGet("daily_pin_v1")).toMatchObject({ hash: "secret" });
   });
 
   it("restores fulfillment records, including when there are none", async () => {

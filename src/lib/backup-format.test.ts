@@ -148,7 +148,7 @@ describe("backup format", () => {
   });
 
   it("refuses credential settings inside a backup file", () => {
-    const b = backup({ settings: [{ key: "pin_v1", value: { hash: "x" } }] });
+    const b = backup({ settings: [{ key: "daily_pin_v1", value: { hash: "x" } }] });
     expect(checkIntegrity(b).join(" ")).toContain("not portable");
   });
 
