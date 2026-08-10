@@ -188,10 +188,11 @@ function UnlockPage() {
             </h1>
             <p className="text-sm text-white/60 mt-2">
               {isTamper
-                ? "Account data exists but a valid Operations authorization is missing. Paste a recovery credential to continue."
+                ? "why am I having the tamper protection? why cant I log in? Account data exists but a valid Operations authorization is missing. Paste a recovery credential to continue."
                 : isUnactivated
                   ? "This device is not yet authorized to run EthioTrack. Paste an activation credential from Operations to begin."
                   : "Access to this ledger has ended. Your data is preserved locally. Paste a new activation credential from Operations to continue."}
+
             </p>
           </div>
 
