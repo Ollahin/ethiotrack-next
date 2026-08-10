@@ -205,7 +205,9 @@ function UnlockPage() {
             Ethio<span className="text-primary">Track</span>
           </h1>
           <div className="text-xs font-semibold uppercase tracking-wider text-primary/80 mt-2">
-            {"'''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''\n                                            \n                                            what's the pin?"}
+            {
+              "'''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''\n                                            \n                                            what's the pin?"
+            }
           </div>
           <p className="text-sm text-white/60 mt-1">Product access active</p>
         </div>
