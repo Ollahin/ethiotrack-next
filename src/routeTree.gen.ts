@@ -27,6 +27,7 @@ import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DistributorsDistributorIdRouteImport } from './routes/distributors_.$distributorId'
 import { Route as AgentsAgentIdRouteImport } from './routes/agents_.$agentId'
+import { Route as ApiPublicOperationsToolRouteImport } from './routes/api/public/operations-tool'
 
 const UnlockRoute = UnlockRouteImport.update({
   id: '/unlock',
@@ -119,6 +120,11 @@ const AgentsAgentIdRoute = AgentsAgentIdRouteImport.update({
   path: '/agents/$agentId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicOperationsToolRoute = ApiPublicOperationsToolRouteImport.update({
+  id: '/api/public/operations-tool',
+  path: '/api/public/operations-tool',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -139,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/unlock': typeof UnlockRoute
   '/agents/$agentId': typeof AgentsAgentIdRoute
   '/distributors/$distributorId': typeof DistributorsDistributorIdRoute
+  '/api/public/operations-tool': typeof ApiPublicOperationsToolRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -159,6 +166,7 @@ export interface FileRoutesByTo {
   '/unlock': typeof UnlockRoute
   '/agents/$agentId': typeof AgentsAgentIdRoute
   '/distributors/$distributorId': typeof DistributorsDistributorIdRoute
+  '/api/public/operations-tool': typeof ApiPublicOperationsToolRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -180,6 +188,7 @@ export interface FileRoutesById {
   '/unlock': typeof UnlockRoute
   '/agents_/$agentId': typeof AgentsAgentIdRoute
   '/distributors_/$distributorId': typeof DistributorsDistributorIdRoute
+  '/api/public/operations-tool': typeof ApiPublicOperationsToolRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -202,6 +211,7 @@ export interface FileRouteTypes {
     | '/unlock'
     | '/agents/$agentId'
     | '/distributors/$distributorId'
+    | '/api/public/operations-tool'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -222,6 +232,7 @@ export interface FileRouteTypes {
     | '/unlock'
     | '/agents/$agentId'
     | '/distributors/$distributorId'
+    | '/api/public/operations-tool'
   id:
     | '__root__'
     | '/'
@@ -242,6 +253,7 @@ export interface FileRouteTypes {
     | '/unlock'
     | '/agents_/$agentId'
     | '/distributors_/$distributorId'
+    | '/api/public/operations-tool'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -263,6 +275,7 @@ export interface RootRouteChildren {
   UnlockRoute: typeof UnlockRoute
   AgentsAgentIdRoute: typeof AgentsAgentIdRoute
   DistributorsDistributorIdRoute: typeof DistributorsDistributorIdRoute
+  ApiPublicOperationsToolRoute: typeof ApiPublicOperationsToolRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -393,6 +406,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentsAgentIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/operations-tool': {
+      id: '/api/public/operations-tool'
+      path: '/api/public/operations-tool'
+      fullPath: '/api/public/operations-tool'
+      preLoaderRoute: typeof ApiPublicOperationsToolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -415,7 +435,18 @@ const rootRouteChildren: RootRouteChildren = {
   UnlockRoute: UnlockRoute,
   AgentsAgentIdRoute: AgentsAgentIdRoute,
   DistributorsDistributorIdRoute: DistributorsDistributorIdRoute,
+  ApiPublicOperationsToolRoute: ApiPublicOperationsToolRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
