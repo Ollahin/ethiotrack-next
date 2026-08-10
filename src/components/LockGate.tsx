@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { hasPin, isLicenseActive, isUnlocked, lock, subscribeUnlock } from "@/lib/crypto";
+import { hasPin, isUnlocked, lock, subscribeUnlock } from "@/lib/crypto";
 
 /**
  * Guards every route except /unlock. If no PIN is set, redirects to /unlock
@@ -22,14 +22,10 @@ export function LockGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const { getLicenseState } = await import("@/lib/crypto");
-      const state = await getLicenseState();
-      const licensed = state === "VALID";
       const exists = await hasPin();
 
       if (!alive) return;
-      if (!licensed) lock();
-      if (pathname !== "/unlock" && (!exists || !isUnlocked() || !licensed)) {
+      if (pathname !== "/unlock" && (!exists || !isUnlocked())) {
         nav({ to: "/unlock", replace: true });
       }
       setChecked(true);

@@ -3,23 +3,20 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  getLicense,
   getLockoutStatus,
   isUnlocked,
   verifyDailyPin,
-  getInstallationId,
-  activateLicense,
+  hasMasterPin,
+  verifyMasterPin,
   subscribeLockout,
   type LockoutStatus,
   type AuthKind,
-  type LicenseCredential,
 } from "@/lib/crypto";
 import { accountIsEmpty } from "@/lib/db";
 
 import { Lock, Timer, Download, ShieldAlert, KeyRound } from "lucide-react";
 import { toast } from "sonner";
-import { LicenseStatus } from "@/components/LicenseStatus";
-import { LicenseExpiryBanner } from "@/components/LicenseExpiryBanner";
+{/* Components removed */}
 import { OnboardingFlow } from "@/components/OnboardingFlow";
 
 export const Route = createFileRoute("/unlock")({
@@ -37,34 +34,23 @@ type Mode =
   | "loading"
   | "onboarding"
   | "unlock"
-  | "expired"
-  | "tamper"
-  | "unactivated"
-  | "legacy_activation";
+  | "master-pin-setup"
+  | "master-pin-verify";
 
 function UnlockPage() {
   const nav = useNavigate();
   const [mode, setMode] = useState<Mode>("loading");
   const [pin, setPinInput] = useState("");
-  const [credInput, setCredInput] = useState("");
+  const [masterPinInput, setMasterPinInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [license, setLicense] = useState<LicenseCredential | null>(null);
   const [lockout, setLockout] = useState<LockoutStatus | null>(null);
-  const [installationId, setInstallationId] = useState("");
 
   const lockoutKind: AuthKind | null =
     mode === "unlock"
       ? "daily-pin"
-      : mode === "expired" ||
-          mode === "unactivated" ||
-          mode === "tamper" ||
-          mode === "legacy_activation"
-        ? "license-activation"
+      : mode === "master-pin-verify" || mode === "master-pin-setup"
+        ? "master-pin"
         : null;
-
-  useEffect(() => {
-    getInstallationId().then(setInstallationId);
-  }, []);
 
   useEffect(() => {
     if (!lockoutKind) {
@@ -87,18 +73,11 @@ function UnlockPage() {
   }, [lockoutKind]);
 
   async function resolveMode(): Promise<Mode> {
-    const { getLicenseState, getLicense, hasDailyPin } = await import("@/lib/crypto");
-    const state = await getLicenseState();
-    const lic = await getLicense();
+    const { hasMasterPin, hasDailyPin } = await import("@/lib/crypto");
+    const masterExists = await hasMasterPin();
+    
+    if (!masterExists) return "master-pin-setup";
 
-    setLicense(lic ?? null);
-
-    if (state === "TAMPER_LOCKED") return "tamper";
-    if (state === "LEGACY_ACTIVATION_REQUIRED") return "legacy_activation";
-    if (state === "EXPIRED") return "expired";
-    if (state === "UNACTIVATED") return "unactivated";
-
-    // VALID state - check if we need onboarding (fresh device with license but no PIN/data)
     const empty = await accountIsEmpty();
     const pinExists = await hasDailyPin();
     if (empty || !pinExists) return "onboarding";
@@ -139,21 +118,26 @@ function UnlockPage() {
     }
   }
 
-  async function handleActivate(e: React.FormEvent) {
+  async function handleMasterPin(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      const cred: LicenseCredential = JSON.parse(credInput);
-      await activateLicense(cred);
-      toast.success("License activated");
-      setCredInput("");
+      const { setupMasterPin, verifyMasterPin } = await import("@/lib/crypto");
+      if (mode === "master-pin-setup") {
+        await setupMasterPin(masterPinInput);
+        toast.success("Master PIN configured");
+      } else {
+        const ok = await verifyMasterPin(masterPinInput);
+        if (!ok) {
+          toast.error("Incorrect Master PIN");
+          return;
+        }
+      }
+      setMasterPinInput("");
       const next = await resolveMode();
       setMode(next);
-      if (next === "unlock" && isUnlocked()) {
-        nav({ to: "/" });
-      }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Invalid credential format");
+      toast.error(err instanceof Error ? err.message : "Error");
     } finally {
       setBusy(false);
     }
@@ -162,109 +146,52 @@ function UnlockPage() {
   if (mode === "loading") return null;
   if (mode === "onboarding") return <OnboardingFlow />;
 
-  if (
-    mode === "expired" ||
-    mode === "tamper" ||
-    mode === "unactivated" ||
-    mode === "legacy_activation"
-  ) {
-    const isTamper = mode === "tamper";
-    const isUnactivated = mode === "unactivated";
-    const isLegacy = mode === "legacy_activation";
-
+  if (mode === "master-pin-setup" || mode === "master-pin-verify") {
+    const isSetup = mode === "master-pin-setup";
     return (
       <div className="min-h-screen flex items-center justify-center bg-ink text-white px-4">
         <div className="w-full max-w-sm space-y-6">
           <div className="text-center">
-            <div
-              className={`inline-flex items-center justify-center h-12 w-12 rounded-full ${
-                isTamper
-                  ? "bg-amber-500/20 text-amber-400"
-                  : isUnactivated || isLegacy
-                    ? "bg-primary/20 text-primary"
-                    : "bg-red-500/20 text-red-400"
-              }`}
-            >
-              {isTamper ? (
-                <ShieldAlert className="h-6 w-6" />
-              ) : isUnactivated ? (
-                <KeyRound className="h-6 w-6" />
-              ) : (
-                <Timer className="h-6 w-6" />
-              )}
+            <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-amber-500/20 text-amber-400">
+              <ShieldAlert className="h-6 w-6" />
             </div>
             <h1 className="mt-4 text-2xl font-bold">
-              {isTamper
-                ? "Tamper Protection"
-                : isUnactivated || isLegacy
-                  ? "EthioTrack needs activation"
-                  : "Subscription Expired"}
+              {isSetup ? "Configure Master PIN" : "Product Access Required"}
             </h1>
             <p className="text-sm text-white/60 mt-2">
-              {isTamper
-                ? "why am I having the tamper protection? why cant I log in? Account data exists but a valid Operations authorization is missing. Paste a recovery credential to continue."
-                : isLegacy
-                  ? "Your existing data is safe. EthioTrack requires a one-time activation to continue using this device."
-                  : isUnactivated
-                    ? "Give the Installation ID below to Operations. Paste the activation code they give you below to begin."
-                    : "Access to this ledger has ended. Your data is preserved locally. Give the Installation ID below to Operations and paste the new code they give you."}
+              {isSetup
+                ? "Setup the operations-managed master PIN to begin."
+                : "Enter the master PIN provided by your distributor to continue using EthioTrack."}
             </p>
           </div>
 
-          <form onSubmit={handleActivate} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">
-                Installation ID (Device Bound)
-              </label>
-              <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-xs font-mono break-all select-all">
-                {installationId}
-              </div>
-            </div>
-
-            <textarea
-              placeholder="Paste activation code here..."
-              value={credInput}
-              onChange={(e) => setCredInput(e.target.value)}
-              className="w-full h-32 bg-white/5 border-white/10 rounded-lg p-3 text-xs font-mono text-white placeholder:text-white/20 resize-none focus:ring-1 focus:ring-primary outline-none"
+          <form onSubmit={handleMasterPin} className="space-y-4">
+            <Input
+              type="password"
+              autoFocus
+              placeholder="Master PIN"
+              value={masterPinInput}
+              onChange={(e) => setMasterPinInput(e.target.value)}
+              className="bg-white/5 border-white/10 text-white text-center text-lg tracking-widest h-12"
             />
-
             <Button
               type="submit"
-              disabled={busy || !credInput || !!lockout?.locked}
+              disabled={busy || masterPinInput.length < 6 || !!lockout?.locked}
               className="w-full h-12"
             >
               {lockout?.locked
                 ? `Locked · ${Math.ceil(lockout.msRemaining / 1000)}s`
-                : isTamper
-                  ? "Restore Authorization"
-                  : isUnactivated || isLegacy
-                    ? "Activate Device"
-                    : "Renew Access"}
+                : isSetup
+                  ? "Initialize Application"
+                  : "Verify Access"}
             </Button>
           </form>
 
-          {!isUnactivated && (
-            <div className="pt-4 border-t border-white/5 space-y-3">
-              <Button
-                variant="outline"
-                className="w-full border-white/10 hover:bg-white/5 text-white/70"
-                onClick={() => nav({ to: "/exports" })}
-              >
-                <Download className="h-4 w-4 mr-2" /> Export Backup
-              </Button>
-              <p className="text-[10px] text-white/40 text-center leading-relaxed">
-                Your Daily PIN cannot bypass this. Only a valid operations credential can restore
-                access.
-              </p>
-            </div>
-          )}
-
-          {isUnactivated && (
-            <p className="text-[10px] text-white/40 text-center leading-relaxed">
-              EthioTrack is a local-only application. Operations activation is required for fresh
-              installations.
+          <div className="pt-4 border-t border-white/5">
+            <p className="text-[10px] text-white/40 text-center leading-relaxed uppercase tracking-wider">
+              Operations authorization · Local only
             </p>
-          )}
+          </div>
         </div>
       </div>
     );
@@ -284,8 +211,7 @@ function UnlockPage() {
             Enter Daily PIN
           </div>
           <p className="text-sm text-white/60 mt-1">
-            License active until{" "}
-            {license ? new Date(license.expiresAt).toLocaleDateString() : "..."}
+            Product access active
           </p>
         </div>
 
@@ -298,7 +224,7 @@ function UnlockPage() {
           className="bg-white/5 border-white/10 text-white text-center text-lg tracking-widest h-12"
         />
 
-        <LicenseExpiryBanner variant="dark" showAction={false} />
+        {/* Banner removed */}
 
         <Button type="submit" disabled={busy || !!lockout?.locked} className="w-full h-12">
           {lockout?.locked ? `Locked · ${Math.ceil(lockout.msRemaining / 1000)}s` : "Unlock"}
@@ -311,9 +237,7 @@ function UnlockPage() {
           </p>
         )}
 
-        <div className="pt-4 text-center">
-          <LicenseStatus variant="dark" onlyNearExpiry />
-        </div>
+{/* Status removed */}
       </form>
     </div>
   );

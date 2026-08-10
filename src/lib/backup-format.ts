@@ -34,10 +34,9 @@ export const SUPPORTED_BACKUP_VERSIONS = [2, 3, 4, 5] as const;
  * entitlement transfer. These meta keys stay on the device that owns them.
  */
 export const CREDENTIAL_META_KEYS = [
-  "pin_v1",
+  "daily_pin_v1",
   "master_pin_v1",
-  "license_v1",
-  "pin_lockout_v1",
+  "auth_lockout_v1",
 ] as const;
 
 export function isCredentialMetaKey(key: string): boolean {

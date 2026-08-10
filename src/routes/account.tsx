@@ -3,9 +3,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LicenseStatus } from "@/components/LicenseStatus";
-import { LicenseExpiryBanner } from "@/components/LicenseExpiryBanner";
-import { changeDailyPin, clearDailyPin, verifyDailyPin, getLicenseRecord } from "@/lib/crypto";
+import { changeDailyPin, clearDailyPin, verifyDailyPin } from "@/lib/crypto";
 import { clearAll } from "@/lib/db";
 import {
   Dialog,
@@ -73,8 +71,7 @@ function AccountPage() {
         )}
       </div>
 
-      <LicenseExpiryBanner showAction={false} />
-      <LicenseStatus />
+      {/* License components removed */}
 
       <Card title="Your profile" desc="How the app addresses you and who owns this ledger.">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -178,13 +175,12 @@ function AccountPage() {
         </Button>
       </Card>
 
-      <Card title="License" desc="Your subscription is managed via Operations credentials.">
+      <Card title="Product access" desc="Your subscription is managed by operations via Master PIN.">
         <p className="text-sm text-ink-soft">
-          Activation and renewals require a signed operations credential bound to this device.
-          Contact your distributor for a new credential if your license has expired.
+          Renewals require entering the Master PIN provided by your distributor.
         </p>
         <Button variant="outline" className="mt-3" onClick={() => (location.href = "/unlock")}>
-          View License Status
+          Security status
         </Button>
       </Card>
 
