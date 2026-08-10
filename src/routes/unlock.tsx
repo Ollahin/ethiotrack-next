@@ -33,7 +33,14 @@ export const Route = createFileRoute("/unlock")({
   component: UnlockPage,
 });
 
-type Mode = "loading" | "onboarding" | "unlock" | "expired" | "tamper" | "unactivated";
+type Mode =
+  | "loading"
+  | "onboarding"
+  | "unlock"
+  | "expired"
+  | "tamper"
+  | "unactivated"
+  | "legacy_activation";
 
 function UnlockPage() {
   const nav = useNavigate();
@@ -48,7 +55,10 @@ function UnlockPage() {
   const lockoutKind: AuthKind | null =
     mode === "unlock"
       ? "daily-pin"
-      : mode === "expired" || mode === "unactivated" || mode === "tamper"
+      : mode === "expired" ||
+        mode === "unactivated" ||
+        mode === "tamper" ||
+        mode === "legacy_activation"
         ? "license-activation"
         : null;
 
@@ -84,11 +94,9 @@ function UnlockPage() {
     setLicense(lic ?? null);
 
     if (state === "TAMPER_LOCKED") return "tamper";
+    if (state === "LEGACY_ACTIVATION_REQUIRED") return "legacy_activation";
     if (state === "EXPIRED") return "expired";
-    if (state === "UNACTIVATED") {
-      const empty = await accountIsEmpty();
-      return empty ? "unactivated" : "tamper";
-    }
+    if (state === "UNACTIVATED") return "unactivated";
 
     // VALID state - check if we need onboarding (fresh device with license but no PIN/data)
     const empty = await accountIsEmpty();
@@ -154,9 +162,15 @@ function UnlockPage() {
   if (mode === "loading") return null;
   if (mode === "onboarding") return <OnboardingFlow />;
 
-  if (mode === "expired" || mode === "tamper" || mode === "unactivated") {
+  if (
+    mode === "expired" ||
+    mode === "tamper" ||
+    mode === "unactivated" ||
+    mode === "legacy_activation"
+  ) {
     const isTamper = mode === "tamper";
     const isUnactivated = mode === "unactivated";
+    const isLegacy = mode === "legacy_activation";
 
     return (
       <div className="min-h-screen flex items-center justify-center bg-ink text-white px-4">
@@ -166,7 +180,7 @@ function UnlockPage() {
               className={`inline-flex items-center justify-center h-12 w-12 rounded-full ${
                 isTamper
                   ? "bg-amber-500/20 text-amber-400"
-                  : isUnactivated
+                  : isUnactivated || isLegacy
                     ? "bg-primary/20 text-primary"
                     : "bg-red-500/20 text-red-400"
               }`}
@@ -182,14 +196,14 @@ function UnlockPage() {
             <h1 className="mt-4 text-2xl font-bold">
               {isTamper
                 ? "Tamper Protection"
-                : isUnactivated
-                  ? "Activation Required"
+                : isUnactivated || isLegacy
+                  ? "EthioTrack needs activation"
                   : "Subscription Expired"}
             </h1>
             <p className="text-sm text-white/60 mt-2">
               {isTamper
                 ? "why am I having the tamper protection? why cant I log in? Account data exists but a valid Operations authorization is missing. Paste a recovery credential to continue."
-                : isUnactivated
+                : isUnactivated || isLegacy
                   ? "This device is not yet authorized to run EthioTrack. Paste an activation credential from Operations to begin."
                   : "Access to this ledger has ended. Your data is preserved locally. Paste a new activation credential from Operations to continue."}
             </p>
@@ -221,7 +235,7 @@ function UnlockPage() {
                 ? `Locked · ${Math.ceil(lockout.msRemaining / 1000)}s`
                 : isTamper
                   ? "Restore Authorization"
-                  : isUnactivated
+                  : isUnactivated || isLegacy
                     ? "Activate Device"
                     : "Renew Access"}
             </Button>
