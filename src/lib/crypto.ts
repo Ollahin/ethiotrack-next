@@ -3,20 +3,15 @@ import { b64, fromB64 } from "./crypto-utils";
 
 // State keys
 const DAILY_PIN_VERIFIER_KEY = "daily_pin_v1";
-const LICENSE_CREDENTIAL_KEY = "license_credential_v1";
+const MASTER_PIN_VERIFIER_KEY = "master_pin_v1";
 const LOCKOUT_META_KEY = "auth_lockout_v1";
-const AUTHORITY_PUB_KEY_KEY = "authority_public_key_v1";
-
-// DEFAULT Operations Public Key (Ed25519)
-// This allows the prototype to verify credentials out of the box.
-const DEFAULT_PUB_KEY_B64 = "DxHZhcLOiQQFRn5YMZdXT/+uylaaS+fnGPLL+8ftGf0="; // Current Operations Authority Public Key
 
 // Constants
 const MAX_ATTEMPTS = 5;
 const BASE_LOCK_MS = 30 * 1000;
 const MAX_LOCK_MS = 15 * 60 * 1000;
 
-export type AuthKind = "daily-pin" | "license-activation";
+export type AuthKind = "daily-pin" | "master-pin";
 
 interface LockoutEntry {
   failures: number;
@@ -91,166 +86,7 @@ async function clearFailures(kind: AuthKind) {
   }
 }
 
-// -- Signed License Credentials --------------------------------------------
-
-export interface LicenseCredential {
-  installationId: string;
-  issuedAt: number;
-  expiresAt: number;
-  keyId: string;
-  credentialType?: "activation" | "renewal" | "recovery";
-  signatureB64: string;
-}
-
-export interface LicenseRecord {
-  activatedAt: number;
-  expiresAt: number;
-  renewals: number;
-}
-export const LICENSE_PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
-
-export type LicenseState =
-  | "UNACTIVATED"
-  | "LEGACY_ACTIVATION_REQUIRED"
-  | "VALID"
-  | "EXPIRED"
-  | "TAMPER_LOCKED";
-
-export async function getInstallationId(): Promise<string> {
-  let id = await metaGet<string>("installation_id");
-  if (!id) {
-    id = crypto.randomUUID();
-    await metaSet("installation_id", id);
-  }
-  return id;
-}
-
-export async function verifyLicenseCredential(cred: LicenseCredential): Promise<boolean> {
-  try {
-    let pubKeyData = await metaGet<Uint8Array>(AUTHORITY_PUB_KEY_KEY);
-    if (!pubKeyData) {
-      pubKeyData = fromB64(DEFAULT_PUB_KEY_B64);
-    }
-
-    const pubKey = await crypto.subtle.importKey(
-      "raw",
-      pubKeyData as BufferSource,
-      { name: "Ed25519", namedCurve: "Ed25519" },
-      true,
-      ["verify"],
-    );
-
-    const encoder = new TextEncoder();
-    const data = encoder.encode(
-      JSON.stringify({
-        installationId: cred.installationId,
-        issuedAt: cred.issuedAt,
-        expiresAt: cred.expiresAt,
-        keyId: cred.keyId,
-        credentialType: cred.credentialType,
-      }),
-    );
-
-    const sig = fromB64(cred.signatureB64);
-    return await crypto.subtle.verify({ name: "Ed25519" }, pubKey, sig as BufferSource, data);
-  } catch (err) {
-    console.error("License verification failed", err);
-    return false;
-  }
-}
-
-export async function activateLicense(cred: LicenseCredential): Promise<boolean> {
-  const myId = await getInstallationId();
-  if (cred.installationId !== myId) {
-    throw new Error("Credential bound to a different device");
-  }
-
-  const valid = await verifyLicenseCredential(cred);
-  if (!valid) {
-    await recordFailure("license-activation");
-    throw new Error("Invalid license signature");
-  }
-
-  if (Date.now() > cred.expiresAt) {
-    throw new Error("Credential has already expired");
-  }
-
-  await metaSet(LICENSE_CREDENTIAL_KEY, cred);
-  await metaSet("licensing_migration_v1", {
-    version: 1,
-    everActivated: true,
-    activatedAt: Date.now(),
-  });
-  await clearFailures("license-activation");
-  emit();
-
-  return true;
-}
-
-export async function getLicense(): Promise<LicenseCredential | undefined> {
-  return metaGet<LicenseCredential>(LICENSE_CREDENTIAL_KEY);
-}
-
-export async function getLicenseRecord(): Promise<LicenseRecord | undefined> {
-  const cred = await getLicense();
-  if (!cred) return undefined;
-  return {
-    activatedAt: cred.issuedAt,
-    expiresAt: cred.expiresAt,
-    renewals: 1,
-  };
-}
-
-export async function getLicenseState(): Promise<LicenseState> {
-  const [cred, isEmpty, migration, myId] = await Promise.all([
-    getLicense(),
-    accountIsEmpty(),
-    metaGet<{ version: number; everActivated: boolean; legacyInstallRecognizedAt?: number }>(
-      "licensing_migration_v1",
-    ),
-    getInstallationId(),
-  ]);
-
-  // 1. Fresh + no initialized state
-  if (!cred && isEmpty && !migration) {
-    return "UNACTIVATED";
-  }
-
-  // 2. Proven pre-license installation + never activated
-  if (!cred && migration && !migration.everActivated) {
-    return "LEGACY_ACTIVATION_REQUIRED";
-  }
-
-  // 3. Valid signed credential
-  if (cred) {
-    if (cred.installationId !== myId) return "TAMPER_LOCKED";
-    const valid = await verifyLicenseCredential(cred);
-    if (!valid) return "TAMPER_LOCKED";
-    if (Date.now() > cred.expiresAt) return "EXPIRED";
-    return "VALID";
-  }
-
-  // 4. everActivated=true + missing/invalid/mismatched credential
-  if (migration?.everActivated) {
-    return "TAMPER_LOCKED";
-  }
-
-  // Default to unactivated if truly empty, otherwise tamper
-  return isEmpty ? "UNACTIVATED" : "TAMPER_LOCKED";
-}
-
-export async function isLicenseActive(): Promise<boolean> {
-  const state = await getLicenseState();
-  return state === "VALID";
-}
-
-// -- Daily PIN (User Data Protection) ---------------------------------------
-
-interface PinRecord {
-  saltB64: string;
-  verifierB64: string;
-  iterations: number;
-}
+// -- Crypto Helpers (PBKDF2) --------------------------------------------------
 
 async function deriveKey(pin: string, salt: Uint8Array, iterations: number) {
   const enc = new TextEncoder();
@@ -264,8 +100,52 @@ async function deriveKey(pin: string, salt: Uint8Array, iterations: number) {
   );
 }
 
+async function verifyHash(pin: string, rec: { saltB64: string; verifierB64: string; iterations: number }) {
+  const salt = fromB64(rec.saltB64);
+  const key = await deriveKey(pin, salt, rec.iterations);
+  const a = new Uint8Array(key);
+  const b = fromB64(rec.verifierB64);
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
+
+// -- Master PIN (Operations Access Control) -----------------------------------
+
+export async function hasMasterPin(): Promise<boolean> {
+  return !!(await metaGet(MASTER_PIN_VERIFIER_KEY));
+}
+
+export async function setMasterPin(pin: string): Promise<void> {
+  if (pin.length < 6) throw new Error("Master PIN must be at least 6 characters");
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iterations = 200_000;
+  const key = await deriveKey(pin, salt, iterations);
+  await metaSet(MASTER_PIN_VERIFIER_KEY, {
+    saltB64: b64(salt),
+    verifierB64: b64(key),
+    iterations,
+  });
+}
+
+export async function verifyMasterPin(pin: string): Promise<boolean> {
+  await assertNotLocked("master-pin");
+  const rec = await metaGet<{ saltB64: string; verifierB64: string; iterations: number }>(MASTER_PIN_VERIFIER_KEY);
+  if (!rec) return false;
+  const ok = await verifyHash(pin, rec);
+  if (ok) {
+    await clearFailures("master-pin");
+  } else {
+    await recordFailure("master-pin");
+  }
+  return ok;
+}
+
+// -- Daily PIN (User Data Protection) ---------------------------------------
+
 export async function hasDailyPin(): Promise<boolean> {
-  return !!(await metaGet<PinRecord>(DAILY_PIN_VERIFIER_KEY));
+  return !!(await metaGet(DAILY_PIN_VERIFIER_KEY));
 }
 
 export async function setDailyPin(pin: string): Promise<void> {
@@ -277,33 +157,24 @@ export async function setDailyPin(pin: string): Promise<void> {
     saltB64: b64(salt),
     verifierB64: b64(key),
     iterations,
-  } as PinRecord);
+  });
   _unlocked = true;
   emit();
 }
 
 export async function verifyDailyPin(pin: string): Promise<boolean> {
   await assertNotLocked("daily-pin");
-  const rec = await metaGet<PinRecord>(DAILY_PIN_VERIFIER_KEY);
+  const rec = await metaGet<{ saltB64: string; verifierB64: string; iterations: number }>(DAILY_PIN_VERIFIER_KEY);
   if (!rec) return false;
-  const salt = fromB64(rec.saltB64);
-  const key = await deriveKey(pin, salt, rec.iterations);
-  const a = new Uint8Array(key);
-  const b = fromB64(rec.verifierB64);
-  let good = a.length === b.length;
-  if (good) {
-    let diff = 0;
-    for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
-    good = diff === 0;
-  }
-  if (good) {
+  const ok = await verifyHash(pin, rec);
+  if (ok) {
     _unlocked = true;
     emit();
     await clearFailures("daily-pin");
   } else {
     await recordFailure("daily-pin");
   }
-  return good;
+  return ok;
 }
 
 export async function changeDailyPin(oldPin: string, newPin: string): Promise<boolean> {
@@ -344,19 +215,17 @@ export function markUnlocked() {
   clearFailures("daily-pin").catch(() => {});
 }
 
-// Legacy exports
+// Compatibility & RESTORED exports
 export const hasPin = hasDailyPin;
 export const verifyPin = verifyDailyPin;
 export const setPin = setDailyPin;
 export const changePin = changeDailyPin;
 export const clearPin = clearDailyPin;
-export const hasMasterPin = async () => false;
-export const setupMasterPin = async () => {
-  throw new Error("Use operations activation");
-};
-export const renewLicense = async () => {
-  throw new Error("Use operations activation");
-};
-export const changeMasterPin = async () => {
-  throw new Error("Not supported");
+export const setupMasterPin = setMasterPin;
+export const renewLicense = async () => {}; // Restored stub
+export const changeMasterPin = async (oldPin: string, newPin: string) => {
+  const ok = await verifyMasterPin(oldPin);
+  if (!ok) return false;
+  await setMasterPin(newPin);
+  return true;
 };
