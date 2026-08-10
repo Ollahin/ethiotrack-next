@@ -192,7 +192,6 @@ function UnlockPage() {
                 : isUnactivated
                   ? "This device is not yet authorized to run EthioTrack. Paste an activation credential from Operations to begin."
                   : "Access to this ledger has ended. Your data is preserved locally. Paste a new activation credential from Operations to continue."}
-
             </p>
           </div>
 
