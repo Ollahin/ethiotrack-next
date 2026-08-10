@@ -278,18 +278,6 @@ class EthioTrackDB extends Dexie {
   }
 }
 
-/** Check if the account has any business/user state. */
-export async function accountIsEmpty(): Promise<boolean> {
-  const d = db();
-  const counts = await Promise.all([
-    d.transactions.count(),
-    d.agents.count(),
-    d.banks.count(),
-    d.distributors.count(),
-  ]);
-  return counts.every((c) => c === 0);
-}
-
 // -- migration helpers -------------------------------------------------------
 
 function splitEvenly(total: number, ids: string[]): Record<string, number> {
