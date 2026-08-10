@@ -108,7 +108,12 @@ export interface LicenseRecord {
 }
 export const LICENSE_PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
 
-export type LicenseState = "UNACTIVATED" | "VALID" | "EXPIRED" | "TAMPER_LOCKED";
+export type LicenseState =
+  | "UNACTIVATED"
+  | "VALID"
+  | "EXPIRED"
+  | "TAMPER_LOCKED"
+  | "LEGACY_ACTIVATION_REQUIRED";
 
 export async function getInstallationId(): Promise<string> {
   let id = await metaGet<string>("installation_id");
@@ -169,6 +174,11 @@ export async function activateLicense(cred: LicenseCredential): Promise<boolean>
   }
 
   await metaSet(LICENSE_CREDENTIAL_KEY, cred);
+  await metaSet("licensing_migration_v1", {
+    version: 1,
+    everActivated: true,
+    activatedAt: Date.now(),
+  });
   await clearFailures("license-activation");
   emit();
   return true;
@@ -189,16 +199,19 @@ export async function getLicenseRecord(): Promise<LicenseRecord | undefined> {
 }
 
 export async function getLicenseState(): Promise<LicenseState> {
-  const cred = await getLicense();
-  const [hasBusinessData, myId] = await Promise.all([
+  const [cred, hasBusinessData, migration, myId] = await Promise.all([
+    getLicense(),
     db()
       .transactions.count()
       .then((c) => c > 0),
+    metaGet<{ version: number; everActivated: boolean }>("licensing_migration_v1"),
     getInstallationId(),
   ]);
 
   if (!cred) {
-    return hasBusinessData ? "TAMPER_LOCKED" : "UNACTIVATED";
+    if (!hasBusinessData) return "UNACTIVATED";
+    if (migration?.everActivated) return "TAMPER_LOCKED";
+    return "LEGACY_ACTIVATION_REQUIRED";
   }
 
   if (cred.installationId !== myId) return "TAMPER_LOCKED";
