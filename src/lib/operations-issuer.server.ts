@@ -16,11 +16,11 @@ export async function createOperationsAuthority(keyId: string): Promise<{
   authority: OperationsAuthority;
   keyPair: CryptoKeyPair;
 }> {
-  const keyPair = await crypto.subtle.generateKey(
-    { name: "Ed25519", namedCurve: "Ed25519" } as any,
+  const keyPair = (await crypto.subtle.generateKey(
+    { name: "Ed25519", namedCurve: "Ed25519" } as unknown as EcKeyGenParams,
     true,
     ["sign", "verify"],
-  );
+  )) as CryptoKeyPair;
   const pubRaw = await crypto.subtle.exportKey("raw", keyPair.publicKey);
 
   return {
@@ -54,7 +54,11 @@ export async function issueSignedCredential(
   const encoder = new TextEncoder();
   const data = encoder.encode(JSON.stringify(payload));
 
-  const sig = await crypto.subtle.sign({ name: "Ed25519" } as any, privateKey, data);
+  const sig = await crypto.subtle.sign(
+    { name: "Ed25519" } as unknown as AlgorithmIdentifier,
+    privateKey,
+    data,
+  );
 
   return {
     ...payload,
@@ -73,7 +77,7 @@ export async function importPrivateKey(b64Str: string): Promise<CryptoKey> {
   return await crypto.subtle.importKey(
     "pkcs8",
     buf.buffer as ArrayBuffer,
-    { name: "Ed25519", namedCurve: "Ed25519" } as any,
+    { name: "Ed25519", namedCurve: "Ed25519" } as unknown as AlgorithmIdentifier,
     true,
     ["sign"],
   );
