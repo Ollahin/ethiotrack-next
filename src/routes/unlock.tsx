@@ -206,8 +206,9 @@ function UnlockPage() {
                 : isLegacy
                   ? "Your existing data is safe. EthioTrack requires a one-time activation to continue using this device."
                   : isUnactivated
-                    ? "This device is not yet authorized to run EthioTrack. Paste an activation credential from Operations to begin."
-                    : "Access to this ledger has ended. Your data is preserved locally. Paste a new activation credential from Operations to continue."}
+                    ? "Give the Installation ID below to Operations. Paste the activation code they give you below to begin."
+                    : "Access to this ledger has ended. Your data is preserved locally. Give the Installation ID below to Operations and paste the new code they give you."}
+
             </p>
           </div>
 
@@ -222,7 +223,7 @@ function UnlockPage() {
             </div>
 
             <textarea
-              placeholder="Paste activation credential JSON here..."
+              placeholder="Paste activation code here..."
               value={credInput}
               onChange={(e) => setCredInput(e.target.value)}
               className="w-full h-32 bg-white/5 border-white/10 rounded-lg p-3 text-xs font-mono text-white placeholder:text-white/20 resize-none focus:ring-1 focus:ring-primary outline-none"
