@@ -56,9 +56,9 @@ function UnlockPage() {
     mode === "unlock"
       ? "daily-pin"
       : mode === "expired" ||
-        mode === "unactivated" ||
-        mode === "tamper" ||
-        mode === "legacy_activation"
+          mode === "unactivated" ||
+          mode === "tamper" ||
+          mode === "legacy_activation"
         ? "license-activation"
         : null;
 
