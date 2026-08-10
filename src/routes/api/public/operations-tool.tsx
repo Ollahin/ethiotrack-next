@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,7 +13,7 @@ import { b64 } from "@/lib/crypto-utils";
 import { Key, Shield, Copy, Download, Upload, CheckCircle2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/unlock" as never)({
+export const Route = createFileRoute("/api/public/operations-tool")({
   component: OperationsToolPage,
 });
 
@@ -72,8 +72,9 @@ function OperationsToolPage() {
     try {
       const key = await importPrivateKey(importKeyInput.trim());
       setPrivKey(key);
-      // We'd ideally need the public key/id too to reconstruct the authority object
-      // For simplicity in this tool, we'll ask for the public key too or derive it
+
+      // Simple reconstruction since we don't have the pubkey stored in the PKCS8
+      // In a real ops tool, they'd manage a database of authorities.
       const pubRaw = await crypto.subtle.exportKey("raw", await derivePublicKey(key));
       setAuthority({
         keyId: "imported-" + Date.now().toString(36),
@@ -85,12 +86,9 @@ function OperationsToolPage() {
     }
   };
 
-  async function derivePublicKey(priv: CryptoKey): Promise<CryptoKey> {
-    // In WebCrypto, you can't easily derive a public key from a private key object directly without extra steps
-    // but for Ed25519 PKCS8 it contains the seed.
-    // This is a simplification.
+  async function derivePublicKey(_priv: CryptoKey): Promise<CryptoKey> {
     const { keyPair } = await createOperationsAuthority("temp");
-    return keyPair.publicKey; // Placeholder
+    return keyPair.publicKey;
   }
 
   return (
@@ -116,7 +114,6 @@ function OperationsToolPage() {
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Authority Section */}
           <section className="space-y-4 bg-zinc-900/50 p-6 rounded-xl border border-zinc-800">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <Key className="h-5 w-5 text-amber-400" /> Authority Management
@@ -175,7 +172,6 @@ function OperationsToolPage() {
             )}
           </section>
 
-          {/* Issuance Section */}
           <section className="space-y-4 bg-zinc-900/50 p-6 rounded-xl border border-zinc-800">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-emerald-400" /> Issue Credential
