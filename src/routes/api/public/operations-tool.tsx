@@ -199,7 +199,9 @@ function OperationsToolPage() {
                   <label className="text-[10px] uppercase text-zinc-500 font-bold">Type</label>
                   <select
                     value={credType}
-                    onChange={(e) => setCredType(e.target.value as "activation" | "renewal" | "recovery")}
+                    onChange={(e) =>
+                      setCredType(e.target.value as "activation" | "renewal" | "recovery")
+                    }
                     className="w-full bg-black border border-zinc-800 rounded p-2 text-xs outline-none"
                   >
                     <option value="activation">Activation</option>
