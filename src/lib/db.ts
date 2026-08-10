@@ -243,7 +243,51 @@ class EthioTrackDB extends Dexie {
       settlementAllocations: "id, paymentTxnId, creditTxnId, agentId",
       meta: "key",
     });
+
+    // v9: Licensing provenance for legacy installations.
+    // If the database has initialized state but no licensing metadata,
+    // mark it once as a legacy installation.
+    this.version(9).upgrade(async (tx) => {
+      const meta = tx.table("meta");
+      const everActivated = await meta.get("licensing_migration_v1");
+      if (everActivated) return;
+
+      const [txCount, agentCount, bankCount, distCount, pinCount] = await Promise.all([
+        tx.table("transactions").count(),
+        tx.table("agents").count(),
+        tx.table("banks").count(),
+        tx.table("distributors").count(),
+        meta.get("daily_pin_v1"),
+      ]);
+
+      // If we have business data or security state, this is a legacy install.
+      const hasData = txCount > 0 || agentCount > 0 || bankCount > 0 || distCount > 0;
+      const hasSecurity = !!pinCount;
+
+      if (hasData || hasSecurity) {
+        await meta.put({
+          key: "licensing_migration_v1",
+          value: {
+            version: 1,
+            everActivated: false,
+            legacyInstallRecognizedAt: Date.now(),
+          },
+        });
+      }
+    });
   }
+}
+
+/** Check if the account has any business/user state. */
+export async function accountIsEmpty(): Promise<boolean> {
+  const d = db();
+  const counts = await Promise.all([
+    d.transactions.count(),
+    d.agents.count(),
+    d.banks.count(),
+    d.distributors.count(),
+  ]);
+  return counts.every((c) => c === 0);
 }
 
 // -- migration helpers -------------------------------------------------------

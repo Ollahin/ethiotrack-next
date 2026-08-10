@@ -110,10 +110,10 @@ export const LICENSE_PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
 
 export type LicenseState =
   | "UNACTIVATED"
+  | "LEGACY_ACTIVATION_REQUIRED"
   | "VALID"
   | "EXPIRED"
-  | "TAMPER_LOCKED"
-  | "LEGACY_ACTIVATION_REQUIRED";
+  | "TAMPER_LOCKED";
 
 export async function getInstallationId(): Promise<string> {
   let id = await metaGet<string>("installation_id");
@@ -199,29 +199,41 @@ export async function getLicenseRecord(): Promise<LicenseRecord | undefined> {
 }
 
 export async function getLicenseState(): Promise<LicenseState> {
-  const [cred, hasBusinessData, migration, myId] = await Promise.all([
+  const [cred, isEmpty, migration, myId] = await Promise.all([
     getLicense(),
-    db()
-      .transactions.count()
-      .then((c) => c > 0),
-    metaGet<{ version: number; everActivated: boolean }>("licensing_migration_v1"),
+    accountIsEmpty(),
+    metaGet<{ version: number; everActivated: boolean; legacyInstallRecognizedAt?: number }>(
+      "licensing_migration_v1",
+    ),
     getInstallationId(),
   ]);
 
-  if (!cred) {
-    if (!hasBusinessData) return "UNACTIVATED";
-    if (migration?.everActivated) return "TAMPER_LOCKED";
+  // 1. Fresh + no initialized state
+  if (!cred && isEmpty && !migration) {
+    return "UNACTIVATED";
+  }
+
+  // 2. Proven pre-license installation + never activated
+  if (!cred && migration && !migration.everActivated) {
     return "LEGACY_ACTIVATION_REQUIRED";
   }
 
-  if (cred.installationId !== myId) return "TAMPER_LOCKED";
+  // 3. Valid signed credential
+  if (cred) {
+    if (cred.installationId !== myId) return "TAMPER_LOCKED";
+    const valid = await verifyLicenseCredential(cred);
+    if (!valid) return "TAMPER_LOCKED";
+    if (Date.now() > cred.expiresAt) return "EXPIRED";
+    return "VALID";
+  }
 
-  const valid = await verifyLicenseCredential(cred);
-  if (!valid) return "TAMPER_LOCKED";
+  // 4. everActivated=true + missing/invalid/mismatched credential
+  if (migration?.everActivated) {
+    return "TAMPER_LOCKED";
+  }
 
-  if (Date.now() > cred.expiresAt) return "EXPIRED";
-
-  return "VALID";
+  // Default to unactivated if truly empty, otherwise tamper
+  return isEmpty ? "UNACTIVATED" : "TAMPER_LOCKED";
 }
 
 export async function isLicenseActive(): Promise<boolean> {
