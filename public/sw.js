@@ -32,9 +32,12 @@ const PRECACHE_ASSETS = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_ASSETS);
-    }).then(() => self.skipWaiting())
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => {
+        return cache.addAll(PRECACHE_ASSETS);
+      })
+      .then(() => self.skipWaiting()),
   );
 });
 
@@ -45,10 +48,10 @@ self.addEventListener("activate", (event) => {
       // Remove old caches
       caches.keys().then((keys) => {
         return Promise.all(
-          keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+          keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)),
         );
       }),
-    ])
+    ]),
   );
 });
 
@@ -128,7 +131,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(event.request).catch(() => {
         return caches.match("/");
-      })
+      }),
     );
     return;
   }
@@ -136,25 +139,27 @@ self.addEventListener("fetch", (event) => {
   // 3. Static assets: Stale-While-Revalidate
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      const fetchedResponse = fetch(event.request).then((networkResponse) => {
-        // Only cache valid GET responses from our own origin
-        if (
-          networkResponse &&
-          networkResponse.status === 200 &&
-          networkResponse.type === "basic" &&
-          event.request.method === "GET"
-        ) {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-        }
-        return networkResponse;
-      }).catch(() => {
-        // If network fails, the cachedResponse (if any) will be returned by the outer promise
-      });
+      const fetchedResponse = fetch(event.request)
+        .then((networkResponse) => {
+          // Only cache valid GET responses from our own origin
+          if (
+            networkResponse &&
+            networkResponse.status === 200 &&
+            networkResponse.type === "basic" &&
+            event.request.method === "GET"
+          ) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          // If network fails, the cachedResponse (if any) will be returned by the outer promise
+        });
 
       return cachedResponse || fetchedResponse;
-    })
+    }),
   );
 });

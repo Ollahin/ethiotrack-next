@@ -36,7 +36,6 @@ import {
 } from "@/components/ui/sheet";
 import { InstallPrompt } from "./InstallPrompt";
 
-
 const TABS = [
   { to: "/", label: "Home", icon: LayoutDashboard },
   { to: "/capture", label: "Capture", icon: Zap },

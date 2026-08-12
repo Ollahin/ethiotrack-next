@@ -22,7 +22,7 @@ export function shouldRegisterServiceWorker(
 
 export async function setupServiceWorker(): Promise<void> {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
-  
+
   const allowed = shouldRegisterServiceWorker(window.location, {
     isProd: import.meta.env.PROD,
     inIframe: window.top !== window.self,
