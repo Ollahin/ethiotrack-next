@@ -1,24 +1,26 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { getLockoutStatus, verifyDailyPin, setDailyPin, lock } from "./crypto";
-import { db } from "./db";
+
+// Use a shared store to simulate Dexie meta across re-imports if needed, 
+// though here we just mock the module.
+let metaStore: Record<string, any> = {};
 
 vi.mock("./db", async () => {
   const actual = await vi.importActual("./db") as any;
-  let store: Record<string, any> = {};
   return {
     ...actual,
-    metaGet: vi.fn(async (key) => store[key]),
-    metaSet: vi.fn(async (key, val) => { store[key] = val; }),
+    metaGet: vi.fn(async (key) => metaStore[key]),
+    metaSet: vi.fn(async (key, val) => { metaStore[key] = val; }),
     accountIsEmpty: vi.fn(async () => false),
   };
 });
 
 describe("Lockout State Machine", () => {
   beforeEach(async () => {
+    metaStore = {};
     vi.clearAllMocks();
     lock();
-    // Clear storage by resetting the mock's internal state via re-importing would be hard,
-    // so we just rely on the manual setDailyPin to establish a baseline.
+    // Establish a PIN
     await setDailyPin("123456");
   });
 
@@ -37,12 +39,9 @@ describe("Lockout State Machine", () => {
   });
 
   it("should lock after 5 failures", async () => {
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       await verifyDailyPin("wrong");
     }
-    // 5th one should not throw, it just records the lock
-    await verifyDailyPin("wrong");
-
     const status = await getLockoutStatus("daily-pin");
     expect(status.locked).toBe(true);
     expect(status.attemptsLeft).toBe(0);
@@ -52,13 +51,10 @@ describe("Lockout State Machine", () => {
   it("should allow recovery after timeout", async () => {
     vi.useFakeTimers();
     
-    // Lock it
-    for (let i = 0; i < 5; i++) {
-      await verifyDailyPin("wrong");
-    }
+    for (let i = 0; i < 5; i++) await verifyDailyPin("wrong");
     
-    // Fast forward 31 seconds (BASE_LOCK_MS = 30s)
-    vi.advanceTimersByTime(31000);
+    // Fast forward past BASE_LOCK_MS (30s)
+    vi.advanceTimersByTime(35000);
     
     const status = await getLockoutStatus("daily-pin");
     expect(status.locked).toBe(false);
@@ -74,14 +70,15 @@ describe("Lockout State Machine", () => {
     // First lock (30s)
     for (let i = 0; i < 5; i++) await verifyDailyPin("wrong");
     let status = await getLockoutStatus("daily-pin");
+    expect(status.msRemaining).toBeGreaterThan(25000);
     expect(status.msRemaining).toBeLessThanOrEqual(30000);
     
-    vi.advanceTimersByTime(31000);
+    vi.advanceTimersByTime(35000);
     
     // Second lock (should be 60s)
     for (let i = 0; i < 5; i++) await verifyDailyPin("wrong");
     status = await getLockoutStatus("daily-pin");
-    expect(status.msRemaining).toBeGreaterThan(30000);
+    expect(status.msRemaining).toBeGreaterThan(55000);
     expect(status.msRemaining).toBeLessThanOrEqual(60000);
     
     vi.useRealTimers();
