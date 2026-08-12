@@ -1,9 +1,7 @@
+import { toast } from "sonner";
+
 /**
- * Guarded service-worker registration.
- *
- * The worker only exists to catch Android share-target POSTs, and it caches
- * nothing. It must still never register inside the Lovable editor preview, an
- * iframe or dev, where a controlling worker can confuse hot reloads.
+ * Enhanced service-worker registration with update detection.
  */
 const SW_PATH = "/sw.js";
 
@@ -24,10 +22,12 @@ export function shouldRegisterServiceWorker(
 
 export async function setupServiceWorker(): Promise<void> {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+  
   const allowed = shouldRegisterServiceWorker(window.location, {
     isProd: import.meta.env.PROD,
     inIframe: window.top !== window.self,
   });
+
   if (!allowed) {
     const regs = await navigator.serviceWorker.getRegistrations().catch(() => []);
     await Promise.allSettled(
@@ -35,9 +35,36 @@ export async function setupServiceWorker(): Promise<void> {
     );
     return;
   }
+
   try {
-    await navigator.serviceWorker.register(SW_PATH);
-  } catch {
-    /* share target simply stays unavailable; the app is unaffected */
+    const registration = await navigator.serviceWorker.register(SW_PATH);
+
+    // Handle updates
+    registration.addEventListener("updatefound", () => {
+      const newWorker = registration.installing;
+      if (!newWorker) return;
+
+      newWorker.addEventListener("statechange", () => {
+        if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+          // New version available!
+          showUpdateToast();
+        }
+      });
+    });
+  } catch (err) {
+    console.error("SW registration failed:", err);
   }
+}
+
+function showUpdateToast() {
+  toast.info("Update available", {
+    description: "A new version of EthioTrack is ready.",
+    action: {
+      label: "Update Now",
+      onClick: () => {
+        window.location.reload();
+      },
+    },
+    duration: Infinity,
+  });
 }
