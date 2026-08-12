@@ -9,8 +9,12 @@ export function getBuildOutputDir(): string {
   const envDir = process.env.NITRO_PUBLIC_DIR;
   if (envDir) return envDir;
   
-  // Canonical default for TanStack Start + Nitro
-  return join(process.cwd(), ".output", "public");
+  // Nitro build creates .output/public
+  const nitroOutput = join(process.cwd(), ".output", "public");
+  if (existsSync(nitroOutput)) return nitroOutput;
+
+  // Fallback for local Vite builds or intermediate steps
+  return join(process.cwd(), "dist", "client");
 }
 
 export function validateOutputDir(dir: string): void {
