@@ -16,6 +16,7 @@ const ready: ReadinessInput = {
   purposeResolved: true,
   requiresLink: false,
   linkSatisfied: true,
+  linkCertain: true,
 };
 
 describe("duplicate-risk gate", () => {
