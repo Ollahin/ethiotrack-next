@@ -26,8 +26,26 @@ jobs:
         with:
           bun-version: 1.3.3
 
-      - name: Install dependencies
+      - name: Install
         run: bun install --frozen-lockfile
 
-      - name: Verify
-        run: bun run verify && git diff --exit-code
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Format
+        run: bun run format:check
+
+      - name: Tests
+        run: bun run test
+
+      - name: Build
+        run: bun run build
+
+      - name: Validate Precache
+        run: bun scripts/check-ci.ts precache
+
+      - name: Clean-tree invariant
+        run: bun scripts/check-ci.ts clean-tree
