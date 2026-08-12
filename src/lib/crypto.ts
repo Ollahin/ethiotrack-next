@@ -5,6 +5,7 @@ import { b64, fromB64 } from "./crypto-utils";
 const DAILY_PIN_VERIFIER_KEY = "daily_pin_v1";
 const MASTER_PIN_VERIFIER_KEY = "master_pin_v1";
 const LOCKOUT_META_KEY = "auth_lockout_v2"; // v2 for the new state machine
+const LEGACY_LOCKOUT_META_KEY = "auth_lockout_v1";
 
 // Constants
 const MAX_ATTEMPTS = 5;
@@ -33,7 +34,33 @@ function emitLockout() {
 }
 
 async function readLockouts(): Promise<LockoutMap> {
-  return (await metaGet<LockoutMap>(LOCKOUT_META_KEY)) ?? {};
+  const current = await metaGet<LockoutMap>(LOCKOUT_META_KEY);
+  if (current) return current;
+  return await migrateLegacyLockouts();
+}
+
+/**
+ * Migrates any pre-existing auth_lockout_v1 payload into the v2 state machine.
+ * Unknown/corrupt shapes degrade to a clean state rather than throwing.
+ */
+async function migrateLegacyLockouts(): Promise<LockoutMap> {
+  const legacy = await metaGet<Record<string, unknown>>(LEGACY_LOCKOUT_META_KEY);
+  const migrated: LockoutMap = {};
+  if (legacy && typeof legacy === "object") {
+    for (const kind of ["daily-pin", "master-pin"] as AuthKind[]) {
+      const raw = legacy[kind] as Record<string, unknown> | undefined;
+      if (!raw || typeof raw !== "object") continue;
+      const failures = Number(raw["failures"] ?? raw["count"] ?? 0);
+      const lockedUntil = Number(raw["lockedUntil"] ?? raw["until"] ?? 0);
+      migrated[kind] = {
+        failures: Number.isFinite(failures) ? Math.max(0, Math.min(MAX_ATTEMPTS, failures)) : 0,
+        lockLevel: Number(raw["lockLevel"] ?? 0) || 0,
+        lockedUntil: Number.isFinite(lockedUntil) && lockedUntil > Date.now() ? lockedUntil : 0,
+      };
+    }
+  }
+  await metaSet(LOCKOUT_META_KEY, migrated);
+  return migrated;
 }
 async function writeLockouts(m: LockoutMap) {
   await metaSet(LOCKOUT_META_KEY, m);
