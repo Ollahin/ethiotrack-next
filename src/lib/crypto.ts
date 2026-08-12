@@ -101,12 +101,14 @@ export async function getLockoutStatus(kind: AuthKind): Promise<LockoutStatus> {
 
   const msRemaining = e && e.lockedUntil > now ? e.lockedUntil - now : 0;
   const failures = e?.failures ?? 0;
+  const locked = msRemaining > 0;
 
   return {
-    locked: msRemaining > 0,
+    locked,
     msRemaining,
     failures,
-    attemptsLeft: Math.max(0, MAX_ATTEMPTS - failures),
+    // Invariant: an enabled (unlocked) form always exposes at least one attempt.
+    attemptsLeft: locked ? 0 : Math.max(1, MAX_ATTEMPTS - failures),
     lockLevel: e?.lockLevel ?? 0,
   };
 }
