@@ -47,7 +47,7 @@ export async function setupServiceWorker(): Promise<void> {
       newWorker.addEventListener("statechange", () => {
         if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
           // New version available!
-          showUpdateToast();
+          showUpdateToast(registration);
         }
       });
     });
@@ -56,13 +56,24 @@ export async function setupServiceWorker(): Promise<void> {
   }
 }
 
-function showUpdateToast() {
+function showUpdateToast(registration: ServiceWorkerRegistration) {
   toast.info("Update available", {
     description: "A new version of EthioTrack is ready.",
     action: {
       label: "Update Now",
       onClick: () => {
-        window.location.reload();
+        const waitingWorker = registration.waiting;
+        if (waitingWorker) {
+          // Set up listener for the new worker taking control
+          navigator.serviceWorker.addEventListener("controllerchange", () => {
+            window.location.reload();
+          });
+          // Tell the waiting worker to skip waiting
+          waitingWorker.postMessage("SKIP_WAITING");
+        } else {
+          // Fallback if worker already activated or lost
+          window.location.reload();
+        }
       },
     },
     duration: Infinity,
