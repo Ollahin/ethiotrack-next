@@ -686,29 +686,47 @@ function InboxSmsRow({
       )}
 
       {date.conflict && (
-        <label className="flex items-center gap-2 text-xs text-airtime">
-          <Checkbox checked={false} onCheckedChange={(v) => onConfirmCorrection(Boolean(v))} />
-          Date conflict: SMS says {formatDayShort(date.sourceDate)}; correction says{" "}
-          {formatDayShort(date.reviewerDateOverride)}. Tick to use the correction.
+        <label className="flex items-center gap-2 rounded border border-airtime/30 bg-airtime/5 p-2 text-xs text-airtime">
+          <Checkbox 
+            checked={Boolean(review.item.decisions?.correctionConfirmed)} 
+            onCheckedChange={(v) => onConfirmCorrection(Boolean(v))} 
+          />
+          <span className="flex-1">
+            Date conflict: SMS says {formatDayShort(date.sourceDate)}; correction says{" "}
+            {formatDayShort(date.reviewerDateOverride)}. Tick to use the correction.
+          </span>
         </label>
       )}
 
       {review.input.recipientMismatch && (
-        <label className="flex items-center gap-2 text-xs text-airtime">
-          <Checkbox checked={false} onCheckedChange={(v) => onConfirmRecipient(Boolean(v))} />
-          {evaluation.blockers.find((b) => b.code === "recipient_mismatch")?.message} Tick to
-          confirm the link.
+        <label className="flex items-center gap-2 rounded border border-airtime/30 bg-airtime/5 p-2 text-xs text-airtime">
+          <Checkbox 
+            checked={Boolean(review.item.decisions?.recipientConfirmed)} 
+            onCheckedChange={(v) => onConfirmRecipient(Boolean(v))} 
+          />
+          <span className="flex-1">
+            {evaluation.blockers.find((b) => b.code === "recipient_mismatch")?.message}. Tick to
+            confirm the link.
+          </span>
         </label>
       )}
 
       {review.duplicate && (
-        <label className="flex items-center gap-2 text-xs text-airtime">
+        <label className="flex items-center gap-2 rounded border border-airtime/30 bg-airtime/5 p-2 text-xs text-airtime">
           <Checkbox
-            checked={Boolean(review.input.duplicateRiskAcknowledged)}
+            checked={Boolean(review.item.decisions?.duplicateAcknowledged)}
             onCheckedChange={(v) => onDupOk(Boolean(v))}
           />
-          This matches a message already saved. Tick to import it anyway.
+          <span className="flex-1">
+            This matches a message already saved. Tick to import it anyway.
+          </span>
         </label>
+      )}
+
+      {evaluation.state === "NEEDS_ATTENTION" && !date.conflict && !review.input.recipientMismatch && !review.duplicate && (
+        <div className="rounded border border-airtime/30 bg-airtime/5 p-2 text-xs text-airtime">
+          {evaluation.blocker}
+        </div>
       )}
 
       <details className="text-xs text-ink-soft">
