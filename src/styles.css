@@ -162,7 +162,13 @@
   h2,
   h3,
   h4 {
-    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-family:
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      Roboto,
+      sans-serif;
     letter-spacing: -0.01em;
   }
 

@@ -22,9 +22,7 @@ function getFiles(dir: string, rootDir: string): string[] {
 }
 
 // Emitted build assets (hashed JS/CSS) — only what the build genuinely produced.
-const buildAssets = getFiles(join(DIST_DIR, "assets"), DIST_DIR).filter(
-  (f) => !f.endsWith(".map"),
-);
+const buildAssets = getFiles(join(DIST_DIR, "assets"), DIST_DIR).filter((f) => !f.endsWith(".map"));
 
 // Static files shipped from public/ that actually exist on disk.
 const staticCandidates = [
