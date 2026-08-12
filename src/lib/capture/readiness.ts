@@ -18,7 +18,7 @@ export type BlockerCode =
   | "choose_agent"
   | "choose_distributor"
   | "duplicate_collision"
-  | "recipient_mismatch"
+  | "recipient_mismatch" | "confirm_link"
   | "needs_review";
 
 export interface Blocker {
@@ -44,7 +44,7 @@ export interface ReadinessInput {
   /** That link has been made explicitly by the operator. */
   linkSatisfied: boolean;
   /** The link was an exact match rather than an operator override/guess. */
-  linkCertain?: boolean;
+  linkCertain: boolean;
   /** The link needed is a distributor rather than an agent. */
   linkKind?: "agent" | "distributor";
   /** A confirmed correction disagrees with the day the message stated. */
@@ -81,7 +81,7 @@ export function rowReadiness(i: ReadinessInput): ReadinessState {
   if (i.duplicateRisk && !i.duplicateRiskAcknowledged) return "NEEDS_ATTENTION";
   if (i.recipientMismatch) return "NEEDS_ATTENTION";
   if (i.needsReview) return "NEEDS_ATTENTION";
-  if (i.requiresLink && i.linkCertain === false) return "NEEDS_ATTENTION";
+  if (i.requiresLink && !i.linkCertain) return "NEEDS_ATTENTION";
   return "READY";
 }
 
@@ -155,8 +155,8 @@ export function rowBlockers(i: ReadinessInput): Blocker[] {
     const linked = i.linkedParty ? `linked to ${i.linkedParty}` : "the linked party differs";
     add("recipient_mismatch", `Recipient mismatch: ${said}; ${linked}.`);
   }
-  if (i.requiresLink && i.linkCertain === false && !i.recipientMismatch)
-    add("recipient_mismatch", "Confirm the link — it was not an exact match");
+  if (i.requiresLink && !i.linkCertain && !i.recipientMismatch)
+    add("confirm_link", "Confirm the link — it was not an exact match");
   // A generic "check this message" is only ever shown when nothing precise is
   // known; a precise reason always wins.
   if (i.needsReview && out.length === 0) add("needs_review", "Check this message");
