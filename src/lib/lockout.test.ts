@@ -1,14 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { getLockoutStatus, verifyDailyPin, setDailyPin, lock } from "./crypto";
 
-// Use a shared store to simulate Dexie meta across re-imports if needed, 
-// though here we just mock the module.
+// Unified store to ensure metaGet/metaSet behave like a database
 let metaStore: Record<string, any> = {};
 
 vi.mock("./db", async () => {
-  const actual = await vi.importActual("./db") as any;
   return {
-    ...actual,
     metaGet: vi.fn(async (key) => metaStore[key]),
     metaSet: vi.fn(async (key, val) => { metaStore[key] = val; }),
     accountIsEmpty: vi.fn(async () => false),
@@ -22,6 +19,8 @@ describe("Lockout State Machine", () => {
     lock();
     // Establish a PIN
     await setDailyPin("123456");
+    // reset failures after setDailyPin as it might have initialized something
+    metaStore["auth_lockout_v2"] = {}; 
   });
 
   it("should have full attempts budget initially", async () => {
@@ -32,7 +31,8 @@ describe("Lockout State Machine", () => {
   });
 
   it("should decrement attempts on failure", async () => {
-    await verifyDailyPin("wrong");
+    const ok = await verifyDailyPin("wrong");
+    expect(ok).toBe(false);
     const status = await getLockoutStatus("daily-pin");
     expect(status.failures).toBe(1);
     expect(status.attemptsLeft).toBe(4);
@@ -67,17 +67,24 @@ describe("Lockout State Machine", () => {
   it("should escalate lockout duration on repeated failures", async () => {
     vi.useFakeTimers();
     
-    // First lock (30s)
+    // First lock sequence
     for (let i = 0; i < 5; i++) await verifyDailyPin("wrong");
     let status = await getLockoutStatus("daily-pin");
+    expect(status.locked).toBe(true);
+    // 30s
     expect(status.msRemaining).toBeGreaterThan(25000);
     expect(status.msRemaining).toBeLessThanOrEqual(30000);
     
+    // Recover
     vi.advanceTimersByTime(35000);
+    status = await getLockoutStatus("daily-pin");
+    expect(status.locked).toBe(false);
     
-    // Second lock (should be 60s)
+    // Second lock sequence (should be 60s)
     for (let i = 0; i < 5; i++) await verifyDailyPin("wrong");
     status = await getLockoutStatus("daily-pin");
+    expect(status.locked).toBe(true);
+    // 60s
     expect(status.msRemaining).toBeGreaterThan(55000);
     expect(status.msRemaining).toBeLessThanOrEqual(60000);
     
