@@ -68,5 +68,5 @@ self.PRECACHE_ASSETS = [
   "/unlock-DRc2Ofsi.js",
   "/useRouter-C9V5ogdY.js",
   "/pdf.worker.min-DEtVeC4l.mjs",
-  "/styles-DKJ1IKnR.css"
+  "/styles-DKJ1IKnR.css",
 ];

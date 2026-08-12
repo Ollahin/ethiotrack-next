@@ -17,9 +17,9 @@ export type AuthKind = "daily-pin" | "master-pin";
  * Persisted lockout state machine.
  */
 interface LockoutEntry {
-  failures: number;     // Consecutive failures since last success or timeout
-  lockLevel: number;    // Escalation tier for progressive penalties
-  lockedUntil: number;  // Expiry timestamp
+  failures: number; // Consecutive failures since last success or timeout
+  lockLevel: number; // Escalation tier for progressive penalties
+  lockedUntil: number; // Expiry timestamp
 }
 type LockoutMap = Partial<Record<AuthKind, LockoutEntry>>;
 
@@ -56,7 +56,7 @@ export async function getLockoutStatus(kind: AuthKind): Promise<LockoutStatus> {
   const map = await readLockouts();
   const e = map[kind];
   const now = Date.now();
-  
+
   // If we were locked but the time has passed, effectively reset the failure budget
   // but keep the lockLevel for future escalation.
   if (e && e.lockedUntil > 0 && e.lockedUntil <= now) {
@@ -74,7 +74,7 @@ export async function getLockoutStatus(kind: AuthKind): Promise<LockoutStatus> {
 
   const msRemaining = e && e.lockedUntil > now ? e.lockedUntil - now : 0;
   const failures = e?.failures ?? 0;
-  
+
   return {
     locked: msRemaining > 0,
     msRemaining,
@@ -84,11 +84,10 @@ export async function getLockoutStatus(kind: AuthKind): Promise<LockoutStatus> {
   };
 }
 
-
 async function recordFailure(kind: AuthKind) {
   const map = await readLockouts();
   const current = map[kind] ?? { failures: 0, lockLevel: 0, lockedUntil: 0 };
-  
+
   const failures = current.failures + 1;
   let lockedUntil = 0;
   let lockLevel = current.lockLevel;

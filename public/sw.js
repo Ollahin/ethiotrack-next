@@ -6,7 +6,7 @@
  * 3. Update Flow: Detects new versions and prompts for restart.
  */
 
-importScripts('/sw-precache.js');
+importScripts("/sw-precache.js");
 
 const CACHE_NAME = "ethiotrack-v2";
 const HANDOFF_DB = "ethiotrack-share";
@@ -18,16 +18,14 @@ const PRECACHE_LIST = self.PRECACHE_ASSETS || ["/"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => {
-        // Try adding all, but don't let a single missing asset kill the SW
-        return Promise.allSettled(
-          PRECACHE_LIST.map(url => 
-            cache.add(url).catch(err => console.warn(`Failed to precache ${url}:`, err))
-          )
-        );
-      })
+    caches.open(CACHE_NAME).then((cache) => {
+      // Try adding all, but don't let a single missing asset kill the SW
+      return Promise.allSettled(
+        PRECACHE_LIST.map((url) =>
+          cache.add(url).catch((err) => console.warn(`Failed to precache ${url}:`, err)),
+        ),
+      );
+    }),
   );
 });
 
@@ -139,13 +137,13 @@ self.addEventListener("fetch", (event) => {
 
   // 3. Static assets: Stale-While-Revalidate
   // Cache only specific safe asset classes
-  const isStaticAsset = 
-    url.origin === self.location.origin && 
-    (url.pathname.startsWith('/assets/') || 
-     url.pathname.startsWith('/fonts/') ||
-     url.pathname === '/manifest.webmanifest' ||
-     url.pathname.endsWith('.png') ||
-     url.pathname.endsWith('.ico'));
+  const isStaticAsset =
+    url.origin === self.location.origin &&
+    (url.pathname.startsWith("/assets/") ||
+      url.pathname.startsWith("/fonts/") ||
+      url.pathname === "/manifest.webmanifest" ||
+      url.pathname.endsWith(".png") ||
+      url.pathname.endsWith(".ico"));
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
