@@ -44,16 +44,16 @@ function checkPrecache() {
     console.error("ERROR: Could not parse PRECACHE_ASSETS from sw-precache.js");
     process.exit(1);
   }
-  
+
   const assets: string[] = JSON.parse(match[1]);
-  
+
   // 1. Assert root-relative URLs
   for (const asset of assets) {
     if (asset !== "/" && !asset.startsWith("/")) {
       console.error(`ERROR: Non-root-relative URL in precache: ${asset}`);
       process.exit(1);
     }
-    
+
     // 2. Assert no /functions/ leakage
     if (asset.includes("/functions/") || asset.includes(".vercel/output/functions")) {
       console.error(`ERROR: Server function leaked into precache: ${asset}`);
