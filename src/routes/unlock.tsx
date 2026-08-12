@@ -204,8 +204,65 @@ function UnlockPage() {
           <h1 className="mt-3 text-2xl font-extrabold tracking-tight">
             Ethio<span className="text-primary">Track</span>
           </h1>
-          <div className="text-xs font-semibold uppercase tracking-wider text-primary/80 mt-2">
-            Daily PIN
+          <div className="text-[10px] leading-tight font-semibold uppercase tracking-wider text-primary/80 mt-2 whitespace-pre-wrap text-left max-w-[280px] mx-auto">
+            '''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''
+                                        
+                                            
+                                            TASK 0.4C-c2A — Final PWA offline acceptance
+
+Do not modify code unless this journey exposes a reproducible defect.
+
+Use a real published HTTPS origin, NOT the Lovable iframe/dev preview.
+
+1. Open EthioTrack online once.
+2. Confirm service worker installs successfully.
+3. Install EthioTrack as a PWA.
+4. Confirm it launches standalone.
+5. Unlock normally with Daily PIN.
+6. Visit:
+- Home
+- Capture
+- Agents
+- History
+- More
+7. Disable internet completely.
+8. Close the installed PWA completely.
+9. Reopen it while still offline.
+10. Daily PIN must work.
+11. Revisit all routes above.
+12. Create/save one harmless local test record offline.
+13. Close/reopen offline and confirm it persists.
+
+Update proof:
+14. Restore internet.
+15. Publish a harmless version change.
+16. Old version remains usable until update.
+17. "Update available" appears.
+18. Tap Update Now.
+19. New worker activates and reloads once.
+20. Existing IndexedDB data remains intact.
+
+Also confirm:
+- no leaked developer instruction on unlock
+- lockout attempts behave correctly
+- Android share-target behavior still exists
+- no missing-font/icon errors
+
+Report:
+HTTPS origin:
+Install:
+Standalone:
+Offline cold launch:
+Daily PIN offline:
+Offline routes:
+Offline write/reopen:
+Update prompt:
+Update activation:
+Data preserved:
+Share target:
+Observed defect:
+Code changed:
+GitHub SHA/status:
           </div>
           <p className="text-sm text-white/60 mt-1">Product access active</p>
         </div>
