@@ -248,9 +248,17 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
       // surfaced by name, never as a vague "needs attention".
       const partyKey = normalizeLabel(row.ok ? (row.party ?? "") : "");
       const recipientMismatch = Boolean(
-        !isManualAgent && needsAgent && agent && partyKey && normalizeLabel(agent.name) !== partyKey,
+        !isManualAgent &&
+        needsAgent &&
+        agent &&
+        partyKey &&
+        normalizeLabel(agent.name) !== partyKey,
       );
-      const linkCertain = needsAgent ? isManualAgent || Boolean(agent) : needsDistributor ? isManualDist || Boolean(distributor) : true;
+      const linkCertain = needsAgent
+        ? isManualAgent || Boolean(agent)
+        : needsDistributor
+          ? isManualDist || Boolean(distributor)
+          : true;
       const input: ReadinessInput = {
         sourceResolved: Boolean(
           row.ok && (fp?.resolved || (row.channel && row.channel !== "Other")),

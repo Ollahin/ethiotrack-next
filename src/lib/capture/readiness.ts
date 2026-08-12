@@ -18,7 +18,8 @@ export type BlockerCode =
   | "choose_agent"
   | "choose_distributor"
   | "duplicate_collision"
-  | "recipient_mismatch" | "confirm_link"
+  | "recipient_mismatch"
+  | "confirm_link"
   | "needs_review";
 
 export interface Blocker {
