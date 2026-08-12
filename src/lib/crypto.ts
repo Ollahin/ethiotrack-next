@@ -1,4 +1,4 @@
-import { metaGet, metaSet, db, accountIsEmpty } from "./db";
+import { metaGet, metaSet } from "./db";
 import { b64, fromB64 } from "./crypto-utils";
 
 // State keys
