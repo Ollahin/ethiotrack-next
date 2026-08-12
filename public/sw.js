@@ -6,7 +6,11 @@
  * 3. Update Flow: Detects new versions and prompts for restart.
  */
 
-importScripts("/sw-precache.js");
+try {
+  importScripts("/sw-precache.js");
+} catch (e) {
+  console.warn("Could not load /sw-precache.js. Proceeding with empty precache list.");
+}
 
 const CACHE_NAME = "ethiotrack-v2";
 const HANDOFF_DB = "ethiotrack-share";
