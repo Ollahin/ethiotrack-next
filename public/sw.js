@@ -6,38 +6,28 @@
  * 3. Update Flow: Detects new versions and prompts for restart.
  */
 
-const CACHE_NAME = "ethiotrack-v1";
+importScripts('/sw-precache.js');
+
+const CACHE_NAME = "ethiotrack-v2";
 const HANDOFF_DB = "ethiotrack-share";
 const HANDOFF_STORE = "pending";
 const SHARE_PATH = "/share-target";
 
-// Core assets to precache immediately.
-// Note: In a real build system, these would be injected.
-// Here we target the shell and static public assets.
-const PRECACHE_ASSETS = [
-  "/",
-  "/index.html",
-  "/manifest.webmanifest",
-  "/favicon.png",
-  "/icon-192.png",
-  "/icon-512.png",
-  "/icon-maskable-512.png",
-  "/fonts/dm-sans-v11-latin-regular.woff2",
-  "/fonts/dm-sans-v11-latin-500.woff2",
-  "/fonts/dm-sans-v11-latin-700.woff2",
-  "/fonts/ibm-plex-sans-v14-latin-500.woff2",
-  "/fonts/ibm-plex-sans-v14-latin-600.woff2",
-  "/fonts/ibm-plex-sans-v14-latin-700.woff2",
-];
+// PRECACHE_ASSETS is loaded via importScripts
+const PRECACHE_LIST = self.PRECACHE_ASSETS || ["/"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE_NAME)
       .then((cache) => {
-        return cache.addAll(PRECACHE_ASSETS);
+        // Try adding all, but don't let a single missing asset kill the SW
+        return Promise.allSettled(
+          PRECACHE_LIST.map(url => 
+            cache.add(url).catch(err => console.warn(`Failed to precache ${url}:`, err))
+          )
+        );
       })
-      .then(() => self.skipWaiting()),
   );
 });
 
@@ -117,16 +107,27 @@ async function handleShare(request) {
 
 // --- Fetch Logic (Offline Support) ---
 
+self.addEventListener("message", (event) => {
+  if (event.data === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // 1. Share Target POST
+  // 1. Share Target POST - Never cache
   if (event.request.method === "POST" && url.pathname === SHARE_PATH) {
     event.respondWith(handleShare(event.request));
     return;
   }
 
-  // 2. Navigation requests: Return index.html (App Shell) for offline support
+  // Skip non-GET requests for caching
+  if (event.request.method !== "GET") {
+    return;
+  }
+
+  // 2. Navigation requests: Return base "/" (App Shell) for offline support
   if (event.request.mode === "navigate") {
     event.respondWith(
       fetch(event.request).catch(() => {
@@ -137,16 +138,25 @@ self.addEventListener("fetch", (event) => {
   }
 
   // 3. Static assets: Stale-While-Revalidate
+  // Cache only specific safe asset classes
+  const isStaticAsset = 
+    url.origin === self.location.origin && 
+    (url.pathname.startsWith('/assets/') || 
+     url.pathname.startsWith('/fonts/') ||
+     url.pathname === '/manifest.webmanifest' ||
+     url.pathname.endsWith('.png') ||
+     url.pathname.endsWith('.ico'));
+
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchedResponse = fetch(event.request)
         .then((networkResponse) => {
-          // Only cache valid GET responses from our own origin
+          // Only cache valid GET responses from our own origin for static assets
           if (
+            isStaticAsset &&
             networkResponse &&
             networkResponse.status === 200 &&
-            networkResponse.type === "basic" &&
-            event.request.method === "GET"
+            networkResponse.type === "basic"
           ) {
             const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
@@ -156,7 +166,7 @@ self.addEventListener("fetch", (event) => {
           return networkResponse;
         })
         .catch(() => {
-          // If network fails, the cachedResponse (if any) will be returned by the outer promise
+          // If network fails, the cachedResponse (if any) will be returned
         });
 
       return cachedResponse || fetchedResponse;
