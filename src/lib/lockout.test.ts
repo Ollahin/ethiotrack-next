@@ -37,9 +37,12 @@ describe("Lockout State Machine", () => {
   });
 
   it("should lock after 5 failures", async () => {
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 4; i++) {
       await verifyDailyPin("wrong");
     }
+    // 5th one should not throw, it just records the lock
+    await verifyDailyPin("wrong");
+
     const status = await getLockoutStatus("daily-pin");
     expect(status.locked).toBe(true);
     expect(status.attemptsLeft).toBe(0);
@@ -86,7 +89,8 @@ describe("Lockout State Machine", () => {
 
   it("should reset everything on success", async () => {
     await verifyDailyPin("wrong");
-    await verifyDailyPin("123456");
+    const ok = await verifyDailyPin("123456");
+    expect(ok).toBe(true);
     
     const status = await getLockoutStatus("daily-pin");
     expect(status.failures).toBe(0);

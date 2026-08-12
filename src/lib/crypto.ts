@@ -167,7 +167,9 @@ export async function setMasterPin(pin: string): Promise<void> {
 }
 
 export async function verifyMasterPin(pin: string): Promise<boolean> {
-  await assertNotLocked("master-pin");
+  const statusBefore = await getLockoutStatus("master-pin");
+  if (statusBefore.locked) return false;
+
   const rec = await metaGet<{ saltB64: string; verifierB64: string; iterations: number }>(
     MASTER_PIN_VERIFIER_KEY,
   );
@@ -202,7 +204,9 @@ export async function setDailyPin(pin: string): Promise<void> {
 }
 
 export async function verifyDailyPin(pin: string): Promise<boolean> {
-  await assertNotLocked("daily-pin");
+  const statusBefore = await getLockoutStatus("daily-pin");
+  if (statusBefore.locked) return false;
+
   const rec = await metaGet<{ saltB64: string; verifierB64: string; iterations: number }>(
     DAILY_PIN_VERIFIER_KEY,
   );
