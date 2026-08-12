@@ -84,13 +84,6 @@ export async function getLockoutStatus(kind: AuthKind): Promise<LockoutStatus> {
   };
 }
 
-async function assertNotLocked(kind: AuthKind) {
-  const s = await getLockoutStatus(kind);
-  if (s.locked) {
-    const secs = Math.ceil(s.msRemaining / 1000);
-    throw new Error(`Too many attempts. Try again in ${secs}s.`);
-  }
-}
 
 async function recordFailure(kind: AuthKind) {
   const map = await readLockouts();
