@@ -106,7 +106,9 @@ async function handleShare(request) {
 // --- Fetch Logic (Offline Support) ---
 
 self.addEventListener("message", (event) => {
-  if (event.data === "SKIP_WAITING") {
+  const data = event.data;
+  const type = typeof data === "string" ? data : data && data.type;
+  if (type === "SKIP_WAITING") {
     self.skipWaiting();
   }
 });
@@ -135,37 +137,31 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 3. Static assets: Stale-While-Revalidate
-  // Cache only specific safe asset classes
-  const isStaticAsset =
-    url.origin === self.location.origin &&
-    (url.pathname.startsWith("/assets/") ||
-      url.pathname.startsWith("/fonts/") ||
-      url.pathname === "/manifest.webmanifest" ||
-      url.pathname.endsWith(".png") ||
-      url.pathname.endsWith(".ico"));
+  // 3. Static assets only: script / style / font / image / manifest.
+  // Anything else (API calls, arbitrary same-origin GETs) is left to the network
+  // and is never written to Cache Storage.
+  const CACHEABLE_DESTINATIONS = ["script", "style", "font", "image", "manifest"];
+  const isSameOrigin = url.origin === self.location.origin;
+  const isStaticAsset = isSameOrigin && CACHEABLE_DESTINATIONS.includes(event.request.destination);
 
+  if (!isStaticAsset) return;
+
+  // Stale-while-revalidate for static assets.
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchedResponse = fetch(event.request)
         .then((networkResponse) => {
-          // Only cache valid GET responses from our own origin for static assets
           if (
-            isStaticAsset &&
             networkResponse &&
             networkResponse.status === 200 &&
             networkResponse.type === "basic"
           ) {
             const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
           }
           return networkResponse;
         })
-        .catch(() => {
-          // If network fails, the cachedResponse (if any) will be returned
-        });
+        .catch(() => cachedResponse);
 
       return cachedResponse || fetchedResponse;
     }),

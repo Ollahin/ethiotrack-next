@@ -63,17 +63,18 @@ function showUpdateToast(registration: ServiceWorkerRegistration) {
       label: "Update Now",
       onClick: () => {
         const waitingWorker = registration.waiting;
-        if (waitingWorker) {
-          // Set up listener for the new worker taking control
-          navigator.serviceWorker.addEventListener("controllerchange", () => {
-            window.location.reload();
-          });
-          // Tell the waiting worker to skip waiting
-          waitingWorker.postMessage("SKIP_WAITING");
-        } else {
-          // Fallback if worker already activated or lost
+        if (!waitingWorker) {
+          // Worker already activated or lost — a plain reload is correct.
           window.location.reload();
+          return;
         }
+        let reloaded = false;
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (reloaded) return;
+          reloaded = true;
+          window.location.reload();
+        });
+        waitingWorker.postMessage({ type: "SKIP_WAITING" });
       },
     },
     duration: Infinity,

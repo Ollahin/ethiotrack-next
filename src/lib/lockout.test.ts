@@ -103,3 +103,40 @@ describe("Lockout State Machine", () => {
     expect(status.lockLevel).toBe(0);
   });
 });
+
+describe("Lockout invariants", () => {
+  it("never reports zero attempts while the form is usable", async () => {
+    metaStore = {};
+    lock();
+    await setDailyPin("123456");
+    metaStore["auth_lockout_v2"] = {};
+    for (let i = 0; i < 4; i++) await verifyDailyPin("wrong");
+    const status = await getLockoutStatus("daily-pin");
+    expect(status.locked).toBe(false);
+    expect(status.attemptsLeft).toBe(1);
+  });
+
+  it("migrates legacy auth_lockout_v1 state", async () => {
+    metaStore = {};
+    lock();
+    await setDailyPin("123456");
+    delete metaStore["auth_lockout_v2"];
+    metaStore["auth_lockout_v1"] = { "daily-pin": { failures: 2, until: 0 } };
+    const status = await getLockoutStatus("daily-pin");
+    expect(status.failures).toBe(2);
+    expect(status.attemptsLeft).toBe(3);
+    expect(metaStore["auth_lockout_v2"]).toBeTruthy();
+  });
+
+  it("keeps master and daily lockouts independent", async () => {
+    metaStore = {};
+    lock();
+    await setDailyPin("123456");
+    metaStore["auth_lockout_v2"] = {};
+    for (let i = 0; i < 5; i++) await verifyDailyPin("wrong");
+    expect((await getLockoutStatus("daily-pin")).locked).toBe(true);
+    const master = await getLockoutStatus("master-pin");
+    expect(master.locked).toBe(false);
+    expect(master.attemptsLeft).toBe(5);
+  });
+});
