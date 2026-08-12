@@ -31,7 +31,8 @@ export function InstallPrompt() {
     window.addEventListener("beforeinstallprompt", handler);
 
     // iOS detection
-    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const isIOSDevice =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) && !("MSStream" in window);
     setIsIOS(isIOSDevice);
     if (isIOSDevice) {
       setShowPrompt(true);
