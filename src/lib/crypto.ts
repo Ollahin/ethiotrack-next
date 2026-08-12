@@ -4,7 +4,7 @@ import { b64, fromB64 } from "./crypto-utils";
 // State keys
 const DAILY_PIN_VERIFIER_KEY = "daily_pin_v1";
 const MASTER_PIN_VERIFIER_KEY = "master_pin_v1";
-const LOCKOUT_META_KEY = "auth_lockout_v1";
+const LOCKOUT_META_KEY = "auth_lockout_v2"; // v2 for the new state machine
 
 // Constants
 const MAX_ATTEMPTS = 5;
@@ -13,9 +13,13 @@ const MAX_LOCK_MS = 15 * 60 * 1000;
 
 export type AuthKind = "daily-pin" | "master-pin";
 
+/**
+ * Persisted lockout state machine.
+ */
 interface LockoutEntry {
-  failures: number;
-  lockedUntil: number;
+  failures: number;     // Consecutive failures since last success or timeout
+  lockLevel: number;    // Escalation tier for progressive penalties
+  lockedUntil: number;  // Expiry timestamp
 }
 type LockoutMap = Partial<Record<AuthKind, LockoutEntry>>;
 
@@ -41,19 +45,42 @@ export interface LockoutStatus {
   msRemaining: number;
   failures: number;
   attemptsLeft: number;
+  lockLevel: number;
 }
 
+/**
+ * Derives current status from persistent state machine.
+ * If a timeout was reached, it resets current failures to allow new attempts.
+ */
 export async function getLockoutStatus(kind: AuthKind): Promise<LockoutStatus> {
   const map = await readLockouts();
   const e = map[kind];
   const now = Date.now();
+  
+  // If we were locked but the time has passed, effectively reset the failure budget
+  // but keep the lockLevel for future escalation.
+  if (e && e.lockedUntil > 0 && e.lockedUntil <= now) {
+    const updated: LockoutEntry = { ...e, failures: 0, lockedUntil: 0 };
+    map[kind] = updated;
+    await writeLockouts(map);
+    return {
+      locked: false,
+      msRemaining: 0,
+      failures: 0,
+      attemptsLeft: MAX_ATTEMPTS,
+      lockLevel: updated.lockLevel,
+    };
+  }
+
   const msRemaining = e && e.lockedUntil > now ? e.lockedUntil - now : 0;
   const failures = e?.failures ?? 0;
+  
   return {
     locked: msRemaining > 0,
     msRemaining,
     failures,
     attemptsLeft: Math.max(0, MAX_ATTEMPTS - failures),
+    lockLevel: e?.lockLevel ?? 0,
   };
 }
 
@@ -67,20 +94,27 @@ async function assertNotLocked(kind: AuthKind) {
 
 async function recordFailure(kind: AuthKind) {
   const map = await readLockouts();
-  const failures = (map[kind]?.failures ?? 0) + 1;
+  const current = map[kind] ?? { failures: 0, lockLevel: 0, lockedUntil: 0 };
+  
+  const failures = current.failures + 1;
   let lockedUntil = 0;
+  let lockLevel = current.lockLevel;
+
   if (failures >= MAX_ATTEMPTS) {
-    const over = failures - MAX_ATTEMPTS;
-    const window = Math.min(MAX_LOCK_MS, BASE_LOCK_MS * Math.pow(2, over));
-    lockedUntil = Date.now() + window;
+    // Escalation: 30s, 60s, 120s... up to 15m
+    const duration = Math.min(MAX_LOCK_MS, BASE_LOCK_MS * Math.pow(2, lockLevel));
+    lockedUntil = Date.now() + duration;
+    lockLevel++; // Escalates tier for the NEXT lock
   }
-  map[kind] = { failures, lockedUntil };
+
+  map[kind] = { failures, lockLevel, lockedUntil };
   await writeLockouts(map);
 }
 
 async function clearFailures(kind: AuthKind) {
   const map = await readLockouts();
   if (map[kind]) {
+    // Full reset on success
     delete map[kind];
     await writeLockouts(map);
   }
