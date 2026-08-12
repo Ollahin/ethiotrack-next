@@ -8,7 +8,7 @@ import { join } from "path";
 export function getBuildOutputDir(): string {
   const envDir = process.env.NITRO_PUBLIC_DIR;
   if (envDir) return envDir;
-  
+
   // Nitro build creates .output/public
   const nitroOutput = join(process.cwd(), ".output", "public");
   if (existsSync(nitroOutput)) return nitroOutput;
@@ -19,6 +19,8 @@ export function getBuildOutputDir(): string {
 
 export function validateOutputDir(dir: string): void {
   if (!existsSync(dir)) {
-    throw new Error(`Build output directory not found: ${dir}\nEnsure 'bun run build' finished successfully.`);
+    throw new Error(
+      `Build output directory not found: ${dir}\nEnsure 'bun run build' finished successfully.`,
+    );
   }
 }

@@ -47,9 +47,10 @@ try {
 
   const outputPath = join(OUTPUT_DIR, "sw-precache.js");
   writeFileSync(outputPath, contents);
-  
+
   console.log(`Generated ${outputPath}: ${allPrecachable.length} entries.`);
-} catch (error: any) {
-  console.error(`Error: ${error.message}`);
+} catch (error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`Error: ${message}`);
   process.exit(1);
 }

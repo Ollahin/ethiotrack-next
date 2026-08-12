@@ -24,9 +24,9 @@ function checkCleanTree() {
 function checkPrecache() {
   const outputDir = getBuildOutputDir();
   const distPath = join(outputDir, "sw-precache.js");
-  
+
   console.log(`Validating precache at ${distPath}...`);
-  
+
   if (!existsSync(distPath)) {
     console.error(`ERROR: Missing build output at ${distPath}`);
     process.exit(1);
