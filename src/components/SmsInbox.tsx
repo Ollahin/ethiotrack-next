@@ -687,9 +687,9 @@ function InboxSmsRow({
 
       {date.conflict && (
         <label className="flex items-center gap-2 rounded border border-airtime/30 bg-airtime/5 p-2 text-xs text-airtime">
-          <Checkbox 
-            checked={Boolean(review.item.decisions?.correctionConfirmed)} 
-            onCheckedChange={(v) => onConfirmCorrection(Boolean(v))} 
+          <Checkbox
+            checked={Boolean(review.item.decisions?.correctionConfirmed)}
+            onCheckedChange={(v) => onConfirmCorrection(Boolean(v))}
           />
           <span className="flex-1">
             Date conflict: SMS says {formatDayShort(date.sourceDate)}; correction says{" "}
@@ -700,9 +700,9 @@ function InboxSmsRow({
 
       {review.input.recipientMismatch && (
         <label className="flex items-center gap-2 rounded border border-airtime/30 bg-airtime/5 p-2 text-xs text-airtime">
-          <Checkbox 
-            checked={Boolean(review.item.decisions?.recipientConfirmed)} 
-            onCheckedChange={(v) => onConfirmRecipient(Boolean(v))} 
+          <Checkbox
+            checked={Boolean(review.item.decisions?.recipientConfirmed)}
+            onCheckedChange={(v) => onConfirmRecipient(Boolean(v))}
           />
           <span className="flex-1">
             {evaluation.blockers.find((b) => b.code === "recipient_mismatch")?.message}. Tick to
@@ -723,11 +723,14 @@ function InboxSmsRow({
         </label>
       )}
 
-      {evaluation.state === "NEEDS_ATTENTION" && !date.conflict && !review.input.recipientMismatch && !review.duplicate && (
-        <div className="rounded border border-airtime/30 bg-airtime/5 p-2 text-xs text-airtime">
-          {evaluation.blocker}
-        </div>
-      )}
+      {evaluation.state === "NEEDS_ATTENTION" &&
+        !date.conflict &&
+        !review.input.recipientMismatch &&
+        !review.duplicate && (
+          <div className="rounded border border-airtime/30 bg-airtime/5 p-2 text-xs text-airtime">
+            {evaluation.blocker}
+          </div>
+        )}
 
       <details className="text-xs text-ink-soft">
         <summary className="cursor-pointer">Details</summary>
