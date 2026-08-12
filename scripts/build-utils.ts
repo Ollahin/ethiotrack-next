@@ -9,12 +9,22 @@ export function getBuildOutputDir(): string {
   const envDir = process.env.NITRO_PUBLIC_DIR;
   if (envDir) return envDir;
 
-  // Nitro build creates .output/public
+  // 1. Vercel Build Output API (Deployment root: .vercel/output)
+  const vercelStatic = join(process.cwd(), ".vercel", "output", "static");
+  if (existsSync(vercelStatic)) {
+    return vercelStatic;
+  }
+
+  // 2. Nitro Default Output API (Standard Nitro build)
   const nitroOutput = join(process.cwd(), ".output", "public");
   if (existsSync(nitroOutput)) return nitroOutput;
 
-  // Fallback for local Vite builds or intermediate steps
-  return join(process.cwd(), "dist", "client");
+  // 3. Nitro 'vercel' preset fallback observed in local/CI environment
+  const distClient = join(process.cwd(), "dist", "client");
+  if (existsSync(distClient)) return distClient;
+
+  // Final fallback (fails in validateOutputDir if not found)
+  return distClient;
 }
 
 export function validateOutputDir(dir: string): void {
