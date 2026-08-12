@@ -38,6 +38,44 @@ function checkPrecache() {
     process.exit(1);
   }
 
+  // Parse assets to validate content
+  const match = content.match(/self\.PRECACHE_ASSETS = (\[[\s\S]*?\]);/);
+  if (!match) {
+    console.error("ERROR: Could not parse PRECACHE_ASSETS from sw-precache.js");
+    process.exit(1);
+  }
+  
+  const assets: string[] = JSON.parse(match[1]);
+  
+  // 1. Assert root-relative URLs
+  for (const asset of assets) {
+    if (asset !== "/" && !asset.startsWith("/")) {
+      console.error(`ERROR: Non-root-relative URL in precache: ${asset}`);
+      process.exit(1);
+    }
+    
+    // 2. Assert no /functions/ leakage
+    if (asset.includes("/functions/") || asset.includes(".vercel/output/functions")) {
+      console.error(`ERROR: Server function leaked into precache: ${asset}`);
+      process.exit(1);
+    }
+
+    // 3. Verify file exists (skip root /)
+    if (asset !== "/") {
+      const filePath = join(outputDir, asset.substring(1));
+      if (!existsSync(filePath)) {
+        console.error(`ERROR: Precached file does not exist at ${filePath}`);
+        process.exit(1);
+      }
+    }
+  }
+
+  // 4. Assert sw-precache.js is not listed recursively
+  if (assets.includes("/sw-precache.js")) {
+    console.error("ERROR: sw-precache.js is recursively listed in its own manifest");
+    process.exit(1);
+  }
+
   // Verify no precache artifact leaked into public/
   const leakedPath = join(process.cwd(), "public", "sw-precache.js");
   if (existsSync(leakedPath)) {
@@ -45,7 +83,7 @@ function checkPrecache() {
     process.exit(1);
   }
 
-  console.log("sw-precache.js validated.");
+  console.log(`sw-precache.js validated (${assets.length} assets).`);
 }
 
 const command = process.argv[2];
