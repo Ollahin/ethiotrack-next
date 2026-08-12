@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { getLockoutStatus, verifyDailyPin, setDailyPin, lock } from "./crypto";
 
 // Unified store to ensure metaGet/metaSet behave like a database
-let metaStore: Record<string, any> = {};
+let metaStore: Record<string, unknown> = {};
 
 vi.mock("./db", async () => {
   return {
