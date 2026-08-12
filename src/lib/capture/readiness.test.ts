@@ -16,6 +16,7 @@ const ready: ReadinessInput = {
   purposeResolved: true,
   requiresLink: false,
   linkSatisfied: true,
+  linkCertain: true,
 };
 
 describe("duplicate-risk gate", () => {
@@ -97,6 +98,29 @@ describe("exact blockers", () => {
       codes({ ...ready, requiresLink: true, linkSatisfied: false, linkKind: "distributor" }),
     ).toContain("choose_distributor");
     expect(codes({ ...ready, duplicateRisk: true })).toContain("duplicate_collision");
+  });
+
+  it("permits manual agent selection even if the message party differs", () => {
+    const input: ReadinessInput = {
+      ...ready,
+      requiresLink: true,
+      linkSatisfied: true,
+      linkCertain: true, // Manual selection is authoritative/certain
+      recipientMismatch: false, // Should be false because it's manual
+    };
+    expect(rowReadiness(input)).toBe("READY");
+    expect(evaluateRow(input).blockers).toHaveLength(0);
+  });
+
+  it("permits manual distributor selection even if no exact match was found", () => {
+    const input: ReadinessInput = {
+      ...ready,
+      requiresLink: true,
+      linkKind: "distributor",
+      linkSatisfied: true,
+      linkCertain: true,
+    };
+    expect(rowReadiness(input)).toBe("READY");
   });
 
   it("never shows the generic message when a precise reason exists", () => {

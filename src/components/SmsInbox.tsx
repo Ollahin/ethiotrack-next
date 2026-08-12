@@ -176,6 +176,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
 
       // ---- agent: exact name only, or the operator's choice
       const pickedAgent = pickOf(dec.agentId);
+      const isManualAgent = Boolean(pickedAgent && pickedAgent !== NONE);
       const agent =
         pickedAgent === NONE
           ? null
@@ -187,6 +188,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
 
       // ---- distributor: exact match on name, alias or configured account
       const pickedDist = pickOf(dec.distributorId);
+      const isManualDist = Boolean(pickedDist && pickedDist !== NONE);
       const autoDist =
         row.ok && direction === "out"
           ? matchDistributorForPayment(
@@ -246,8 +248,17 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
       // surfaced by name, never as a vague "needs attention".
       const partyKey = normalizeLabel(row.ok ? (row.party ?? "") : "");
       const recipientMismatch = Boolean(
-        needsAgent && agent && partyKey && normalizeLabel(agent.name) !== partyKey,
+        !isManualAgent &&
+        needsAgent &&
+        agent &&
+        partyKey &&
+        normalizeLabel(agent.name) !== partyKey,
       );
+      const linkCertain = needsAgent
+        ? isManualAgent || Boolean(agent)
+        : needsDistributor
+          ? isManualDist || Boolean(distributor)
+          : true;
       const input: ReadinessInput = {
         sourceResolved: Boolean(
           row.ok && (fp?.resolved || (row.channel && row.channel !== "Other")),
@@ -264,7 +275,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
         purposeResolved: purpose !== "unresolved",
         requiresLink: needsAgent || needsDistributor,
         linkSatisfied: needsAgent ? Boolean(agent) : needsDistributor ? Boolean(distributor) : true,
-        linkCertain: true,
+        linkCertain,
         linkKind: needsDistributor && !needsAgent ? "distributor" : "agent",
         recipientMismatch: recipientMismatch && !dec.recipientConfirmed,
         messageParty: row.ok ? row.party : undefined,
