@@ -160,6 +160,11 @@ export function rowBlockers(i: ReadinessInput): Blocker[] {
   // A generic "check this message" is only ever shown when nothing precise is
   // known; a precise reason always wins.
   if (i.needsReview && out.length === 0) add("needs_review", "Check this message");
+
+  // Invariant: if state is NEEDS_ATTENTION or INVALID, there MUST be a blocker.
+  if (out.length === 0 && rowReadiness(i) !== "READY" && rowReadiness(i) !== "INCOMPLETE") {
+    add("needs_review", "Check this message");
+  }
   return out;
 }
 
