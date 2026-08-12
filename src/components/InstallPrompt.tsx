@@ -15,10 +15,8 @@ export function InstallPrompt() {
 
   useEffect(() => {
     // Check if already installed
-    if (
-      window.matchMedia("(display-mode: standalone)").matches ||
-      (window.navigator as any).standalone
-    ) {
+    const nav = window.navigator as Navigator & { standalone?: boolean };
+    if (window.matchMedia("(display-mode: standalone)").matches || nav.standalone) {
       setIsStandalone(true);
       return;
     }
