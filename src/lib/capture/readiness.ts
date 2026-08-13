@@ -19,8 +19,7 @@ export type BlockerCode =
   | "choose_distributor"
   | "duplicate_collision"
   | "recipient_mismatch"
-  | "confirm_link"
-  | "needs_review";
+  | "confirm_link";
 
 export interface Blocker {
   code: BlockerCode;
@@ -81,7 +80,6 @@ export function rowReadiness(i: ReadinessInput): ReadinessState {
   if (i.requiresLink && !i.linkSatisfied) return "INCOMPLETE";
   if (i.duplicateRisk && !i.duplicateRiskAcknowledged) return "NEEDS_ATTENTION";
   if (i.recipientMismatch) return "NEEDS_ATTENTION";
-  if (i.needsReview) return "NEEDS_ATTENTION";
   if (i.requiresLink && !i.linkCertain) return "NEEDS_ATTENTION";
   return "READY";
 }
@@ -158,14 +156,9 @@ export function rowBlockers(i: ReadinessInput): Blocker[] {
   }
   if (i.requiresLink && !i.linkCertain && !i.recipientMismatch)
     add("confirm_link", "Confirm the link — it was not an exact match");
-  // A generic "check this message" is only ever shown when nothing precise is
-  // known; a precise reason always wins.
-  if (i.needsReview && out.length === 0) add("needs_review", "Check this message");
-
   // Invariant: if state is NEEDS_ATTENTION or INVALID, there MUST be a blocker.
-  if (out.length === 0 && rowReadiness(i) !== "READY" && rowReadiness(i) !== "INCOMPLETE") {
-    add("needs_review", "Check this message");
-  }
+  // We no longer emit "Check this message" as a generic blocker.
+  return out;
   return out;
 }
 
