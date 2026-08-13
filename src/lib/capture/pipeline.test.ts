@@ -222,7 +222,7 @@ describe("readiness state machine", () => {
       base,
       { ...base, purposeResolved: false },
       { ...base, financialBlockers: 2 },
-      { ...base, needsReview: true },
+      { ...base, duplicateRisk: true },
     ]);
     expect(summary).toEqual({ total: 4, ready: 1, needsAttention: 1, incomplete: 1, invalid: 1 });
   });

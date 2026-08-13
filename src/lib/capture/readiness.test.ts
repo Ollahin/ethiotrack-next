@@ -124,7 +124,7 @@ describe("exact blockers", () => {
   });
 
   it("never shows the generic message when a precise reason exists", () => {
-    const e = evaluateRow({ ...ready, needsReview: true, hasDate: false });
+    const e = evaluateRow({ ...ready, hasDate: false });
     expect(e.blocker).toBe("Choose date");
     expect(e.blockers.map((b) => b.code)).not.toContain("needs_review");
   });

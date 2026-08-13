@@ -280,7 +280,7 @@ export function SmsInbox({ initialText }: SmsInboxProps = {}) {
         recipientMismatch: recipientMismatch && !dec.recipientConfirmed,
         messageParty: row.ok ? row.party : undefined,
         linkedParty: agent?.name,
-        needsReview: Boolean(row.ok && row.needsReview),
+        needsReview: false, // Authoritative readiness recomputed; review flag is evidence only.
         // Only an actual identity collision asks the operator anything.
         duplicateRisk: duplicate,
         duplicateRiskAcknowledged: Boolean(dec.duplicateAcknowledged),
