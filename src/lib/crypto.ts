@@ -159,6 +159,9 @@ async function verifyHash(
   pin: string,
   rec: { saltB64: string; verifierB64: string; iterations: number },
 ) {
+  // Schema validation: iterations must be a positive number
+  if (typeof rec.iterations !== "number" || rec.iterations <= 0) return false;
+
   const salt = fromB64(rec.saltB64);
   const key = await deriveKey(pin, salt, rec.iterations);
   const a = new Uint8Array(key);
@@ -210,10 +213,12 @@ export async function hasDailyPin(): Promise<boolean> {
   return !!(await metaGet(DAILY_PIN_VERIFIER_KEY));
 }
 
+const CURRENT_DAILY_PIN_ITERATIONS = 150_000;
+
 export async function setDailyPin(pin: string): Promise<void> {
   if (pin.length < 6) throw new Error("Daily PIN must be at least 6 characters");
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iterations = 150_000;
+  const iterations = CURRENT_DAILY_PIN_ITERATIONS;
   const key = await deriveKey(pin, salt, iterations);
   await metaSet(DAILY_PIN_VERIFIER_KEY, {
     saltB64: b64(salt),
@@ -237,6 +242,11 @@ export async function verifyDailyPin(pin: string): Promise<boolean> {
     _unlocked = true;
     emit();
     await clearFailures("daily-pin");
+
+    // Transparently upgrade verifier if it uses an older/weaker policy
+    if (rec.iterations < CURRENT_DAILY_PIN_ITERATIONS) {
+      await setDailyPin(pin);
+    }
   } else {
     await recordFailure("daily-pin");
   }
